@@ -16,6 +16,7 @@ export const config = {
   dataDir: path.join(serverRoot, 'data'),
   tokensPath: path.join(serverRoot, 'data', 'tokens.json'),
   labelRegistryPath: path.join(serverRoot, 'data', 'label-registry.json'),
+  protectedSendersPath: path.join(serverRoot, 'data', 'protected-senders.json'),
   scanMaxMessages: 5000,
   labelPrefix: 'Unsub/',
 }
