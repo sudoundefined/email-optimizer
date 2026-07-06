@@ -87,6 +87,12 @@ export interface GmailLabel {
   appCreated: boolean
 }
 
+export interface ProtectedSender {
+  email: string
+  reason: 'auto:domain' | 'auto:subject' | 'manual'
+  addedAt: string
+}
+
 export const CATEGORIES = [
   'Promotions',
   'Newsletters',

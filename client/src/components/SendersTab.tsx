@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ApiError } from '../api'
-import type { ScanResult, Suggestion, UnsubSummary } from '../types'
+import type { ScanResult, Suggestion, UnsubSummary, ProtectedSender } from '../types'
 import { useJob } from '../hooks/useJob'
 import ScanControls from './ScanControls'
 import SenderTable from './SenderTable'
 import UnsubscribePanel from './UnsubscribePanel'
 import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
+import ProtectedTab from './ProtectedTab'
 
 export default function SendersTab({ onDisconnected }: { onDisconnected: () => void }) {
   const [scan, setScan] = useState<ScanResult | null>(null)
@@ -17,6 +18,9 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   const [confirmTrash, setConfirmTrash] = useState(false)
   const [trashDone, setTrashDone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [protectedList, setProtectedList] = useState<ProtectedSender[]>([])
+  const [showProtected, setShowProtected] = useState(false)
+  const [protectionWarning, setProtectionWarning] = useState<string | null>(null)
 
   const scanJob = useJob()
   const unsubJob = useJob()
@@ -35,6 +39,8 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       const result = await api.senders()
       setScan(result)
       setSuggestions(await api.suggestions())
+      const protectedRes = await api.protectedList()
+      setProtectedList(protectedRes.protected)
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 409)) return
       handleApiError(err)
@@ -63,9 +69,23 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setError(null)
     setUnsubSummary(null)
     setTrashDone(null)
+    setProtectionWarning(null)
     try {
       const emails = [...selected]
-      const snapshot = await unsubJob.start(() => api.startUnsubscribe(emails))
+      const response = await api.startUnsubscribe(emails)
+
+      if (response.excluded > 0) {
+        setProtectionWarning(
+          `${response.excluded} protected sender${response.excluded > 1 ? 's' : ''} excluded from this action.`
+        )
+      }
+
+      if (!response.jobId) {
+        setError('All selected senders are protected')
+        return
+      }
+
+      const snapshot = await unsubJob.start(() => Promise.resolve({ jobId: response.jobId! }))
       if (snapshot.state === 'error') setError(snapshot.error || 'Unsubscribe failed')
       else setUnsubSummary(snapshot.result as UnsubSummary)
     } catch (err) {
@@ -78,9 +98,23 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setError(null)
     setUnsubSummary(null)
     setTrashDone(null)
+    setProtectionWarning(null)
     try {
       const emails = [...selected]
-      const snapshot = await trashJob.start(() => api.trashSenders(emails))
+      const response = await api.trashSenders(emails)
+
+      if (response.excluded > 0) {
+        setProtectionWarning(
+          `${response.excluded} protected sender${response.excluded > 1 ? 's' : ''} excluded from this action.`
+        )
+      }
+
+      if (!response.jobId) {
+        setError('All selected senders are protected')
+        return
+      }
+
+      const snapshot = await trashJob.start(() => Promise.resolve({ jobId: response.jobId! }))
       if (snapshot.state === 'error') {
         setError(snapshot.error || 'Moving to Trash failed')
       } else {
@@ -96,11 +130,43 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     }
   }
 
+  const runProtect = async () => {
+    setError(null)
+    setProtectionWarning(null)
+    try {
+      const nonProtected = selectedSenders.filter(s => !protectedSet.has(s.email.toLowerCase()))
+      if (nonProtected.length === 0) return
+      await api.protectSenders(nonProtected.map(s => s.email))
+      await loadSenders()
+      setSelected(new Set())
+    } catch (err) {
+      handleApiError(err)
+    }
+  }
+
+  const runUnprotect = async () => {
+    setError(null)
+    setProtectionWarning(null)
+    try {
+      const protectedSenders = selectedSenders.filter(s => protectedSet.has(s.email.toLowerCase()))
+      if (protectedSenders.length === 0) return
+      await api.unprotectSenders(protectedSenders.map(s => s.email))
+      await loadSenders()
+      setSelected(new Set())
+    } catch (err) {
+      handleApiError(err)
+    }
+  }
+
   const suggestionMap = useMemo(() => {
     const m = new Map<string, Suggestion>()
     for (const s of suggestions || []) m.set(s.senderEmail, s)
     return m
   }, [suggestions])
+
+  const protectedSet = useMemo(() => {
+    return new Set(protectedList.map(p => p.email.toLowerCase()))
+  }, [protectedList])
 
   const selectedSenders = useMemo(
     () => (scan ? scan.senders.filter((s) => selected.has(s.email)) : []),
@@ -108,6 +174,10 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   )
   const selectedUnsubscribable = selectedSenders.filter((s) => s.method !== 'none').length
   const selectedEmailCount = selectedSenders.reduce((n, s) => n + s.messageCount, 0)
+  const selectedProtectedCount = useMemo(() => {
+    return selectedSenders.filter(s => protectedSet.has(s.email.toLowerCase())).length
+  }, [selectedSenders, protectedSet])
+  const selectedNonProtectedCount = selectedSenders.length - selectedProtectedCount
 
   const trashProgress = trashJob.job?.progress as { trashed?: number; total?: number } | null
 
@@ -116,6 +186,22 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       <ScanControls onScan={runScan} job={scanJob.job} running={scanJob.running} scan={scan} />
       {error && <div className="banner banner-error">{error}</div>}
       {trashDone && <div className="banner banner-success">{trashDone}</div>}
+      {protectionWarning && <div className="banner banner-error">{protectionWarning}</div>}
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', marginTop: '8px' }}>
+        <button
+          className={!showProtected ? 'btn btn-primary btn-small' : 'btn btn-small'}
+          onClick={() => setShowProtected(false)}
+        >
+          All Senders
+        </button>
+        <button
+          className={showProtected ? 'btn btn-primary btn-small' : 'btn btn-small'}
+          onClick={() => setShowProtected(true)}
+        >
+          Protected ({protectedList.length})
+        </button>
+      </div>
 
       {trashJob.running && trashProgress && (
         <div className="progress-panel">
@@ -131,7 +217,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       )}
       {unsubSummary && <UnsubscribePanel summary={unsubSummary} />}
 
-      {!scan && !scanJob.running && (
+      {!showProtected && !scan && !scanJob.running && (
         <div className="empty-state">
           <div className="empty-stamp" aria-hidden="true">✉</div>
           <h2>See who's filling your inbox</h2>
@@ -142,7 +228,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
         </div>
       )}
 
-      {scan && (
+      {!showProtected && scan && (
         <SenderTable
           senders={scan.senders}
           selected={selected}
@@ -151,7 +237,9 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
         />
       )}
 
-      {selected.size > 0 && (
+      {showProtected && <ProtectedTab onDisconnected={onDisconnected} />}
+
+      {!showProtected && selected.size > 0 && (
         <div className="tray" role="toolbar" aria-label="Actions for selected senders">
           <div className="tray-info">
             <span className="tray-count">{selected.size}</span>
@@ -176,6 +264,24 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             >
               Label…
             </button>
+            {selectedNonProtectedCount > 0 && (
+              <button
+                className="btn"
+                disabled={unsubJob.running || trashJob.running}
+                onClick={runProtect}
+              >
+                Protect
+              </button>
+            )}
+            {selectedProtectedCount > 0 && (
+              <button
+                className="btn"
+                disabled={unsubJob.running || trashJob.running}
+                onClick={runUnprotect}
+              >
+                Unprotect
+              </button>
+            )}
             <button
               className="btn btn-danger-outline"
               disabled={unsubJob.running || trashJob.running}

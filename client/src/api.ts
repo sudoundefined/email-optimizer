@@ -7,6 +7,7 @@ import type {
   InboxGroup,
   GroupMessage,
   GmailLabel,
+  ProtectedSender,
 } from './types'
 
 export class ApiError extends Error {
@@ -46,12 +47,12 @@ export const api = {
     request<{ jobId: string }>('/api/scan', { method: 'POST', body: JSON.stringify({ range }) }),
   senders: () => request<ScanResult>('/api/senders'),
   startUnsubscribe: (senderEmails: string[]) =>
-    request<{ jobId: string }>('/api/unsubscribe', {
+    request<{ jobId: string | null; excluded: number }>('/api/unsubscribe', {
       method: 'POST',
       body: JSON.stringify({ senderEmails }),
     }),
   trashSenders: (senderEmails: string[]) =>
-    request<{ jobId: string }>('/api/senders/trash', {
+    request<{ jobId: string | null; excluded: number }>('/api/senders/trash', {
       method: 'POST',
       body: JSON.stringify({ senderEmails }),
     }),
@@ -70,4 +71,9 @@ export const api = {
   inboxGroups: () => request<InboxGroup[]>('/api/inbox/groups'),
   groupMessages: (key: string) => request<GroupMessage[]>(`/api/inbox/groups/${key}/messages`),
   allLabels: () => request<GmailLabel[]>('/api/inbox/labels'),
+  protectedList: () => request<{ protected: ProtectedSender[] }>('/api/protect'),
+  protectSenders: (emails: string[]) =>
+    request<{ ok: boolean }>('/api/protect', { method: 'POST', body: JSON.stringify({ emails }) }),
+  unprotectSenders: (emails: string[]) =>
+    request<{ ok: boolean }>('/api/protect', { method: 'DELETE', body: JSON.stringify({ emails }) }),
 }
