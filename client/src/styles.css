@@ -1052,3 +1052,27 @@ code {
     max-width: 110px;
   }
 }
+
+/* Quick-filter toolbar (Inbox tab) */
+.filter-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-toolbar .badge {
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.filter-toolbar .badge:hover {
+  background: var(--tint-blue);
+  color: var(--airmail-blue);
+}
+
+.badge-active {
+  background: var(--airmail-blue) !important;
+  color: #fff !important;
+}

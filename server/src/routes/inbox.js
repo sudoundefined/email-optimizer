@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { listGroups, groupMessages, listAllLabels } from '../services/inboxService.js'
+import { listGroups, groupMessages, listAllLabels, filterMessages } from '../services/inboxService.js'
 
 const router = Router()
 
@@ -23,6 +23,19 @@ router.get('/inbox/groups/:key/messages', async (req, res, next) => {
 router.get('/inbox/labels', async (req, res, next) => {
   try {
     res.json(await listAllLabels())
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/inbox/filter', async (req, res, next) => {
+  try {
+    const { q } = req.query
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({ error: 'q query parameter is required' })
+    }
+    const max = Math.min(Number(req.query.max) || 25, 100)
+    res.json(await filterMessages(q, max))
   } catch (err) {
     next(err)
   }

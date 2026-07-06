@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from '../api'
-import type { GmailLabel, GroupMessage, InboxGroup } from '../types'
+import type { Filter, GmailLabel, GroupMessage, InboxGroup } from '../types'
+import FilterToolbar from './FilterToolbar'
 
 /** CATEGORY_FORUMS → "Category: Forums", INBOX → "Inbox" */
 function prettyLabelName(l: GmailLabel): string {
@@ -24,6 +25,9 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
   const [messages, setMessages] = useState<GroupMessage[] | null>(null)
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = useState<Filter | null>(null)
+  const [filterResults, setFilterResults] = useState<GroupMessage[] | null>(null)
+  const [filterLoading, setFilterLoading] = useState(false)
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -71,6 +75,25 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
     }
   }
 
+  const handleFilterSelect = async (filter: Filter | null) => {
+    setActiveFilter(filter)
+    setFilterResults(null)
+    if (!filter) return
+    // collapse any open group when switching to a filter view
+    setOpenGroup(null)
+    setMessages(null)
+    setFilterLoading(true)
+    try {
+      const msgs = await api.filterMessages(filter.query)
+      setFilterResults(msgs)
+    } catch (err) {
+      handleApiError(err)
+      setActiveFilter(null)
+    } finally {
+      setFilterLoading(false)
+    }
+  }
+
   const openTitle = groups?.find((g) => g.key === openGroup)?.title
 
   return (
@@ -78,6 +101,42 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
       {error && <div className="banner banner-error">{error}</div>}
 
       {groups === null && !error && <div className="hint">Reading your inbox…</div>}
+
+      {groups && (
+        <FilterToolbar activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
+      )}
+
+      {activeFilter && (
+        <div className="group-messages">
+          <div className="group-messages-header">
+            <span>{activeFilter.label}</span>
+            <button className="btn btn-small btn-ghost" onClick={() => handleFilterSelect(null)}>
+              Close
+            </button>
+          </div>
+          {filterLoading && <div className="hint">Loading messages…</div>}
+          {filterResults && filterResults.length === 0 && (
+            <div className="hint">No messages match this filter.</div>
+          )}
+          {filterResults && filterResults.length > 0 && (
+            <ul className="message-list">
+              {filterResults.map((m) => (
+                <li key={m.id} className="message-row">
+                  <span className="message-from">{parseFromHeader(m.from)}</span>
+                  <span className="message-subject">{m.subject || '(no subject)'}</span>
+                  <span className="message-date">
+                    {new Date(m.date).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {groups && (
         <div className="pigeonholes">

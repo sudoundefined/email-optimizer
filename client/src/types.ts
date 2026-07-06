@@ -93,6 +93,13 @@ export interface ProtectedSender {
   addedAt: string
 }
 
+export interface Filter {
+  key: string
+  label: string
+  query: string
+  category: 'engagement' | 'cleanup' | 'category'
+}
+
 export const CATEGORIES = [
   'Promotions',
   'Newsletters',

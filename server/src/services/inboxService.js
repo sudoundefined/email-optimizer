@@ -120,3 +120,26 @@ export async function listAllLabels() {
       )
   })
 }
+
+/**
+ * Run an arbitrary Gmail query and return recent messages.
+ */
+export async function filterMessages(query, max = 25) {
+  return withAuthErrorHandling(async () => {
+    const gmail = await getGmail()
+    const res = await limited(() =>
+      gmail.users.messages.list({ userId: 'me', q: query, maxResults: max })
+    )
+    const ids = (res.data.messages || []).map((m) => m.id)
+    if (ids.length === 0) return []
+    const messages = await getMetadata(gmail, ids, {})
+    return messages
+      .sort((a, b) => b.internalDate - a.internalDate)
+      .map((m) => ({
+        id: m.id,
+        from: m.headers['from'] || '',
+        subject: m.headers['subject'] || '',
+        date: m.internalDate,
+      }))
+  })
+}
