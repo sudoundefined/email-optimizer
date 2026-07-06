@@ -1,4 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import LinearProgress from '@mui/material/LinearProgress'
+import Paper from '@mui/material/Paper'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Typography from '@mui/material/Typography'
+import { LabelOutlined } from '@mui/icons-material'
 import { api, ApiError } from '../api'
 import type { AppLabel } from '../types'
 import { useJob } from '../hooks/useJob'
@@ -56,73 +69,81 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
     | { phase?: string; collected?: number; trashed?: number; total?: number }
     | null
 
-  if (labels === null && !error) return <div className="hint">Loading labels…</div>
+  if (labels === null && !error) {
+    return <Typography variant="body2" color="text.secondary">Loading labels…</Typography>
+  }
 
   return (
     <div>
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {trashJob.running && progress && (
-        <div className="progress-panel">
-          <div className="progress-label">
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" color="text.secondary">
             {progress.phase === 'collecting' && `Collecting emails… ${progress.collected ?? 0}`}
             {progress.phase === 'trashing' &&
               `Moving to Trash… ${progress.trashed ?? 0} / ${progress.total ?? '?'}`}
-          </div>
-          <div className="airmail-progress" role="progressbar" aria-label="Moving emails to Trash" />
-        </div>
+          </Typography>
+          <LinearProgress sx={{ mt: 0.5 }} />
+        </Box>
       )}
 
       {labels && labels.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-stamp" aria-hidden="true">🏷</div>
-          <h2>No labels yet</h2>
-          <p>
+        <Box sx={{ textAlign: 'center', py: 9, color: 'text.secondary' }}>
+          <LabelOutlined sx={{ fontSize: 56, opacity: 0.5, mb: 2 }} />
+          <Typography variant="h6" color="text.primary" gutterBottom>
+            No labels yet
+          </Typography>
+          <Typography variant="body2" sx={{ maxWidth: 420, mx: 'auto' }}>
             Scan your mailbox on the Senders tab, select senders and use "Label…" to sort them into
             Gmail labels you can manage here.
-          </p>
-        </div>
+          </Typography>
+        </Box>
       )}
 
       {labels && labels.length > 0 && (
-        <div className="table-card">
-          <table className="sender-table">
-            <thead>
-              <tr>
-                <th>Label</th>
-                <th className="num">Emails</th>
-                <th className="num">Unread</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Label</TableCell>
+                <TableCell align="right">Emails</TableCell>
+                <TableCell align="right">Unread</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {labels.map((l) => (
-                <tr key={l.id}>
-                  <td>
-                    <span className="label-name">{l.name}</span>
-                  </td>
-                  <td className="num">{l.messagesTotal.toLocaleString()}</td>
-                  <td className="num">{l.messagesUnread.toLocaleString()}</td>
-                  <td className="label-actions">
-                    <button
-                      className="btn btn-small"
-                      disabled={busyId === l.id}
-                      onClick={() => setConfirm({ label: l, mode: 'labelOnly' })}
-                    >
-                      Remove label, keep emails
-                    </button>
-                    <button
-                      className="btn btn-small btn-danger-outline"
-                      disabled={busyId === l.id}
-                      onClick={() => setConfirm({ label: l, mode: 'trashEmails' })}
-                    >
-                      Trash emails + delete label
-                    </button>
-                  </td>
-                </tr>
+                <TableRow key={l.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{l.name}</Typography>
+                  </TableCell>
+                  <TableCell align="right">{l.messagesTotal.toLocaleString()}</TableCell>
+                  <TableCell align="right">{l.messagesUnread.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        disabled={busyId === l.id}
+                        onClick={() => setConfirm({ label: l, mode: 'labelOnly' })}
+                      >
+                        Remove label, keep emails
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        disabled={busyId === l.id}
+                        onClick={() => setConfirm({ label: l, mode: 'trashEmails' })}
+                      >
+                        Trash emails + delete label
+                      </Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {confirm && (

@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import LinearProgress from '@mui/material/LinearProgress'
+import Paper from '@mui/material/Paper'
+import Stack from '@mui/material/Stack'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import Typography from '@mui/material/Typography'
+import { MailOutlined } from '@mui/icons-material'
 import { api, ApiError } from '../api'
 import type { ScanResult, Suggestion, UnsubSummary, ProtectedSender } from '../types'
 import { useJob } from '../hooks/useJob'
@@ -184,32 +195,28 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   return (
     <div>
       <ScanControls onScan={runScan} job={scanJob.job} running={scanJob.running} scan={scan} />
-      {error && <div className="banner banner-error">{error}</div>}
-      {trashDone && <div className="banner banner-success">{trashDone}</div>}
-      {protectionWarning && <div className="banner banner-error">{protectionWarning}</div>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {trashDone && <Alert severity="success" sx={{ mb: 2 }}>{trashDone}</Alert>}
+      {protectionWarning && <Alert severity="warning" sx={{ mb: 2 }}>{protectionWarning}</Alert>}
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', marginTop: '8px' }}>
-        <button
-          className={!showProtected ? 'btn btn-primary btn-small' : 'btn btn-small'}
-          onClick={() => setShowProtected(false)}
-        >
-          All Senders
-        </button>
-        <button
-          className={showProtected ? 'btn btn-primary btn-small' : 'btn btn-small'}
-          onClick={() => setShowProtected(true)}
-        >
-          Protected ({protectedList.length})
-        </button>
-      </div>
+      <ToggleButtonGroup
+        value={showProtected ? 'protected' : 'all'}
+        exclusive
+        onChange={(_, val) => { if (val) setShowProtected(val === 'protected') }}
+        size="small"
+        sx={{ mb: 2, mt: 1 }}
+      >
+        <ToggleButton value="all">All Senders</ToggleButton>
+        <ToggleButton value="protected">Protected ({protectedList.length})</ToggleButton>
+      </ToggleButtonGroup>
 
       {trashJob.running && trashProgress && (
-        <div className="progress-panel">
-          <div className="progress-label">
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" color="text.secondary">
             Moving to Trash… {trashProgress.trashed ?? 0} / {trashProgress.total ?? '?'} emails
-          </div>
-          <div className="airmail-progress" role="progressbar" aria-label="Moving emails to Trash" />
-        </div>
+          </Typography>
+          <LinearProgress sx={{ mt: 0.5 }} />
+        </Box>
       )}
 
       {unsubJob.running && unsubJob.job?.progress != null && (
@@ -218,14 +225,16 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       {unsubSummary && <UnsubscribePanel summary={unsubSummary} />}
 
       {!showProtected && !scan && !scanJob.running && (
-        <div className="empty-state">
-          <div className="empty-stamp" aria-hidden="true">✉</div>
-          <h2>See who's filling your inbox</h2>
-          <p>
+        <Box sx={{ textAlign: 'center', py: 9, color: 'text.secondary' }}>
+          <MailOutlined sx={{ fontSize: 56, opacity: 0.5, mb: 2 }} />
+          <Typography variant="h6" color="text.primary" gutterBottom>
+            See who's filling your inbox
+          </Typography>
+          <Typography variant="body2" sx={{ maxWidth: 420, mx: 'auto' }}>
             Scan your mailbox to group marketing email by sender, then unsubscribe, label, or trash
             them in bulk.
-          </p>
-        </div>
+          </Typography>
+        </Box>
       )}
 
       {!showProtected && scan && (
@@ -240,60 +249,98 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       {showProtected && <ProtectedTab onDisconnected={onDisconnected} />}
 
       {!showProtected && selected.size > 0 && (
-        <div className="tray" role="toolbar" aria-label="Actions for selected senders">
-          <div className="tray-info">
-            <span className="tray-count">{selected.size}</span>
-            <span>
-              senders · <strong>{selectedEmailCount.toLocaleString()}</strong> emails
+        <Paper
+          elevation={8}
+          sx={{
+            position: 'fixed',
+            left: '50%',
+            bottom: 22,
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            bgcolor: 'grey.900',
+            color: 'common.white',
+            borderRadius: 3,
+            px: 2.5,
+            py: 1.5,
+            zIndex: 50,
+            maxWidth: 'min(92vw, 860px)',
+            flexWrap: 'wrap',
+          }}
+          role="toolbar"
+          aria-label="Actions for selected senders"
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Chip label={selected.size} color="primary" size="small" />
+            <Typography variant="body2" sx={{ color: 'grey.400' }}>
+              senders · <strong style={{ color: '#fff' }}>{selectedEmailCount.toLocaleString()}</strong> emails
               {selectedUnsubscribable < selected.size &&
                 ` · ${selectedUnsubscribable} with unsubscribe support`}
-            </span>
-          </div>
-          <div className="tray-actions">
-            <button
-              className="btn btn-primary"
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              size="small"
               disabled={selectedUnsubscribable === 0 || unsubJob.running || trashJob.running}
               onClick={runUnsubscribe}
             >
               Unsubscribe
-            </button>
-            <button
-              className="btn"
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              color="inherit"
+              sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
               disabled={unsubJob.running || trashJob.running}
               onClick={() => setShowLabelReview(true)}
             >
               Label…
-            </button>
+            </Button>
             {selectedNonProtectedCount > 0 && (
-              <button
-                className="btn"
+              <Button
+                variant="contained"
+                size="small"
+                color="inherit"
+                sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
                 disabled={unsubJob.running || trashJob.running}
                 onClick={runProtect}
               >
                 Protect
-              </button>
+              </Button>
             )}
             {selectedProtectedCount > 0 && (
-              <button
-                className="btn"
+              <Button
+                variant="contained"
+                size="small"
+                color="inherit"
+                sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
                 disabled={unsubJob.running || trashJob.running}
                 onClick={runUnprotect}
               >
                 Unprotect
-              </button>
+              </Button>
             )}
-            <button
-              className="btn btn-danger-outline"
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
               disabled={unsubJob.running || trashJob.running}
               onClick={() => setConfirmTrash(true)}
             >
               Move to Trash
-            </button>
-            <button className="btn btn-ghost" onClick={() => setSelected(new Set())}>
+            </Button>
+            <Button
+              variant="text"
+              size="small"
+              sx={{ color: 'grey.500' }}
+              onClick={() => setSelected(new Set())}
+            >
               Clear
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Stack>
+        </Paper>
       )}
 
       {showLabelReview && scan && (

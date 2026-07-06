@@ -1,4 +1,12 @@
 import { useEffect, useState } from 'react'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Button from '@mui/material/Button'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import Box from '@mui/material/Box'
 
 export default function ConfirmDialog({
   title,
@@ -28,29 +36,36 @@ export default function ConfirmDialog({
   const typedOk = requireTypedCount === undefined || typed.trim() === String(requireTypedCount)
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2>
-        <p>{message}</p>
+    <Dialog open onClose={onCancel} maxWidth="xs" fullWidth>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ mb: 2 }}>{message}</Typography>
         {requireTypedCount !== undefined && (
-          <label className="confirm-type">
-            Type <strong>{requireTypedCount}</strong> to confirm:
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
-          </label>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2">
+              Type <strong>{requireTypedCount}</strong> to confirm:
+            </Typography>
+            <TextField
+              size="small"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoFocus
+              sx={{ width: 120 }}
+            />
+          </Box>
         )}
-        <div className="modal-actions">
-          <button className="btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            className={danger ? 'btn btn-danger' : 'btn btn-primary'}
-            disabled={!armed || !typedOk}
-            onClick={onConfirm}
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button
+          variant="contained"
+          color={danger ? 'error' : 'primary'}
+          disabled={!armed || !typedOk}
+          onClick={onConfirm}
+        >
+          Confirm
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }

@@ -1,10 +1,16 @@
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Box from '@mui/material/Box'
+
 export default function AccountBadge({ email, onLogout }: { email: string; onLogout: () => void }) {
   return (
-    <div className="account-badge">
-      <span className="account-email">{email}</span>
-      <button className="btn btn-small" onClick={onLogout}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: 'auto' }}>
+      <Typography variant="body2" color="text.secondary" noWrap>
+        {email}
+      </Typography>
+      <Button size="small" variant="outlined" onClick={onLogout}>
         Disconnect
-      </button>
-    </div>
+      </Button>
+    </Box>
   )
 }

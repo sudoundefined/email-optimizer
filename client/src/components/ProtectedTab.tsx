@@ -1,4 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Paper from '@mui/material/Paper'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Typography from '@mui/material/Typography'
+import { ShieldOutlined } from '@mui/icons-material'
 import { api, ApiError } from '../api'
 import type { ProtectedSender } from '../types'
 
@@ -28,54 +41,64 @@ export default function ProtectedTab({ onDisconnected }: { onDisconnected: () =>
     }
   }
 
-  if (list === null && !error) return <div className="hint">Loading protected senders…</div>
+  if (list === null && !error) {
+    return <Typography variant="body2" color="text.secondary">Loading protected senders…</Typography>
+  }
 
   return (
     <div>
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {list && list.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-stamp" aria-hidden="true">🛡</div>
-          <h2>No protected senders yet</h2>
-          <p>Protect senders to exclude them from bulk unsubscribe and trash actions.
-             Senders matching banks, utilities, and government agencies are auto-protected after each scan.</p>
-        </div>
+        <Box sx={{ textAlign: 'center', py: 9, color: 'text.secondary' }}>
+          <ShieldOutlined sx={{ fontSize: 56, opacity: 0.5, mb: 2 }} />
+          <Typography variant="h6" color="text.primary" gutterBottom>
+            No protected senders yet
+          </Typography>
+          <Typography variant="body2" sx={{ maxWidth: 420, mx: 'auto' }}>
+            Protect senders to exclude them from bulk unsubscribe and trash actions.
+            Senders matching banks, utilities, and government agencies are auto-protected after each scan.
+          </Typography>
+        </Box>
       )}
       {list && list.length > 0 && (
-        <div className="table-card">
-          <table className="sender-table">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Reason</th>
-                <th>Added</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Email</TableCell>
+                <TableCell>Reason</TableCell>
+                <TableCell>Added</TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {list.map((p) => (
-                <tr key={p.email}>
-                  <td><span className="sender-email" style={{ fontSize: '13px' }}>{p.email}</span></td>
-                  <td>
+                <TableRow key={p.email} hover>
+                  <TableCell>
+                    <Typography variant="body2">{p.email}</Typography>
+                  </TableCell>
+                  <TableCell>
                     {p.reason.startsWith('auto:') ? (
-                      <span className="badge badge-blue">Auto</span>
+                      <Chip size="small" label="Auto" color="info" />
                     ) : (
-                      <span className="badge badge-gray">Manual</span>
+                      <Chip size="small" label="Manual" variant="outlined" />
                     )}
-                  </td>
-                  <td className="hint">
-                    {new Date(p.addedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </td>
-                  <td>
-                    <button className="btn btn-small btn-ghost" onClick={() => handleUnprotect(p.email)}>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(p.addedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Button size="small" variant="text" onClick={() => handleUnprotect(p.email)}>
                       Unprotect
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
     </div>
   )

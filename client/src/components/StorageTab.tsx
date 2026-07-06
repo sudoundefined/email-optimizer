@@ -1,4 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Grid from '@mui/material/Grid'
+import Paper from '@mui/material/Paper'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Typography from '@mui/material/Typography'
 import { api, ApiError } from '../api'
 import type { StorageStats } from '../types'
 
@@ -45,11 +59,11 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
   }
 
   if (loading) {
-    return <div className="hint">Analyzing your largest emails… this can take a moment.</div>
+    return <Typography variant="body2" color="text.secondary">Analyzing your largest emails… this can take a moment.</Typography>
   }
 
   if (error) {
-    return <div className="banner banner-error">{error}</div>
+    return <Alert severity="error">{error}</Alert>
   }
 
   if (!stats) return null
@@ -59,92 +73,125 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
   return (
     <div>
-      <div className="storage-toolbar">
-        <p className="hint">
-          Storage analysis covers every email larger than 1 MB (outside Trash and Spam). Cached for
-          5 minutes.
-        </p>
-        <button className="btn btn-small" onClick={refresh}>Refresh</button>
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          Storage analysis covers every email larger than 1 MB (outside Trash and Spam). Cached for 5 minutes.
+        </Typography>
+        <Button size="small" variant="outlined" onClick={refresh}>Refresh</Button>
+      </Box>
 
-      <div className="storage-dashboard">
-        <div className="storage-card">
-          <h3>Reclaimable storage</h3>
-          <div className="storage-big-number">{stats.totalMB.toLocaleString()} MB</div>
-          <div className="storage-big-sub">
-            across {stats.messageCount.toLocaleString()} large emails
-          </div>
-        </div>
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="overline" color="text.secondary">Reclaimable storage</Typography>
+              <Typography variant="h3" sx={{ fontWeight: 700 }}>{stats.totalMB.toLocaleString()} MB</Typography>
+              <Typography variant="body2" color="text.secondary">
+                across {stats.messageCount.toLocaleString()} large emails
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="overline" color="text.secondary">Top senders by size</Typography>
+              {stats.senders.length === 0 && <Typography variant="body2" color="text.secondary">No large emails found.</Typography>}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                {stats.senders.map((s) => (
+                  <Box key={s.email} sx={{ display: 'flex', alignItems: 'center', gap: 1 }} title={`${s.email} — ${s.messageCount} emails`}>
+                    <Typography variant="caption" noWrap sx={{ minWidth: 100, maxWidth: 100 }}>
+                      {parseFromHeader(s.name)}
+                    </Typography>
+                    <Box
+                      sx={{
+                        height: 18,
+                        bgcolor: 'primary.main',
+                        borderRadius: 1,
+                        width: `${Math.max(4, (s.totalMB / maxSenderMB) * 140)}px`,
+                        flexShrink: 0,
+                        transition: 'width 200ms ease',
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                      {s.totalMB.toLocaleString()} MB
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="overline" color="text.secondary">Storage by month</Typography>
+              {stats.months.length === 0 && <Typography variant="body2" color="text.secondary">No large emails found.</Typography>}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                {stats.months.map((m) => (
+                  <Box key={m.month} sx={{ display: 'flex', alignItems: 'center', gap: 1 }} title={`${m.messageCount} emails`}>
+                    <Typography variant="caption" noWrap sx={{ minWidth: 100, maxWidth: 100 }}>
+                      {m.month}
+                    </Typography>
+                    <Box
+                      sx={{
+                        height: 18,
+                        bgcolor: 'primary.main',
+                        borderRadius: 1,
+                        width: `${Math.max(4, (m.totalMB / maxMonthMB) * 140)}px`,
+                        flexShrink: 0,
+                        transition: 'width 200ms ease',
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                      {m.totalMB.toLocaleString()} MB
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-        <div className="storage-card">
-          <h3>Top senders by size</h3>
-          {stats.senders.length === 0 && <div className="hint">No large emails found.</div>}
-          <div className="storage-bar-chart">
-            {stats.senders.map((s) => (
-              <div className="storage-bar" key={s.email} title={`${s.email} — ${s.messageCount} emails`}>
-                <span className="storage-bar-label">{parseFromHeader(s.name)}</span>
-                <span
-                  className="storage-bar-fill"
-                  style={{ width: `${Math.max(4, (s.totalMB / maxSenderMB) * 140)}px` }}
-                />
-                <span className="storage-bar-value">{s.totalMB.toLocaleString()} MB</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="storage-card">
-          <h3>Storage by month</h3>
-          {stats.months.length === 0 && <div className="hint">No large emails found.</div>}
-          <div className="storage-bar-chart">
-            {stats.months.map((m) => (
-              <div className="storage-bar" key={m.month} title={`${m.messageCount} emails`}>
-                <span className="storage-bar-label">{m.month}</span>
-                <span
-                  className="storage-bar-fill"
-                  style={{ width: `${Math.max(4, (m.totalMB / maxMonthMB) * 140)}px` }}
-                />
-                <span className="storage-bar-value">{m.totalMB.toLocaleString()} MB</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <section className="all-labels">
-        <h2 className="section-title">Largest attachments (&gt;5 MB)</h2>
-        {stats.attachments.length === 0 && (
-          <div className="hint">No attachments larger than 5 MB found.</div>
-        )}
-        {stats.attachments.length > 0 && (
-          <div className="table-card">
-            <table className="sender-table">
-              <thead>
-                <tr>
-                  <th>From</th>
-                  <th>Subject</th>
-                  <th className="num">Size</th>
-                  <th className="num">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.attachments.map((a) => (
-                  <tr key={a.id}>
-                    <td><span className="message-from">{parseFromHeader(a.from)}</span></td>
-                    <td>{a.subject || '(no subject)'}</td>
-                    <td className="num">{a.sizeMB.toLocaleString()} MB</td>
-                    <td className="num">
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>Largest attachments (&gt;5 MB)</Typography>
+      {stats.attachments.length === 0 && (
+        <Typography variant="body2" color="text.secondary">No attachments larger than 5 MB found.</Typography>
+      )}
+      {stats.attachments.length > 0 && (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>From</TableCell>
+                <TableCell>Subject</TableCell>
+                <TableCell align="right">Size</TableCell>
+                <TableCell align="right">Date</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {stats.attachments.map((a) => (
+                <TableRow key={a.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{parseFromHeader(a.from)}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">{a.subject || '(no subject)'}</Typography>
+                  </TableCell>
+                  <TableCell align="right">{a.sizeMB.toLocaleString()} MB</TableCell>
+                  <TableCell align="right">
+                    <Typography variant="caption" color="text.secondary">
                       {new Date(a.date).toLocaleDateString(undefined, {
                         month: 'short', day: 'numeric', year: 'numeric',
                       })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </div>
   )
 }

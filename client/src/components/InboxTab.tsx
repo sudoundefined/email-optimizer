@@ -1,4 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardActionArea from '@mui/material/CardActionArea'
+import Chip from '@mui/material/Chip'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
+import Paper from '@mui/material/Paper'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Typography from '@mui/material/Typography'
 import { api, ApiError } from '../api'
 import type { Filter, GmailLabel, GroupMessage, InboxGroup } from '../types'
 import FilterToolbar from './FilterToolbar'
@@ -16,6 +33,39 @@ function prettyLabelName(l: GmailLabel): string {
 function parseFromHeader(from: string): string {
   const m = from.match(/^\s*"?([^"<]*)"?\s*<.*>$/)
   return (m && m[1].trim()) || from
+}
+
+function MessageList({ messages, loading, emptyText }: { messages: GroupMessage[] | null; loading: boolean; emptyText: string }) {
+  if (loading) return <Typography variant="body2" color="text.secondary">Loading messages…</Typography>
+  if (messages && messages.length === 0) return <Typography variant="body2" color="text.secondary">{emptyText}</Typography>
+  if (!messages) return null
+  return (
+    <List dense disablePadding sx={{ maxHeight: 360, overflowY: 'auto' }}>
+      {messages.map((m) => (
+        <ListItem key={m.id} dense divider>
+          <ListItemText
+            primary={
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 180, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {parseFromHeader(m.from)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1 }}>
+                  {m.subject || '(no subject)'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                  {new Date(m.date).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </Typography>
+              </Box>
+            }
+          />
+        </ListItem>
+      ))}
+    </List>
+  )
 }
 
 export default function InboxTab({ onDisconnected }: { onDisconnected: () => void }) {
@@ -79,7 +129,6 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
     setActiveFilter(filter)
     setFilterResults(null)
     if (!filter) return
-    // collapse any open group when switching to a filter view
     setOpenGroup(null)
     setMessages(null)
     setFilterLoading(true)
@@ -98,140 +147,117 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
 
   return (
     <div>
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {groups === null && !error && <div className="hint">Reading your inbox…</div>}
+      {groups === null && !error && (
+        <Typography variant="body2" color="text.secondary">Reading your inbox…</Typography>
+      )}
 
       {groups && (
         <FilterToolbar activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
       )}
 
       {activeFilter && (
-        <div className="group-messages">
-          <div className="group-messages-header">
-            <span>{activeFilter.label}</span>
-            <button className="btn btn-small btn-ghost" onClick={() => handleFilterSelect(null)}>
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="subtitle2">{activeFilter.label}</Typography>
+            <Button size="small" variant="text" onClick={() => handleFilterSelect(null)}>
               Close
-            </button>
-          </div>
-          {filterLoading && <div className="hint">Loading messages…</div>}
-          {filterResults && filterResults.length === 0 && (
-            <div className="hint">No messages match this filter.</div>
-          )}
-          {filterResults && filterResults.length > 0 && (
-            <ul className="message-list">
-              {filterResults.map((m) => (
-                <li key={m.id} className="message-row">
-                  <span className="message-from">{parseFromHeader(m.from)}</span>
-                  <span className="message-subject">{m.subject || '(no subject)'}</span>
-                  <span className="message-date">
-                    {new Date(m.date).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+            </Button>
+          </Box>
+          <MessageList messages={filterResults} loading={filterLoading} emptyText="No messages match this filter." />
+        </Paper>
       )}
 
       {groups && (
-        <div className="pigeonholes">
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+          gap: 1.5,
+          mb: 2.5,
+        }}>
           {groups.map((g) => (
-            <button
+            <Card
               key={g.key}
-              className={openGroup === g.key ? 'hole hole-open' : 'hole'}
-              onClick={() => toggleGroup(g.key)}
-              title={g.blurb}
+              variant="outlined"
+              sx={{
+                borderColor: openGroup === g.key ? 'primary.main' : undefined,
+                bgcolor: openGroup === g.key ? 'action.selected' : undefined,
+              }}
             >
-              <span className="hole-title">{g.title}</span>
-              <span className="hole-count">
-                {g.approx && <span className="hole-approx">≈</span>}
-                {g.count.toLocaleString()}
-              </span>
-              <span className="hole-sub">
-                {g.unread !== null && g.unread > 0
-                  ? `${g.unread.toLocaleString()} unread`
-                  : g.blurb}
-              </span>
-            </button>
+              <CardActionArea onClick={() => toggleGroup(g.key)} sx={{ p: 2 }} title={g.blurb}>
+                <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                  {g.title}
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  {g.approx && <Typography component="span" variant="h6" color="text.secondary">≈</Typography>}
+                  {g.count.toLocaleString()}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" noWrap>
+                  {g.unread !== null && g.unread > 0
+                    ? `${g.unread.toLocaleString()} unread`
+                    : g.blurb}
+                </Typography>
+              </CardActionArea>
+            </Card>
           ))}
-        </div>
+        </Box>
       )}
 
       {openGroup && (
-        <div className="group-messages">
-          <div className="group-messages-header">
-            <span>Latest in {openTitle}</span>
-            <button className="btn btn-small btn-ghost" onClick={() => toggleGroup(openGroup)}>
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="subtitle2">Latest in {openTitle}</Typography>
+            <Button size="small" variant="text" onClick={() => toggleGroup(openGroup)}>
               Close
-            </button>
-          </div>
-          {messagesLoading && <div className="hint">Loading messages…</div>}
-          {messages && messages.length === 0 && <div className="hint">No messages in this group.</div>}
-          {messages && messages.length > 0 && (
-            <ul className="message-list">
-              {messages.map((m) => (
-                <li key={m.id} className="message-row">
-                  <span className="message-from">{parseFromHeader(m.from)}</span>
-                  <span className="message-subject">{m.subject || '(no subject)'}</span>
-                  <span className="message-date">
-                    {new Date(m.date).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+            </Button>
+          </Box>
+          <MessageList messages={messages} loading={messagesLoading} emptyText="No messages in this group." />
+        </Paper>
       )}
 
       {labels && (
-        <section className="all-labels">
-          <h2 className="section-title">All Gmail labels</h2>
-          <p className="hint">
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>All Gmail labels</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             Every label in your account — Gmail's built-in system labels, your own, and the ones this
             app created (managed on the Labels tab).
-          </p>
-          <div className="table-card">
-            <table className="sender-table">
-              <thead>
-                <tr>
-                  <th>Label</th>
-                  <th>Type</th>
-                  <th className="num">Emails</th>
-                  <th className="num">Unread</th>
-                </tr>
-              </thead>
-              <tbody>
+          </Typography>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Label</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell align="right">Emails</TableCell>
+                  <TableCell align="right">Unread</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {labels.map((l) => (
-                  <tr key={l.id}>
-                    <td>
-                      <span className="label-name">{prettyLabelName(l)}</span>
-                    </td>
-                    <td>
+                  <TableRow key={l.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {prettyLabelName(l)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       {l.appCreated ? (
-                        <span className="badge badge-green">App</span>
+                        <Chip size="small" label="App" color="success" />
                       ) : l.type === 'system' ? (
-                        <span className="badge badge-gray">System</span>
+                        <Chip size="small" label="System" variant="outlined" />
                       ) : (
-                        <span className="badge badge-blue">User</span>
+                        <Chip size="small" label="User" color="info" />
                       )}
-                    </td>
-                    <td className="num">{l.messagesTotal.toLocaleString()}</td>
-                    <td className="num">{l.messagesUnread.toLocaleString()}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell align="right">{l.messagesTotal.toLocaleString()}</TableCell>
+                    <TableCell align="right">{l.messagesUnread.toLocaleString()}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
       )}
     </div>
   )

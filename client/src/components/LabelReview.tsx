@@ -1,4 +1,16 @@
 import { useMemo, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import FormControl from '@mui/material/FormControl'
+import LinearProgress from '@mui/material/LinearProgress'
+import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
+import Typography from '@mui/material/Typography'
 import { api, ApiError } from '../api'
 import type { Sender, Suggestion } from '../types'
 import { CATEGORIES } from '../types'
@@ -60,62 +72,71 @@ export default function LabelReview({
     | null
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Review labels</h2>
-        <p className="hint">
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Review labels</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Labels are created in Gmail as <code>Unsub/&lt;Category&gt;</code> and applied to every
           scanned email from each sender.
-        </p>
+        </Typography>
 
         {[...byCategory.entries()].map(([category, group]) => (
-          <div key={category} className="label-group">
-            <h3>
-              Unsub/{category} <span className="hint">({group.length} senders)</span>
-            </h3>
+          <Box key={category} sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Unsub/{category}{' '}
+              <Typography component="span" variant="body2" color="text.secondary">
+                ({group.length} senders)
+              </Typography>
+            </Typography>
             {group.map((s) => (
-              <div key={s.email} className="label-row">
-                <span className="sender-name">{s.name || s.email}</span>
-                <span className="hint">{s.messageCount} emails</span>
-                <select
-                  value={assignments.get(s.email)}
-                  onChange={(e) => setCategory(s.email, e.target.value)}
-                  disabled={applyJob.running}
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Box key={s.email} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+                  {s.name || s.email}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {s.messageCount} emails
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <Select
+                    value={assignments.get(s.email)}
+                    onChange={(e) => setCategory(s.email, e.target.value)}
+                    disabled={applyJob.running}
+                    size="small"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <MenuItem key={c} value={c}>
+                        {c}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
             ))}
-          </div>
+          </Box>
         ))}
 
-        {error && <div className="banner banner-error">{error}</div>}
+        {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
         {applyJob.running && progress && (
-          <div className="progress-panel">
-            <div className="progress-label">
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="caption" color="text.secondary">
               Labeling {progress.labeled ?? 0} / {progress.total ?? '?'}
               {progress.currentLabel ? ` (${progress.currentLabel})` : ''}
-            </div>
-            <div className="airmail-progress" role="progressbar" aria-label="Applying labels" />
-          </div>
+            </Typography>
+            <LinearProgress sx={{ mt: 0.5 }} />
+          </Box>
         )}
-        {doneMessage && <div className="banner banner-success">Labels applied — {doneMessage}</div>}
-
-        <div className="modal-actions">
-          <button className="btn" onClick={onClose} disabled={applyJob.running}>
-            {doneMessage ? 'Close' : 'Cancel'}
-          </button>
-          {!doneMessage && (
-            <button className="btn btn-primary" onClick={apply} disabled={applyJob.running}>
-              {applyJob.running ? 'Applying…' : 'Create & apply labels'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+        {doneMessage && <Alert severity="success" sx={{ mt: 1 }}>Labels applied — {doneMessage}</Alert>}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={applyJob.running}>
+          {doneMessage ? 'Close' : 'Cancel'}
+        </Button>
+        {!doneMessage && (
+          <Button variant="contained" onClick={apply} disabled={applyJob.running}>
+            {applyJob.running ? 'Applying…' : 'Create & apply labels'}
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
   )
 }

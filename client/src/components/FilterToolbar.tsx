@@ -1,3 +1,6 @@
+import Chip from '@mui/material/Chip'
+import Stack from '@mui/material/Stack'
+import Button from '@mui/material/Button'
 import type { Filter } from '../types'
 
 const FILTERS: Filter[] = [
@@ -22,22 +25,22 @@ interface Props {
 
 export default function FilterToolbar({ activeKey, onSelect }: Props) {
   return (
-    <div className="filter-toolbar">
+    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 2, gap: 0.5 }}>
       {FILTERS.map((f) => (
-        <button
+        <Chip
           key={f.key}
-          className={`badge ${activeKey === f.key ? 'badge-active' : 'badge-gray'}`}
-          style={{ cursor: 'pointer' }}
+          label={f.label}
+          clickable
+          variant={activeKey === f.key ? 'filled' : 'outlined'}
+          color={activeKey === f.key ? 'primary' : 'default'}
           onClick={() => onSelect(activeKey === f.key ? null : f)}
-        >
-          {f.label}
-        </button>
+        />
       ))}
       {activeKey && (
-        <button className="btn btn-small btn-ghost" onClick={() => onSelect(null)}>
+        <Button size="small" variant="text" onClick={() => onSelect(null)}>
           Clear filter
-        </button>
+        </Button>
       )}
-    </div>
+    </Stack>
   )
 }
