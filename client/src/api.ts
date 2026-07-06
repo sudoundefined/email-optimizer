@@ -8,6 +8,7 @@ import type {
   GroupMessage,
   GmailLabel,
   ProtectedSender,
+  StorageStats,
 } from './types'
 
 export class ApiError extends Error {
@@ -77,4 +78,6 @@ export const api = {
     request<{ ok: boolean }>('/api/protect', { method: 'POST', body: JSON.stringify({ emails }) }),
   unprotectSenders: (emails: string[]) =>
     request<{ ok: boolean }>('/api/protect', { method: 'DELETE', body: JSON.stringify({ emails }) }),
+  storageStats: () => request<StorageStats>('/api/storage/stats'),
+  storageRefresh: () => request<{ ok: boolean }>('/api/storage/refresh', { method: 'POST' }),
 }

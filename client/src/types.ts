@@ -100,6 +100,35 @@ export interface Filter {
   category: 'engagement' | 'cleanup' | 'category'
 }
 
+export interface StorageSender {
+  email: string
+  name: string
+  totalMB: number
+  messageCount: number
+}
+
+export interface StorageMonth {
+  month: string
+  totalMB: number
+  messageCount: number
+}
+
+export interface StorageAttachment {
+  id: string
+  from: string
+  subject: string
+  sizeMB: number
+  date: number
+}
+
+export interface StorageStats {
+  totalMB: number
+  messageCount: number
+  senders: StorageSender[]
+  months: StorageMonth[]
+  attachments: StorageAttachment[]
+}
+
 export const CATEGORIES = [
   'Promotions',
   'Newsletters',

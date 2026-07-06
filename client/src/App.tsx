@@ -4,11 +4,12 @@ import ConnectScreen from './components/ConnectScreen'
 import AccountBadge from './components/AccountBadge'
 import SendersTab from './components/SendersTab'
 import InboxTab from './components/InboxTab'
+import StorageTab from './components/StorageTab'
 import LabelManager from './components/LabelManager'
 
 export default function App() {
   const auth = useAuth()
-  const [tab, setTab] = useState<'senders' | 'inbox' | 'labels'>('senders')
+  const [tab, setTab] = useState<'senders' | 'inbox' | 'storage' | 'labels'>('senders')
 
   if (auth.loading) {
     return (
@@ -50,6 +51,12 @@ export default function App() {
               Inbox
             </button>
             <button
+              className={tab === 'storage' ? 'tab active' : 'tab'}
+              onClick={() => setTab('storage')}
+            >
+              Storage
+            </button>
+            <button
               className={tab === 'labels' ? 'tab active' : 'tab'}
               onClick={() => setTab('labels')}
             >
@@ -61,6 +68,7 @@ export default function App() {
         <main>
           {tab === 'senders' && <SendersTab onDisconnected={auth.markDisconnected} />}
           {tab === 'inbox' && <InboxTab onDisconnected={auth.markDisconnected} />}
+          {tab === 'storage' && <StorageTab onDisconnected={auth.markDisconnected} />}
           {tab === 'labels' && <LabelManager onDisconnected={auth.markDisconnected} />}
         </main>
       </div>
