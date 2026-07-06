@@ -1,0 +1,141 @@
+import { getGmail } from '../gmail/client.js'
+import { withAuthErrorHandling } from '../auth/oauthClient.js'
+import { limited } from '../gmail/rateLimiter.js'
+
+export function bytesToMB(bytes) {
+  return Math.round((bytes / (1024 * 1024)) * 100) / 100
+}
+
+export function aggregateBySender(messages, limit = 10) {
+  const map = new Map()
+  for (const m of messages) {
+    const email = m.from.toLowerCase()
+    let entry = map.get(email)
+    if (!entry) {
+      entry = { email, name: m.from, totalBytes: 0, messageCount: 0 }
+      map.set(email, entry)
+    }
+    entry.totalBytes += m.sizeEstimate
+    entry.messageCount++
+  }
+  return [...map.values()]
+    .sort((a, b) => b.totalBytes - a.totalBytes)
+    .slice(0, limit)
+    .map(e => ({ email: e.email, name: e.name, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }))
+}
+
+export function aggregateByMonth(messages, limit = 12) {
+  const map = new Map()
+  for (const m of messages) {
+    const d = new Date(m.date)
+    const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    let entry = map.get(month)
+    if (!entry) {
+      entry = { month, totalBytes: 0, messageCount: 0 }
+      map.set(month, entry)
+    }
+    entry.totalBytes += m.sizeEstimate
+    entry.messageCount++
+  }
+  return [...map.values()]
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .slice(0, limit)
+    .map(e => ({ month: e.month, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }))
+}
+
+export function filterLargeAttachments(messages, minSizeMB = 5) {
+  const minBytes = minSizeMB * 1024 * 1024
+  return messages
+    .filter(m => m.hasAttachment && m.sizeEstimate >= minBytes)
+    .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
+    .map(m => ({
+      id: m.id,
+      from: m.from,
+      subject: m.subject,
+      sizeMB: bytesToMB(m.sizeEstimate),
+      date: m.date,
+    }))
+}
+
+// In-memory cache — full scan of large messages is expensive
+let cache = null
+let cacheTime = 0
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+async function fetchLargeMessages(gmail, emit) {
+  const messages = []
+  let pageToken
+  let listed = 0
+  do {
+    const res = await limited(() =>
+      gmail.users.messages.list({
+        userId: 'me',
+        q: 'larger:1M -in:trash -in:spam',
+        maxResults: 500,
+        pageToken,
+      })
+    )
+    const ids = (res.data.messages || []).map(m => m.id)
+    if (ids.length === 0) break
+
+    const batch = await Promise.all(
+      ids.map(id =>
+        limited(() =>
+          gmail.users.messages.get({
+            userId: 'me',
+            id,
+            format: 'metadata',
+            metadataHeaders: ['From', 'Subject'],
+          })
+        ).then(r => {
+          const headers = {}
+          for (const h of r.data.payload?.headers || []) {
+            headers[h.name.toLowerCase()] = h.value
+          }
+          return {
+            id: r.data.id,
+            from: headers['from'] || '',
+            subject: headers['subject'] || '',
+            sizeEstimate: r.data.sizeEstimate || 0,
+            date: Number(r.data.internalDate || 0),
+            hasAttachment: (r.data.payload?.mimeType || '').includes('multipart'),
+          }
+        }).catch(() => null)
+      )
+    )
+
+    messages.push(...batch.filter(Boolean))
+    listed += ids.length
+    pageToken = res.data.nextPageToken
+    if (emit) emit({ phase: 'analyzing', processed: listed })
+  } while (pageToken)
+
+  return messages
+}
+
+export async function getStorageStats(emit) {
+  return withAuthErrorHandling(async () => {
+    const now = Date.now()
+    if (cache && (now - cacheTime) < CACHE_TTL) return cache
+
+    const gmail = await getGmail()
+    const messages = await fetchLargeMessages(gmail, emit)
+
+    const totalBytes = messages.reduce((sum, m) => sum + m.sizeEstimate, 0)
+    const stats = {
+      totalMB: bytesToMB(totalBytes),
+      messageCount: messages.length,
+      senders: aggregateBySender(messages, 10),
+      months: aggregateByMonth(messages, 12),
+      attachments: filterLargeAttachments(messages, 5),
+    }
+    cache = stats
+    cacheTime = now
+    return stats
+  })
+}
+
+export function clearStorageCache() {
+  cache = null
+  cacheTime = 0
+}
