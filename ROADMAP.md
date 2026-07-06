@@ -20,12 +20,16 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 - **All labels list** — system, user, and app-created labels with counts
 - **Message drill-down** — click a group to see its 25 most recent messages
 
+### Protection, filters & storage (v3)
+- **Sender protect-list** — auto-protect banks/utilities/government (domain + subject heuristics) plus manual protect/unprotect; protected senders are excluded from bulk unsubscribe and trash
+- **Quick-filter toolbar** — one-click inbox segments (never opened, unread marketing/social, old newsletters, large >5MB, old attachments, old promotions/forums)
+- **Storage recovery dashboard** — reclaimable storage total, top senders and months by size, largest attachments (>5MB) table
+
 ---
 
 ## 🚀 Now (no AI, high value)
 
-**Protect-list & retention**
-- **Sender protect-list** — mark senders as "protected" (never auto-trash, never suggest for unsubscribe). Useful for receipts, bank statements, utility bills.
+**Retention**
 - **Keep latest N** — per-sender retention policy: "keep the 3 most recent emails from this sender, trash the rest." Great for daily newsletters you skim but don't archive.
 
 **Scheduled & digest**
@@ -33,8 +37,7 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 - **Weekly digest email** — "You got mail from 12 new marketing senders this week. Unsubscribe or label them:" followed by sender list with inline action links.
 
 **Sweeper tools**
-- **Old attachments sweeper** — find emails >1 year old with attachments (especially large ones), offer bulk trash. Recovers storage.
-- **Large mail filter** — sort by size, show cumulative storage per sender, bulk-trash the heavy ones.
+- **Bulk-trash from Storage/Filters** — wire the storage dashboard and quick-filters directly into the existing trash job so heavy senders and stale mail can be cleared in place.
 
 ---
 
@@ -124,7 +127,7 @@ When choosing what to build next, weigh:
 3. **Complexity** — can we ship an MVP in 1-2 weeks?
 4. **Monetization** — does this justify a paid tier?
 
-**Quick wins** (Now tier): Protect-list, keep-latest-N, scheduled digest.  
+**Quick wins** (Now tier): Keep-latest-N, scheduled digest, bulk-trash from storage/filters.  
 **Moat-builders** (Next tier): Auto-rules engine, engagement stats.  
 **Moonshots** (Later tier): AI summaries, natural-language commands.
 

@@ -6,6 +6,9 @@ A personal web portal for cleaning up your Gmail:
 - **Scan** your mailbox for marketing/subscription emails, grouped by sender
 - **Bulk unsubscribe** — automatic one-click (RFC 8058) and mailto unsubscribes; manual links surfaced for the rest
 - **Auto-categorize** senders (Promotions, Newsletters, Social, Shopping, Finance, Travel, Other) and apply Gmail labels in bulk
+- **Protect important senders** — banks, utilities, and government senders are auto-protected after each scan (and you can protect any sender manually); protected senders are excluded from bulk unsubscribe and trash
+- **Quick-filter toolbar** — one-click inbox segments (never opened, unread marketing, large emails, old attachments, and more)
+- **Storage recovery dashboard** — see reclaimable storage, top senders and months by size, and your largest attachments
 - **Manage labels** — remove a label (keep emails) or delete the label *and* move its emails to Trash (recoverable for 30 days; nothing is permanently deleted by this app)
 
 React (Vite) client + Express server. No database — Gmail is the source of truth.
@@ -62,14 +65,27 @@ npm run dev
 3. Select senders (bottom sorting tray appears) with action buttons:
    - **Unsubscribe** — per-sender results stream in as they complete
    - **Label…** — review/adjust suggested categories → **Create & apply labels**. Labels appear in Gmail as `Unsub/<Category>`.
+   - **Protect / Unprotect** — add selected senders to (or remove them from) the protect-list. Protected senders are skipped by Unsubscribe and Move to Trash; if a bulk action includes protected senders, a banner tells you how many were excluded.
    - **Move to Trash** — moves all scanned emails from selected senders to Trash (30-day recovery; nothing is permanently deleted). Large deletions (>500 emails) require typing the email count to confirm.
+
+Use the **All Senders / Protected** switcher at the top to review the protect-list. Banks, utilities, and government senders (matched by domain or by subject keywords like "statement" / "invoice") are auto-protected after each scan.
 
 ### Inbox tab
 
 Live counts and message lists for built-in Gmail groups and all your labels:
 
+- **Quick-filter toolbar** — one-click filters that run a Gmail query and list matching messages: never opened, rarely read, unread marketing, unread social, old newsletters, old with attachments, large (>5 MB), unread 6 mo+, old promotions, old forums.
 - **Groups** — clickable cards showing email counts for Important, Primary (personal), Marketing, Social, Updates, Forums, Starred, Unread, plus smart groups (With attachments, Large >5MB, Stale unread 6mo+). Click a group to see its 25 most recent messages.
 - **All Gmail labels** — complete list of system labels, your own labels, and app-created labels with their email/unread counts.
+
+### Storage tab
+
+Analyzes every email larger than 1 MB (outside Trash/Spam), cached for 5 minutes:
+
+- **Reclaimable storage** — total size and count of large emails
+- **Top senders by size** — bar chart of the 10 heaviest senders
+- **Storage by month** — bar chart of size by month
+- **Largest attachments (>5 MB)** — table of your biggest attachment-bearing emails
 
 ### Labels tab
 
@@ -84,7 +100,7 @@ Manage app-created `Unsub/*` labels:
 npm test
 ```
 
-Unit tests cover the header parser (RFC 2369/8058), mailto/MIME building (incl. header-injection resistance), the categorizer, and the rate limiter's retry/backoff classification.
+Unit tests cover the header parser (RFC 2369/8058), mailto/MIME building (incl. header-injection resistance), the categorizer, the rate limiter's retry/backoff classification, the inbox groups, the protect-list heuristics/persistence, and the storage aggregation math (52 tests).
 
 ## Manual E2E checklist
 
@@ -100,10 +116,21 @@ Unit tests cover the header parser (RFC 2369/8058), mailto/MIME building (incl. 
 - [ ] Apply labels: `Unsub/<Category>` visible in Gmail with messages tagged
 - [ ] Move to Trash: selected senders' emails appear in Gmail Trash (restorable for 30 days)
 
+### Protect-list
+- [ ] After a scan, a bank/utility sender (if present) appears under the **Protected** switcher tagged **Auto**
+- [ ] Select a sender → **Protect** → it moves to the Protected list tagged **Manual**
+- [ ] Select a protected sender + others → **Move to Trash** → banner reports the protected one was excluded; it is not trashed
+- [ ] **Unprotect** a sender → it can be trashed/unsubscribed again
+
 ### Inbox tab
 - [ ] Inbox groups counts roughly match Gmail web sidebar
 - [ ] Click a group (e.g. Important) → shows recent messages from that group
 - [ ] All Gmail labels table lists system labels, user labels, and app-created labels with correct counts
+- [ ] Click a quick-filter (e.g. Large >5 MB) → matching messages listed; **Clear filter** resets
+
+### Storage tab
+- [ ] Storage tab loads a total-MB figure and top-senders/by-month bar charts
+- [ ] Largest-attachments table lists emails >5 MB; **Refresh** re-runs the analysis
 
 ### Labels tab
 - [ ] Remove label (keep emails): label gone in Gmail, emails intact
