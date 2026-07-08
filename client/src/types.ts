@@ -136,12 +136,20 @@ export interface StorageYear {
   messageCount: number
 }
 
+export interface StorageSizeBand {
+  key: string
+  label: string
+  totalMB: number
+  messageCount: number
+}
+
 export interface StorageStats {
   totalMB: number
   messageCount: number
   senders: StorageSender[]
   months: StorageMonth[]
   years: StorageYear[]
+  sizes: StorageSizeBand[]
   attachments: StorageAttachment[]
 }
 

@@ -81,7 +81,7 @@ export const api = {
     request<{ ok: boolean }>('/api/protect', { method: 'DELETE', body: JSON.stringify({ emails }) }),
   storageStats: () => request<StorageStats>('/api/storage/stats'),
   storageRefresh: () => request<{ ok: boolean }>('/api/storage/refresh', { method: 'POST' }),
-  storageDrillDown: (by: 'sender' | 'month' | 'year', value: string) =>
+  storageDrillDown: (by: 'sender' | 'month' | 'year' | 'size', value: string) =>
     request<StorageDrillMessage[]>(
       `/api/storage/messages?by=${encodeURIComponent(by)}&value=${encodeURIComponent(value)}`
     ),
