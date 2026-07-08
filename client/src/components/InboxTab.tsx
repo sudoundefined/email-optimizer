@@ -4,11 +4,13 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
+import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Paper from '@mui/material/Paper'
+import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
@@ -19,8 +21,9 @@ import Typography from '@mui/material/Typography'
 import { api, ApiError } from '../api'
 import type { Filter, GmailLabel, GroupMessage, InboxGroup } from '../types'
 import FilterToolbar from './FilterToolbar'
+import ConfirmDialog from './ConfirmDialog'
+import { useJob } from '../hooks/useJob'
 
-/** CATEGORY_FORUMS → "Category: Forums", INBOX → "Inbox" */
 function prettyLabelName(l: GmailLabel): string {
   if (l.type !== 'system') return l.name
   return l.name
@@ -35,18 +38,85 @@ function parseFromHeader(from: string): string {
   return (m && m[1].trim()) || from
 }
 
-function MessageList({ messages, loading, emptyText }: { messages: GroupMessage[] | null; loading: boolean; emptyText: string }) {
+function SelectableMessageList({
+  messages,
+  loading,
+  emptyText,
+  selected,
+  onSelectedChange,
+}: {
+  messages: GroupMessage[] | null
+  loading: boolean
+  emptyText: string
+  selected: Set<string>
+  onSelectedChange: (next: Set<string>) => void
+}) {
   if (loading) return <Typography variant="body2" color="text.secondary">Loading messages…</Typography>
   if (messages && messages.length === 0) return <Typography variant="body2" color="text.secondary">{emptyText}</Typography>
   if (!messages) return null
+
+  const allSelected = messages.length > 0 && messages.every((m) => selected.has(m.id))
+
+  const toggleAll = () => {
+    onSelectedChange(
+      allSelected ? new Set([...selected].filter((id) => !messages.some((m) => m.id === id)))
+                  : new Set([...selected, ...messages.map((m) => m.id)])
+    )
+  }
+
+  const toggle = (id: string) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onSelectedChange(next)
+  }
+
   return (
-    <List dense disablePadding sx={{ maxHeight: 360, overflowY: 'auto' }}>
+    <List dense disablePadding sx={{ maxHeight: 400, overflowY: 'auto' }}>
+      {/* select-all header row */}
+      <ListItem
+        dense
+        divider
+        sx={{ bgcolor: 'action.hover', py: 0.25 }}
+        secondaryAction={
+          <Typography variant="caption" color="text.secondary">
+            {messages.filter((m) => selected.has(m.id)).length} / {messages.length} selected
+          </Typography>
+        }
+      >
+        <Checkbox
+          size="small"
+          checked={allSelected}
+          indeterminate={messages.some((m) => selected.has(m.id)) && !allSelected}
+          onChange={toggleAll}
+          aria-label="Select all messages"
+          sx={{ mr: 1 }}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          Select all
+        </Typography>
+      </ListItem>
+
       {messages.map((m) => (
-        <ListItem key={m.id} dense divider>
+        <ListItem
+          key={m.id}
+          dense
+          divider
+          onClick={() => toggle(m.id)}
+          sx={{ cursor: 'pointer', bgcolor: selected.has(m.id) ? 'action.selected' : undefined }}
+        >
+          <Checkbox
+            size="small"
+            checked={selected.has(m.id)}
+            onChange={() => toggle(m.id)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Select message: ${m.subject || '(no subject)'}`}
+            sx={{ mr: 1, flexShrink: 0 }}
+          />
           <ListItemText
             primary={
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 180, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 160, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {parseFromHeader(m.from)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1 }}>
@@ -79,6 +149,13 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
   const [filterResults, setFilterResults] = useState<GroupMessage[] | null>(null)
   const [filterLoading, setFilterLoading] = useState(false)
 
+  // selection state — unified across group messages and filter results
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmTrash, setConfirmTrash] = useState(false)
+  const [trashDone, setTrashDone] = useState<string | null>(null)
+
+  const trashJob = useJob()
+
   const handleApiError = useCallback(
     (err: unknown) => {
       if (err instanceof ApiError && err.status === 401) onDisconnected()
@@ -100,20 +177,28 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
         if (!cancelled) handleApiError(err)
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [handleApiError])
+
+  // clear selection when switching context
+  const clearContext = () => {
+    setSelected(new Set())
+    setTrashDone(null)
+  }
 
   const toggleGroup = async (key: string) => {
     if (openGroup === key) {
       setOpenGroup(null)
       setMessages(null)
+      clearContext()
       return
     }
     setOpenGroup(key)
     setMessages(null)
     setMessagesLoading(true)
+    setActiveFilter(null)
+    setFilterResults(null)
+    clearContext()
     try {
       const msgs = await api.groupMessages(key)
       setMessages(msgs)
@@ -128,6 +213,7 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
   const handleFilterSelect = async (filter: Filter | null) => {
     setActiveFilter(filter)
     setFilterResults(null)
+    clearContext()
     if (!filter) return
     setOpenGroup(null)
     setMessages(null)
@@ -143,11 +229,37 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
     }
   }
 
+  const runTrash = async () => {
+    setConfirmTrash(false)
+    setError(null)
+    setTrashDone(null)
+    const ids = [...selected]
+    try {
+      const response = await api.trashMessages(ids)
+      if ('jobId' in response && response.jobId) {
+        const snapshot = await trashJob.start(() => Promise.resolve({ jobId: response.jobId! }))
+        if (snapshot.state === 'error') {
+          setError(snapshot.error || 'Move to Trash failed')
+          return
+        }
+      }
+      const count = 'trashed' in response ? response.trashed : ids.length
+      setTrashDone(`Moved ${count.toLocaleString()} messages to Trash. Recoverable in Gmail for 30 days.`)
+      setSelected(new Set())
+      // remove trashed messages from local state
+      setMessages((prev) => prev ? prev.filter((m) => !ids.includes(m.id)) : prev)
+      setFilterResults((prev) => prev ? prev.filter((m) => !ids.includes(m.id)) : prev)
+    } catch (err) {
+      handleApiError(err)
+    }
+  }
+
   const openTitle = groups?.find((g) => g.key === openGroup)?.title
 
   return (
     <div>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {trashDone && <Alert severity="success" sx={{ mb: 2 }}>{trashDone}</Alert>}
 
       {groups === null && !error && (
         <Typography variant="body2" color="text.secondary">Reading your inbox…</Typography>
@@ -165,7 +277,13 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
               Close
             </Button>
           </Box>
-          <MessageList messages={filterResults} loading={filterLoading} emptyText="No messages match this filter." />
+          <SelectableMessageList
+            messages={filterResults}
+            loading={filterLoading}
+            emptyText="No messages match this filter."
+            selected={selected}
+            onSelectedChange={setSelected}
+          />
         </Paper>
       )}
 
@@ -212,7 +330,13 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
               Close
             </Button>
           </Box>
-          <MessageList messages={messages} loading={messagesLoading} emptyText="No messages in this group." />
+          <SelectableMessageList
+            messages={messages}
+            loading={messagesLoading}
+            emptyText="No messages in this group."
+            selected={selected}
+            onSelectedChange={setSelected}
+          />
         </Paper>
       )}
 
@@ -258,6 +382,67 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
             </Table>
           </TableContainer>
         </Box>
+      )}
+
+      {/* Floating trash tray */}
+      {selected.size > 0 && (
+        <Paper
+          elevation={8}
+          sx={{
+            position: 'fixed',
+            left: '50%',
+            bottom: 22,
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            bgcolor: 'grey.900',
+            color: 'common.white',
+            borderRadius: 3,
+            px: 2.5,
+            py: 1.5,
+            zIndex: 50,
+            maxWidth: 'min(92vw, 600px)',
+          }}
+          role="toolbar"
+          aria-label="Actions for selected messages"
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1 }}>
+            <Chip label={selected.size} color="primary" size="small" />
+            <Typography variant="body2" sx={{ color: 'grey.400' }}>
+              messages selected
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
+              disabled={trashJob.running}
+              onClick={() => setConfirmTrash(true)}
+            >
+              Move to Trash
+            </Button>
+            <Button
+              variant="text"
+              size="small"
+              sx={{ color: 'grey.500' }}
+              onClick={() => setSelected(new Set())}
+            >
+              Clear
+            </Button>
+          </Stack>
+        </Paper>
+      )}
+
+      {confirmTrash && (
+        <ConfirmDialog
+          title={`Move ${selected.size.toLocaleString()} messages to Trash?`}
+          message="These messages will move to Gmail Trash (recoverable for 30 days, then permanently deleted by Gmail). This does not unsubscribe you from any senders."
+          danger
+          onCancel={() => setConfirmTrash(false)}
+          onConfirm={runTrash}
+        />
       )}
     </div>
   )

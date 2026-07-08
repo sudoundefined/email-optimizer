@@ -80,4 +80,9 @@ export const api = {
     request<{ ok: boolean }>('/api/protect', { method: 'DELETE', body: JSON.stringify({ emails }) }),
   storageStats: () => request<StorageStats>('/api/storage/stats'),
   storageRefresh: () => request<{ ok: boolean }>('/api/storage/refresh', { method: 'POST' }),
+  trashMessages: (messageIds: string[]) =>
+    request<{ trashed: number } | { jobId: string }>('/api/messages/trash', {
+      method: 'POST',
+      body: JSON.stringify({ messageIds }),
+    }),
 }

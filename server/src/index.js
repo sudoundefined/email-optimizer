@@ -9,6 +9,7 @@ import labelRoutes from './routes/labels.js'
 import inboxRoutes from './routes/inbox.js'
 import protectRoutes from './routes/protect.js'
 import storageRoutes from './routes/storage.js'
+import messageRoutes from './routes/messages.js'
 
 const app = express()
 app.use(express.json())
@@ -22,6 +23,7 @@ app.use('/api', labelRoutes)
 app.use('/api', inboxRoutes)
 app.use('/api', protectRoutes)
 app.use('/api', storageRoutes)
+app.use('/api', messageRoutes)
 
 // error middleware: NotConnectedError → 401, err.status honored, else 500
 app.use((err, req, res, next) => {
