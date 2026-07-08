@@ -24,8 +24,8 @@ router.post('/storage/refresh', async (req, res) => {
 router.get('/storage/messages', async (req, res, next) => {
   try {
     const { by, value } = req.query
-    if (!by || !value || !['sender', 'month'].includes(by)) {
-      return res.status(400).json({ error: 'by must be "sender" or "month", value is required' })
+    if (!by || !value || !['sender', 'month', 'year'].includes(by)) {
+      return res.status(400).json({ error: 'by must be "sender", "month", or "year", value is required' })
     }
     const messages = getDrillDownMessages(by, value)
     if (messages === null) {

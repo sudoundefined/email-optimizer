@@ -130,11 +130,18 @@ export interface StorageDrillMessage {
   hasAttachment: boolean
 }
 
+export interface StorageYear {
+  year: string
+  totalMB: number
+  messageCount: number
+}
+
 export interface StorageStats {
   totalMB: number
   messageCount: number
   senders: StorageSender[]
   months: StorageMonth[]
+  years: StorageYear[]
   attachments: StorageAttachment[]
 }
 

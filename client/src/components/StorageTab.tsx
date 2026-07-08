@@ -20,7 +20,7 @@ import TableRow from '@mui/material/TableRow'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { api, ApiError } from '../api'
-import type { StorageAttachment, StorageDrillMessage, StorageStats } from '../types'
+import type { StorageAttachment, StorageDrillMessage, StorageStats, StorageYear } from '../types'
 import ConfirmDialog from './ConfirmDialog'
 import { useJob } from '../hooks/useJob'
 
@@ -172,7 +172,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-type DrillKey = { by: 'sender'; value: string } | { by: 'month'; value: string } | null
+type DrillKey = { by: 'sender'; value: string } | { by: 'month'; value: string } | { by: 'year'; value: string } | null
 
 export default function StorageTab({ onDisconnected }: { onDisconnected: () => void }) {
   const [stats, setStats] = useState<StorageStats | null>(null)
@@ -226,8 +226,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
     }
   }
 
-  // Open drill-down for a sender email or month string
-  const openDrill = async (by: 'sender' | 'month', value: string) => {
+  // Open drill-down for a sender email, month string, or year string
+  const openDrill = async (by: 'sender' | 'month' | 'year', value: string) => {
     // toggle off if same key clicked again
     if (drillKey?.by === by && drillKey.value === value) {
       setDrillKey(null)
@@ -323,6 +323,7 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
   const maxSenderMB = Math.max(1, ...stats.senders.map((s) => s.totalMB))
   const maxMonthMB = Math.max(1, ...stats.months.map((m) => m.totalMB))
+  const maxYearMB = Math.max(1, ...(stats.years ?? []).map((y) => y.totalMB))
   const allAttachmentsSelected =
     stats.attachments.length > 0 && stats.attachments.every((a) => selectedIds.has(a.id))
 
@@ -332,6 +333,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
           stats.senders.find((s) => s.email === drillKey.value)?.name ?? drillKey.value
         )}`
       : drillKey?.by === 'month'
+      ? `Emails from ${drillKey.value}`
+      : drillKey?.by === 'year'
       ? `Emails from ${drillKey.value}`
       : ''
 
@@ -473,6 +476,64 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                       />
                       <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                         {m.totalMB.toLocaleString()} MB
+                      </Typography>
+                    </Box>
+                  )
+                })}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Storage by year — each row is clickable */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="overline" color="text.secondary">Storage by year</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Click a row to browse its messages
+              </Typography>
+              {(stats.years ?? []).length === 0 && (
+                <Typography variant="body2" color="text.secondary">No large emails found.</Typography>
+              )}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
+                {(stats.years ?? []).map((y: StorageYear) => {
+                  const active = drillKey?.by === 'year' && drillKey.value === y.year
+                  return (
+                    <Box
+                      key={y.year}
+                      onClick={() => openDrill('year', y.year)}
+                      title={`${y.messageCount} emails — click to browse`}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 0.75,
+                        py: 0.5,
+                        borderRadius: 1,
+                        cursor: 'pointer',
+                        bgcolor: active ? 'action.selected' : 'transparent',
+                        border: active ? 1 : 0,
+                        borderColor: 'primary.main',
+                        '&:hover': { bgcolor: 'action.hover' },
+                        transition: 'background-color 150ms ease',
+                      }}
+                    >
+                      <Typography variant="caption" noWrap sx={{ minWidth: 90, maxWidth: 90 }}>
+                        {y.year}
+                      </Typography>
+                      <Box
+                        sx={{
+                          height: 16,
+                          bgcolor: active ? 'primary.main' : 'primary.light',
+                          borderRadius: 1,
+                          width: `${Math.max(4, (y.totalMB / maxYearMB) * 120)}px`,
+                          flexShrink: 0,
+                          transition: 'width 200ms ease, background-color 150ms ease',
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                        {y.totalMB.toLocaleString()} MB · {y.messageCount} emails
                       </Typography>
                     </Box>
                   )

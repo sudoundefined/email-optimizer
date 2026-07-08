@@ -43,6 +43,23 @@ export function aggregateByMonth(messages, limit = 12) {
     .map(e => ({ month: e.month, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }))
 }
 
+export function aggregateByYear(messages) {
+  const map = new Map()
+  for (const m of messages) {
+    const year = String(new Date(m.date).getFullYear())
+    let entry = map.get(year)
+    if (!entry) {
+      entry = { year, totalBytes: 0, messageCount: 0 }
+      map.set(year, entry)
+    }
+    entry.totalBytes += m.sizeEstimate
+    entry.messageCount++
+  }
+  return [...map.values()]
+    .sort((a, b) => b.year.localeCompare(a.year))
+    .map(e => ({ year: e.year, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }))
+}
+
 export function filterLargeAttachments(messages, minSizeMB = 5) {
   const minBytes = minSizeMB * 1024 * 1024
   return messages
@@ -127,6 +144,7 @@ export async function getStorageStats(emit) {
       messageCount: messages.length,
       senders: aggregateBySender(messages, 10),
       months: aggregateByMonth(messages, 12),
+      years: aggregateByYear(messages),
       attachments: filterLargeAttachments(messages, 5),
     }
     cache = stats
@@ -169,6 +187,20 @@ export function getDrillDownMessages(by, value) {
         const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
         return month === value
       })
+      .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
+      .map(m => ({
+        id: m.id,
+        from: m.from,
+        subject: m.subject,
+        sizeMB: bytesToMB(m.sizeEstimate),
+        date: m.date,
+        hasAttachment: m.hasAttachment,
+      }))
+  }
+
+  if (by === 'year') {
+    return messages
+      .filter(m => String(new Date(m.date).getFullYear()) === value)
       .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
       .map(m => ({
         id: m.id,
