@@ -237,6 +237,22 @@ export function getDrillDownMessages(by, value) {
       }))
   }
 
+  if (by === 'size') {
+    const band = SIZE_BANDS.find(b => b.key === value)
+    if (!band) return []
+    return messages
+      .filter(m => m.sizeEstimate >= band.minBytes && m.sizeEstimate < band.maxBytes)
+      .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
+      .map(m => ({
+        id: m.id,
+        from: m.from,
+        subject: m.subject,
+        sizeMB: bytesToMB(m.sizeEstimate),
+        date: m.date,
+        hasAttachment: m.hasAttachment,
+      }))
+  }
+
   return []
 }
 
