@@ -121,6 +121,15 @@ export interface StorageAttachment {
   date: number
 }
 
+export interface StorageDrillMessage {
+  id: string
+  from: string
+  subject: string
+  sizeMB: number
+  date: number
+  hasAttachment: boolean
+}
+
 export interface StorageStats {
   totalMB: number
   messageCount: number

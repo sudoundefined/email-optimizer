@@ -9,6 +9,7 @@ import type {
   GmailLabel,
   ProtectedSender,
   StorageStats,
+  StorageDrillMessage,
 } from './types'
 
 export class ApiError extends Error {
@@ -80,6 +81,10 @@ export const api = {
     request<{ ok: boolean }>('/api/protect', { method: 'DELETE', body: JSON.stringify({ emails }) }),
   storageStats: () => request<StorageStats>('/api/storage/stats'),
   storageRefresh: () => request<{ ok: boolean }>('/api/storage/refresh', { method: 'POST' }),
+  storageDrillDown: (by: 'sender' | 'month', value: string) =>
+    request<StorageDrillMessage[]>(
+      `/api/storage/messages?by=${encodeURIComponent(by)}&value=${encodeURIComponent(value)}`
+    ),
   trashMessages: (messageIds: string[]) =>
     request<{ trashed: number } | { jobId: string }>('/api/messages/trash', {
       method: 'POST',

@@ -131,8 +131,56 @@ export async function getStorageStats(emit) {
     }
     cache = stats
     cacheTime = now
+    // keep full message list for drill-down queries
+    cache._messages = messages
     return stats
   })
+}
+
+/**
+ * Return individual messages for a sender or month drill-down.
+ * Requires the cache to be warm — call getStorageStats() first.
+ * by: 'sender' → filter by from email (lowercase match)
+ * by: 'month'  → filter by YYYY-MM month string
+ */
+export function getDrillDownMessages(by, value) {
+  if (!cache || !cache._messages) return null   // cache not warm
+  const messages = cache._messages
+
+  if (by === 'sender') {
+    const v = value.toLowerCase()
+    return messages
+      .filter(m => m.from.toLowerCase().includes(v))
+      .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
+      .map(m => ({
+        id: m.id,
+        from: m.from,
+        subject: m.subject,
+        sizeMB: bytesToMB(m.sizeEstimate),
+        date: m.date,
+        hasAttachment: m.hasAttachment,
+      }))
+  }
+
+  if (by === 'month') {
+    return messages
+      .filter(m => {
+        const d = new Date(m.date)
+        const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        return month === value
+      })
+      .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
+      .map(m => ({
+        id: m.id,
+        from: m.from,
+        subject: m.subject,
+        sizeMB: bytesToMB(m.sizeEstimate),
+        date: m.date,
+        hasAttachment: m.hasAttachment,
+      }))
+  }
+
+  return []
 }
 
 export function clearStorageCache() {
