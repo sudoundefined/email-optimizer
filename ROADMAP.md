@@ -30,13 +30,15 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 - **Keep latest N** — per-sender retention: keep the newest N emails from a sender and move the rest to Trash. Available from the Senders tray when a single non-protected sender is selected. Protected senders are refused; sender address is validated to prevent Gmail-query injection.
 - **Trash all matching (filters)** — the Inbox quick-filters can move the *entire* matching set to Trash (not just the visible sample), paged server-side. Protected senders are automatically skipped, and the result reports how many were skipped or whether the 10k scan cap was hit.
 
+### Scheduling & digest (v5)
+- **Weekly digest email** — an in-process weekly scheduler scans for **new** marketing senders (vs. a persisted baseline) and emails you a summary from your own Gmail, each with an unsubscribe link. First run seeds the baseline silently; later runs report only genuinely new senders. Configurable day/hour/recipient via the digest settings dialog, with preview and send-now. Sender-supplied content is HTML-escaped; single-job guard prevents double-sends. *Reliable scheduling depends on production OAuth (see below).*
+- **OAuth verification assets** — public privacy/terms pages (`/legal/*`) and a submission guide (`docs/OAUTH_VERIFICATION.md`) to move the app Testing → Production and remove the 7-day token expiry.
+
 ---
 
 ## 🚀 Now (no AI, high value)
 
-**Scheduled & digest**
-- **Scheduled re-scan** — weekly cron job: scan for new marketing senders, generate a digest email listing them (with one-click unsubscribe links). Prevents inbox creep.
-- **Weekly digest email** — "You got mail from 12 new marketing senders this week. Unsubscribe or label them:" followed by sender list with inline action links.
+*(Now-tier items shipped — see v4/v5 above. Next up is the rules & automation tier.)*
 
 ---
 
@@ -126,7 +128,7 @@ When choosing what to build next, weigh:
 3. **Complexity** — can we ship an MVP in 1-2 weeks?
 4. **Monetization** — does this justify a paid tier?
 
-**Quick wins** (Now tier): scheduled digest of new marketing senders.  
+**Quick wins** (Now tier): ✅ shipped (keep-latest, bulk-trash, weekly digest).  
 **Moat-builders** (Next tier): Auto-rules engine, engagement stats.  
 **Moonshots** (Later tier): AI summaries, natural-language commands.
 

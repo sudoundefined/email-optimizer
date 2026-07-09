@@ -1,8 +1,12 @@
 import { Router } from 'express'
-import { listGroups, groupMessages, listAllLabels, filterMessages, trashByFilterKey, FILTERS } from '../services/inboxService.js'
+import { listGroups, groupMessages, listAllLabels, filterMessages, trashByFilterKey, FILTERS, FILTER_DEFS } from '../services/inboxService.js'
 import { createJob } from '../jobs/jobManager.js'
 
 const router = Router()
+
+router.get('/inbox/filters', (req, res) => {
+  res.json(FILTER_DEFS)
+})
 
 router.get('/inbox/groups', async (req, res, next) => {
   try {

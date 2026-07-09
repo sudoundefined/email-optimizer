@@ -1,8 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
-import path from 'node:path'
-import { FILTERS, trashByFilterKey } from './inboxService.js'
+import { FILTERS, FILTER_DEFS, trashByFilterKey } from './inboxService.js'
 
 describe('inboxService FILTERS allow-list', () => {
   it('every query is scoped away from trash and spam', () => {
@@ -12,14 +10,15 @@ describe('inboxService FILTERS allow-list', () => {
     }
   })
 
-  it('server FILTERS keys match the client FilterToolbar keys (drift guard)', () => {
-    const toolbar = fs.readFileSync(
-      path.join(import.meta.dirname, '..', '..', '..', 'client', 'src', 'components', 'FilterToolbar.tsx'),
-      'utf8'
-    )
-    const clientKeys = [...toolbar.matchAll(/key:\s*'([a-z-]+)'/g)].map((m) => m[1]).sort()
-    const serverKeys = Object.keys(FILTERS).sort()
-    assert.deepEqual(serverKeys, clientKeys)
+  it('FILTER_DEFS is the single source: unique keys, complete fields, derives FILTERS', () => {
+    const keys = FILTER_DEFS.map((d) => d.key)
+    assert.equal(new Set(keys).size, keys.length, 'keys must be unique')
+    for (const d of FILTER_DEFS) {
+      assert.ok(d.key && d.label && d.query, `${d.key} needs key/label/query`)
+      assert.ok(['engagement', 'cleanup', 'category'].includes(d.category), `${d.key} category`)
+      assert.equal(FILTERS[d.key], d.query, `FILTERS derived from FILTER_DEFS for ${d.key}`)
+    }
+    assert.equal(Object.keys(FILTERS).length, FILTER_DEFS.length)
   })
 
   it('trashByFilterKey rejects an unknown key with status 400', async () => {

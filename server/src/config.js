@@ -9,6 +9,9 @@ dotenv.config({ path: path.join(serverRoot, '.env') })
 
 export const config = {
   port: Number(process.env.PORT || 3001),
+  // Bind loopback by default so the unauthenticated local API is not exposed to
+  // the LAN. Set HOST=0.0.0.0 only behind a trusted reverse proxy / real auth.
+  host: process.env.HOST || '127.0.0.1',
   clientId: process.env.GOOGLE_CLIENT_ID || '',
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   redirectUri: process.env.REDIRECT_URI || 'http://localhost:3001/api/auth/callback',
@@ -17,6 +20,7 @@ export const config = {
   tokensPath: path.join(serverRoot, 'data', 'tokens.json'),
   labelRegistryPath: path.join(serverRoot, 'data', 'label-registry.json'),
   protectedSendersPath: path.join(serverRoot, 'data', 'protected-senders.json'),
+  digestStatePath: path.join(serverRoot, 'data', 'digest-state.json'),
   scanMaxMessages: 5000,
   labelPrefix: 'Unsub/',
 }

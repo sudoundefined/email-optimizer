@@ -8,8 +8,11 @@ import type {
   GroupMessage,
   GmailLabel,
   ProtectedSender,
+  Filter,
   StorageStats,
   StorageDrillMessage,
+  DigestState,
+  DigestSettings,
 } from './types'
 
 export class ApiError extends Error {
@@ -79,6 +82,7 @@ export const api = {
   inboxGroups: () => request<InboxGroup[]>('/api/inbox/groups'),
   groupMessages: (key: string) => request<GroupMessage[]>(`/api/inbox/groups/${key}/messages`),
   allLabels: () => request<GmailLabel[]>('/api/inbox/labels'),
+  inboxFilters: () => request<Filter[]>('/api/inbox/filters'),
   filterMessages: (q: string) => request<GroupMessage[]>(`/api/inbox/filter?q=${encodeURIComponent(q)}`),
   trashFilter: (key: string) =>
     request<{ jobId: string }>(`/api/inbox/filter/${encodeURIComponent(key)}/trash`, { method: 'POST' }),
@@ -98,4 +102,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ messageIds }),
     }),
+  digest: () => request<DigestState>('/api/digest'),
+  saveDigestSettings: (settings: Partial<DigestSettings>) =>
+    request<{ settings: DigestSettings }>('/api/digest/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    }),
+  runDigest: () => request<{ jobId: string }>('/api/digest/run', { method: 'POST' }),
+  previewDigest: () => request<{ jobId: string }>('/api/digest/preview', { method: 'POST' }),
 }

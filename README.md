@@ -13,13 +13,15 @@ A personal web app for cleaning up your Gmail — scan for marketing clutter, bu
 | **Storage** | Reclaimable storage total, top 10 senders by size, storage-by-month chart, and a table of your largest attachments (>5 MB). |
 | **Labels** | Manage app-created `Unsub/*` labels — remove a label (keep emails) or trash its emails and delete the label. |
 
+**Weekly digest** — Opt into a scheduled weekly email (from your own Gmail) listing new marketing senders that started emailing you, each with an unsubscribe link. Open it from the schedule (clock) icon in the top bar. The first run seeds a baseline silently; later runs report only genuinely new senders. Reliable scheduling needs production OAuth — see [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md).
+
 **Protect-list** — Banks, utilities, and government senders are auto-protected after each scan (matched by domain and subject keywords). You can protect/unprotect any sender manually. Protected senders are excluded from bulk unsubscribe and trash actions.
 
 ## Tech stack
 
 | Layer | Tech |
 |-------|------|
-| Client | React 18, Vite, TypeScript, Material UI v6, Emotion |
+| Client | React 18, Vite, TypeScript, Material UI v9, Emotion |
 | Server | Node.js, Express, Google Gmail API |
 | Infra | npm workspaces monorepo, no database |
 
@@ -98,13 +100,21 @@ Open **http://localhost:5173** and sign in with Google.
 - **Two-pane layout** — Browse all your system, user, and app-created labels.
 - **Manage App-created labels** — Remove a label (keep emails) or trash emails + delete label directly from the detail pane.
 
+### Weekly digest (schedule icon)
+
+- Click the **clock icon** in the top bar to open **Weekly digest** settings.
+- **Enable** it, choose a **day/hour** and optional **recipient** (blank = your own account), and **Save**.
+- **Preview** shows which new senders would be included (sends nothing); **Send now** runs immediately.
+- The **first run seeds a baseline** and sends nothing; later runs report only senders that appear afterward.
+- Scheduled runs need the app running and a valid sign-in — reliable weekly delivery requires production OAuth (see [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md)).
+
 ## Tests
 
 ```bash
-npm test    # 66 unit tests
+npm test    # 90 unit tests
 ```
 
-Covers: header parsing (RFC 2369/8058), mailto/MIME building with header-injection resistance, sender categorization, rate-limiter retry/backoff logic, inbox group definitions, quick-filter allow-list (client/server drift guard), keep-latest partitioning and sender-email injection guard, protect-list heuristics and persistence, and storage aggregation.
+Covers: header parsing (RFC 2369/8058), mailto/MIME building with header-injection resistance, sender categorization, rate-limiter retry/backoff logic, inbox group definitions, quick-filter allow-list (single-source FILTER_DEFS), keep-latest partitioning and sender-email injection guard, digest store/settings/baseline, digest builders (XSS-safe HTML + MIME), scheduler due-logic, protect-list heuristics and persistence, and storage aggregation.
 
 ## Project structure
 
@@ -112,7 +122,7 @@ Covers: header parsing (RFC 2369/8058), mailto/MIME building with header-injecti
 email-optimizer/
   client/                  React + Vite + MUI frontend
     src/
-      components/          14 React components (all MUI)
+      components/          React components (all MUI)
       hooks/               useAuth, useJob custom hooks
       api.ts               API client with SSE streaming
       theme.ts             MUI theme configuration
@@ -121,10 +131,10 @@ email-optimizer/
     src/
       auth/                OAuth client + token storage
       gmail/               Gmail API client, rate limiter, MIME builder
-      routes/              Express route handlers (auth, scan, inbox, etc.)
-      services/            Business logic (scan, inbox, storage, protect, categorizer, etc.)
-      jobs/                Background job manager (SSE progress streams)
-      store/               In-memory caches (scan results, label registry)
+      routes/              Express route handlers (auth, scan, inbox, digest, legal, etc.)
+      services/            Business logic (scan, inbox, storage, protect, retention, digest, etc.)
+      jobs/                Background job manager + weekly-digest scheduler
+      store/               Caches + persistence (scan, label registry, digest state)
       index.js             Entry point
     data/                  Runtime data (gitignored)
     .env                   OAuth credentials (gitignored)

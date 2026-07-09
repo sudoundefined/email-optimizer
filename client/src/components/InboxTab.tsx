@@ -143,6 +143,7 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
   const [messages, setMessages] = useState<GroupMessage[] | null>(null)
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState<Filter[]>([])
   const [activeFilter, setActiveFilter] = useState<Filter | null>(null)
   const [filterResults, setFilterResults] = useState<GroupMessage[] | null>(null)
   const [filterLoading, setFilterLoading] = useState(false)
@@ -168,9 +169,10 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
     let cancelled = false
     ;(async () => {
       try {
-        const g = await api.inboxGroups()
+        const [g, f] = await Promise.all([api.inboxGroups(), api.inboxFilters()])
         if (!cancelled) {
           setGroups(g)
+          setFilters(f)
         }
       } catch (err) {
         if (!cancelled) handleApiError(err)
@@ -336,7 +338,7 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
                   </Typography>
                 </Box>
                 <CardContent sx={{ p: '16px !important' }}>
-                  <FilterToolbar activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
+                  <FilterToolbar filters={filters} activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
                 </CardContent>
               </Card>
 
