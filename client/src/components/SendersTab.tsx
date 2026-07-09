@@ -589,80 +589,82 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       {/* ── Floating action tray ── */}
       {!showProtectedView && selected.size > 0 && (() => {
         const busy = unsubJob.running || trashJob.running || keepJob.running
+        // Ghost (secondary) button style — subtle white-on-dark, fixed shape.
+        const ghostSx = {
+          borderRadius: '9999px', px: 1.75, color: '#fff', bgcolor: 'rgba(255,255,255,0.10)',
+          boxShadow: 'none', whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 600,
+          '&:hover': { bgcolor: 'rgba(255,255,255,0.18)', boxShadow: 'none' },
+          '&.Mui-disabled': { color: 'rgba(255,255,255,0.32)', bgcolor: 'rgba(255,255,255,0.05)' },
+        }
         return (
         <Paper
           elevation={0}
           sx={{
             position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)',
-            // Fixed width + space-between keeps the bar perfectly centered and the
-            // action group pinned to the right edge, so it never slides sideways as
-            // the button set or the counts change.
-            width: 'min(980px, 94vw)',
+            // Fixed width + centered anchor ⇒ the box never shifts as the button set
+            // enables/disables or the counts change (numbers use tabular figures so the
+            // summary can't reflow the layout either).
+            width: 'min(940px, 94vw)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, overflow: 'hidden',
-            background: 'rgba(255,255,255,0.80)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-            color: '#1C1C1E', borderRadius: '16px', px: 2.5, py: 1.25, zIndex: 50,
-            boxShadow: '0 12px 40px rgba(0,0,0,0.16)', border: '1px solid rgba(60,60,67,0.16)',
+            bgcolor: '#1e293b', color: '#fff',
+            borderRadius: '9999px', pl: 1.25, pr: 1, py: 0.75, zIndex: 50,
+            boxShadow: '0 18px 50px rgba(15,23,42,0.45)', border: '1px solid rgba(255,255,255,0.08)',
             animation: 'fadeInUp 0.3s ease-out',
           }}
           role="toolbar"
           aria-label="Actions for selected senders"
         >
-          <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', minWidth: 0 }}>
+          {/* Left — count badge + summary (truncates rather than resizing the box) */}
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', minWidth: 0, pl: 0.75 }}>
             <Box sx={{
-              minWidth: 28, height: 28, px: 1, borderRadius: '8px', flexShrink: 0,
+              minWidth: 30, height: 30, px: 1, borderRadius: '9999px', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: '#007AFF', fontWeight: 700, fontSize: '0.85rem', color: '#fff',
+              background: '#2563eb', fontWeight: 800, fontSize: '0.8rem', color: '#fff',
+              fontVariantNumeric: 'tabular-nums',
             }}>
               {selected.size}
             </Box>
-            <Typography variant="body2" noWrap sx={{ color: 'rgba(60,60,67,0.7)' }}>
-              senders · <strong style={{ color: '#1C1C1E' }}>{selectedEmailCount.toLocaleString()}</strong> emails
+            <Typography variant="body2" noWrap sx={{ color: 'rgba(255,255,255,0.62)', fontVariantNumeric: 'tabular-nums' }}>
+              senders · <strong style={{ color: '#fff' }}>{selectedEmailCount.toLocaleString()}</strong> emails
               {selectedUnsubscribable < selected.size && ` · ${selectedUnsubscribable} unsub-able`}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0, overflowX: 'auto', py: 0.25, '& > *': { flexShrink: 0 } }}>
+
+          {/* Right — actions. All always rendered (disabled when N/A) so the group's
+              width is constant; flexShrink:0 keeps buttons full-size, group scrolls on
+              very narrow screens without ever moving the pill. */}
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexShrink: 0, overflowX: 'auto', py: 0.25, '& > *': { flexShrink: 0 } }}>
             <Button
-              variant="contained" size="small"
+              variant="contained" size="small" disableElevation
+              sx={{
+                borderRadius: '9999px', px: 2, textTransform: 'none', fontWeight: 700, bgcolor: '#2563eb',
+                '&:hover': { bgcolor: '#1d4ed8', boxShadow: 'none' }, boxShadow: 'none',
+                '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.4)' },
+              }}
               disabled={selectedUnsubscribable === 0 || busy}
               onClick={runUnsubscribe}
             >
               Unsubscribe
             </Button>
-            <Button
-              variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', whiteSpace: 'nowrap', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
-              disabled={busy}
-              onClick={() => setShowLabelReview(true)}
-            >
+            <Button variant="contained" size="small" disableElevation sx={ghostSx} disabled={busy} onClick={() => setShowLabelReview(true)}>
               Label…
             </Button>
-            <Button
-              variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
-              disabled={selectedNonProtectedCount === 0 || busy}
-              onClick={runProtect}
-            >
+            <Button variant="contained" size="small" disableElevation sx={ghostSx} disabled={selectedNonProtectedCount === 0 || busy} onClick={runProtect}>
               Protect
             </Button>
-            <Button
-              variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
-              disabled={selectedProtectedCount === 0 || busy}
-              onClick={runUnprotect}
-            >
+            <Button variant="contained" size="small" disableElevation sx={ghostSx} disabled={selectedProtectedCount === 0 || busy} onClick={runUnprotect}>
               Unprotect
             </Button>
-            <Button
-              variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', whiteSpace: 'nowrap', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
-              disabled={selectedNonProtectedCount !== 1 || busy}
-              onClick={() => setShowKeepDialog(true)}
-            >
+            <Button variant="contained" size="small" disableElevation sx={ghostSx} disabled={selectedNonProtectedCount !== 1 || busy} onClick={() => setShowKeepDialog(true)}>
               Keep latest…
             </Button>
             <Button
-              variant="contained" size="small" color="error"
-              sx={{ whiteSpace: 'nowrap' }}
+              variant="contained" size="small" disableElevation
+              sx={{
+                borderRadius: '9999px', px: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap', bgcolor: '#dc2626',
+                '&:hover': { bgcolor: '#b91c1c', boxShadow: 'none' }, boxShadow: 'none',
+                '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.4)' },
+              }}
               disabled={busy}
               onClick={() => setConfirmTrash(true)}
             >
@@ -670,7 +672,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             <Button
               variant="text" size="small"
-              sx={{ color: 'rgba(60,60,67,0.6)', '&:hover': { color: '#007AFF', background: 'rgba(0,122,255,0.08)' } }}
+              sx={{ borderRadius: '9999px', textTransform: 'none', color: 'rgba(255,255,255,0.6)', '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
               onClick={() => setSelected(new Set())}
             >
               Clear
