@@ -72,7 +72,7 @@ const theme = createTheme({
         }
 
         * { box-sizing: border-box; }
-        html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+        html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; overflow-y: scroll; }
         body {
           background: #F2F2F7;
           color: #1C1C1E;

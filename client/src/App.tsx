@@ -177,7 +177,7 @@ export default function App() {
       </Box>
 
       {/* ── Tab content ── */}
-      <Box sx={{ maxWidth: tab === 'labels' || tab === 'storage' || tab === 'inbox' ? '100%' : 1180, mx: 'auto', px: tab === 'labels' || tab === 'storage' || tab === 'inbox' ? 2.5 : { xs: 2, sm: 3 }, pb: 20, pt: 3 }}>
+      <Box sx={{ maxWidth: '100%', mx: 'auto', px: 2.5, pb: 20, pt: 3 }}>
         {tab === 'senders' && <SendersTab onDisconnected={auth.markDisconnected} />}
         {tab === 'inbox'   && <InboxTab onDisconnected={auth.markDisconnected} />}
         {tab === 'storage' && <StorageTab onDisconnected={auth.markDisconnected} />}
