@@ -14,6 +14,7 @@ This document is the single reference for **what the app does**, **how to use ea
    - [Sender scanning](#1-sender-scanning)
    - [Smart unsubscribe](#2-smart-unsubscribe)
    - [Auto-categorization & labels](#3-auto-categorization--labels)
+   - [Subscriptions detector](#3a-subscriptions-detector)
    - [Sender protect-list](#4-sender-protect-list)
    - [Per-sender trash](#5-per-sender-trash)
    - [Keep-latest-N retention](#6-keep-latest-n-retention)
@@ -86,15 +87,29 @@ The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Label
 
 ### 3. Auto-categorization & labels
 
-**What it does:** Classifies senders into categories and can apply Gmail labels under an `Unsub/*` prefix.
+**What it does:** Classifies senders into categories and creates top-level Gmail labels. By default it **tags in place** — mail stays in your inbox — with an opt-in to also archive.
 
-**Categories:** Promotions, Newsletters, Social, Shopping, Finance, Travel, Other (heuristic — domain matching, Gmail category labels, subject keywords).
+**Categories (12):** Work, Banking, Shopping, Travel, Medical, Tax, Bills, Subscriptions, Newsletters, Social, Promotions, Personal (heuristic — domain matching, subject keywords, Gmail category labels). Falls back to *Other* when there's no signal.
 
 **How to use:**
 1. Select senders on the **Senders** tab.
 2. Click **Label…** in the tray.
-3. Review the suggested category per sender in the dialog.
-4. Confirm to create the `Unsub/<Category>` labels and apply them (batched 1,000 messages per call).
+3. Review the suggested category per sender in the dialog (change any via the dropdown).
+4. Optionally tick **Also archive tagged emails** to move them out of the inbox (recoverable in All Mail).
+5. Confirm to create the labels and apply them (batched 1,000 messages per call). Without the archive toggle, `INBOX` is preserved — pure tagging.
+
+---
+
+### 3a. Subscriptions detector
+
+**What it does:** Surfaces recurring paid services from your scan — Netflix, Spotify, Amazon Prime, ChatGPT/OpenAI, Adobe, Canva, GitHub, iCloud, Notion, domain renewals, and more — with an estimated cadence (monthly/annual) derived from message timing. Heuristic and cache-only (no extra Gmail calls, no AI).
+
+**How to use:**
+1. Run a scan on the **Senders** tab.
+2. Pick the **Subscriptions** segment in the left filter pane.
+3. Detected vendors appear with their cadence; the usual per-sender actions (unsubscribe, keep-latest, protect, trash) work on them via the floating tray.
+
+The same vendor list feeds the **Subscriptions** label category, so tagging and detection stay in sync.
 
 ---
 
@@ -282,6 +297,8 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 ### 🚀 Now (no AI, high value)
 
 - [x] **Scheduled re-scan + weekly digest email** — *shipped 2026-07-09* (see [feature 12](#12-weekly-digest-scheduled)). Fully built; scheduled runs are reliable **once production OAuth is verified** (assets + guide in [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md)).
+- [x] **Expanded label taxonomy + tag-only / archive** — *shipped* (see [feature 3](#3-auto-categorization--labels)). 12 top-level categories; tags in place by default, opt-in archive.
+- [x] **Subscriptions detector** — *shipped* (see [feature 3a](#3a-subscriptions-detector)). Heuristic, cache-only recurring-service detection with cadence.
 
 ### 🔄 Next (rules & automation)
 
@@ -293,7 +310,9 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 
 ### 🤖 Later (AI-powered — needs Claude API)
 
-- [ ] **AI categorizer** — replace heuristic categories with Claude calls for edge cases (batch 50 at a time, cache in SQLite).
+- [ ] **Expense & Finance tracker** — extract purchases/food/travel spend from receipts and statements. *Deferred:* needs the Claude API + email-body reads.
+- [ ] **Career extractor** — surface offer letters, interview invites, certifications, recruiter messages, promotion emails, performance reviews. *Deferred:* needs the Claude API + email-body reads.
+- [ ] **AI categorizer** — replace heuristic categories with Claude calls for edge cases (batch, cache).
 - [ ] **Priority scoring** — rank inbox by urgency/importance.
 - [ ] **Summaries** — one-line group summaries and thread summaries.
 - [ ] **Smart reply** — 3 one-click reply suggestions per email.
