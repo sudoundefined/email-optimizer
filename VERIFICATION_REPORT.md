@@ -172,4 +172,17 @@ Shipped two retention/sweeper features (branch `feat/now-tier-quick-wins`):
 - **Keep-latest-N** — `retentionService` keeps the newest N emails from a sender and trashes the rest; exposed in the Senders tray for a single non-protected sender. Sender address is format-validated to block Gmail-query injection; protected senders are refused; `keep` is bounded to 1–1000.
 - **Trash-all-matching** — `trashByFilterKey` trashes the entire result set of an allow-listed inbox filter (server-paged, 10k cap surfaced), automatically skipping protected senders.
 - **Adversarial review**: a 3-dimension (destructive-safety / correctness / security) fan-out with independent verification surfaced 6 defects (2 HIGH — query injection, filter-trash protect-bypass), all fixed before merge. Verified end-to-end against the running server (validation rejects injection/keep=0; valid jobs fail safe on expired token with zero mail trashed).
-- **Tests**: 66/66 passing (added keep-latest partitioning, sender-email injection guard, and filter allow-list drift-guard suites).
+- **Tests**: added keep-latest partitioning, sender-email injection guard, and filter allow-list drift-guard suites.
+
+### Scheduled Digest + Housekeeping (2026-07-09)
+Shipped the weekly-digest feature plus verification assets and tech-debt cleanup:
+- **Weekly digest** — `digestStore` (settings + sender baseline), `digestService` (pure XSS-safe HTML/text/MIME + sender diff), `digestRunner` (first-run seeding, at-most-once send, baseline advance), `jobs/scheduler.js` (pure `isDigestDue`/`mostRecentSlot`, 15-min catch-up ticks), routes `GET/POST /api/digest*`, and a settings dialog (enable/day/hour/recipient, preview, send-now, history).
+- **OAuth verification assets** — public `/legal/privacy` + `/legal/terms` pages and `docs/OAUTH_VERIFICATION.md` (scope justification + submission steps) to move Testing → Production and remove the 7-day token expiry.
+- **Housekeeping** — server `FILTER_DEFS` is now the single source of truth (client fetches `GET /api/inbox/filters`); `vite` `manualChunks` splits react/mui/app (no chunk > 500 KB warning); README MUI version corrected to v9.
+- **Adversarial review**: a 4-dimension fan-out surfaced 6 defects (2 HIGH — unauthenticated recipient-override exfiltration via a 0.0.0.0 bind; non-atomic send→persist causing duplicate sends), all fixed: API binds `127.0.0.1` by default, all `/api/digest*` routes are auth-gated, and durable state advances before send (at-most-once). Verified end-to-end (gated routes return 401 disconnected; loopback bind confirmed via netstat; legal pages stay public).
+- **Tests**: 91/91 passing — added digest store/settings/baseline, digest builders (XSS + MIME injection), and scheduler due-logic/DST suites.
+
+### Final status (2026-07-09)
+- ✅ **91/91 tests passing**, clean TypeScript build, bundle code-split.
+- ✅ All Roadmap **"Now" tier** items shipped (keep-latest, bulk-trash, weekly digest).
+- ⏳ Reliable scheduled delivery depends on **production OAuth verification** (assets + guide now in the repo).

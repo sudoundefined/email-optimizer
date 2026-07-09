@@ -22,6 +22,7 @@ This document is the single reference for **what the app does**, **how to use ea
    - [Trash-all-matching](#9-trash-all-matching)
    - [Storage recovery dashboard](#10-storage-recovery-dashboard)
    - [Label manager](#11-label-manager)
+   - [Weekly digest (scheduled)](#12-weekly-digest-scheduled)
 3. [Safety model](#safety-model)
 4. [Pending / TODO](#pending--todo)
 
@@ -231,6 +232,36 @@ Label-backed groups show exact counts; query-backed groups (attachments, large, 
 
 ---
 
+### 12. Weekly digest (scheduled)
+
+*Shipped 2026-07-09. Scheduled runs require production OAuth — see caveat below.*
+
+**What it does:** On a weekly schedule, scans your mailbox for **new** marketing senders (ones that started emailing you since you began using the digest) and emails you a summary from your own Gmail, each sender with an unsubscribe link.
+
+**How to use:**
+1. Click the **schedule (clock) icon** in the top bar to open **Weekly digest** settings.
+2. Toggle **Enable weekly digest**, pick a **day** and **hour**, and optionally set a **recipient** (blank = your own account address).
+3. **Save settings.**
+4. Use **Preview** to see which senders would be included (dry run — sends nothing), or **Send now** to run immediately.
+5. The dialog shows the **last run** and a short **history**.
+
+**How "new" is determined:**
+- The **first run seeds a baseline** from your current senders and sends **nothing** — so you're never hit with a giant first email.
+- Each later run reports only senders **not seen before** (and that have an unsubscribe method), then advances the baseline.
+- Runs with zero new senders send no email but still advance the schedule.
+
+**Notes & safeguards:**
+- Sends from **your own Gmail** (`gmail.send`) to yourself (or your chosen recipient). Recipient is email-format validated.
+- The digest HTML **escapes all sender-supplied content** (names, subjects, URLs) — no markup/link injection.
+- A manual run and the scheduler **cannot double-fire** (single-job guard); the baseline advances once per run.
+- The scan for the digest does **not** disturb your Senders-tab scan.
+
+> ⚠️ **Scheduling caveat (OAuth):** The in-process scheduler only runs while the app is running and a valid Google sign-in exists. In **Testing-mode** OAuth, sign-in expires ~every 7 days, so a weekly cron will pause until you sign in again. If a scheduled run hits an expired token it **fails safe** (nothing sent) and retries next tick. **Production OAuth verification removes this limit** — see [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md).
+
+**Under the hood:** `digestStore` (settings + baseline), `digestService` (pure diff/HTML/MIME builders), `digestRunner` (`runDigest`), `jobs/scheduler.js` (`isDigestDue`), routes `GET/POST /api/digest*`.
+
+---
+
 ## Safety model
 
 The app is built around **non-destructive, recoverable** actions:
@@ -250,8 +281,7 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 
 ### 🚀 Now (no AI, high value)
 
-- [ ] **Scheduled re-scan + weekly digest email** — a weekly cron that scans for new marketing senders and emails you a digest with inline unsubscribe links.
-  - ⚠️ **Blocked on production OAuth.** In Testing mode, refresh tokens expire after ~7 days, so a weekly cron is unreliable. Needs Google app verification first (see below).
+- [x] **Scheduled re-scan + weekly digest email** — *shipped 2026-07-09* (see [feature 12](#12-weekly-digest-scheduled)). Fully built; scheduled runs are reliable **once production OAuth is verified** (assets + guide in [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md)).
 
 ### 🔄 Next (rules & automation)
 
@@ -271,7 +301,7 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 
 ### 🌐 Platform (scalability & reach)
 
-- [ ] **Production OAuth verification** — move the app from Testing to Production (~2–4 weeks Google process). Removes the 7-day token expiry and unblocks the entire scheduled/automation tier. **Soft prerequisite for the "Now" digest feature.**
+- [ ] **Production OAuth verification** — move the app from Testing to Production (~2–4 weeks Google process). Removes the 7-day token expiry and unblocks reliable scheduled digests. **Assets ready:** privacy/terms pages served at `/legal/*` and a submission guide in [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md).
 - [ ] **Multi-account** — manage 2+ Gmail accounts; optional unified inbox.
 - [ ] **Outlook adapter** — OAuth + Microsoft Graph API.
 - [ ] **IMAP fallback** — universal but limited (no categories, no native unsubscribe headers).
@@ -280,9 +310,9 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 
 ### 🧹 Housekeeping / tech debt
 
-- [ ] **Doc version drift** — reconcile MUI version references (README once said v6; actual is v9.2.0).
-- [ ] **Bundle size** — client bundle is ~557 KB; consider code-splitting (dynamic `import()` / manual chunks).
-- [ ] **Single source of truth for filters** — server `FILTERS` map duplicates the client toolbar list (a drift-guard test prevents divergence). Could serve `FILTERS` from the server and have the toolbar fetch it.
+- [x] **Doc version drift** — *done*: README now says Material UI v9 (matches installed `@mui/material@9.2.0`).
+- [x] **Bundle size** — *done*: `vite` `manualChunks` splits react/mui/app; no chunk exceeds the 500 KB warning.
+- [x] **Single source of truth for filters** — *done*: server `FILTER_DEFS` is authoritative; the client fetches via `GET /api/inbox/filters` (no duplicated list).
 - [ ] **Incremental scan / local index** — for power users (100k+ emails), scan only new mail since last run; cache sender metadata in SQLite.
 
 ---
