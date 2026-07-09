@@ -2,8 +2,9 @@ import { Router } from 'express'
 import { createJob, isJobRunning } from '../jobs/jobManager.js'
 import { runScan, scanView } from '../services/scanService.js'
 import { runTrashSenders } from '../services/trashService.js'
+import { runKeepLatest } from '../services/retentionService.js'
 import { getScan, requireScan } from '../store/scanCache.js'
-import { runAutoProtect, filterProtected } from '../services/protectService.js'
+import { runAutoProtect, filterProtected, isProtected } from '../services/protectService.js'
 
 const router = Router()
 
@@ -45,6 +46,26 @@ router.post('/senders/trash', async (req, res, next) => {
     }
     const job = createJob('trash-senders', (emit) => runTrashSenders({ senderEmails: allowed }, emit))
     res.json({ jobId: job.id, excluded: excluded.length })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/senders/keep-latest', async (req, res, next) => {
+  try {
+    const { senderEmail, keep } = req.body || {}
+    if (!senderEmail || typeof senderEmail !== 'string') {
+      return res.status(400).json({ error: 'senderEmail is required' })
+    }
+    const n = Number(keep)
+    if (!Number.isInteger(n) || n < 0 || n > 1000) {
+      return res.status(400).json({ error: 'keep must be an integer between 0 and 1000' })
+    }
+    if (await isProtected(senderEmail.toLowerCase())) {
+      return res.json({ jobId: null, protected: true })
+    }
+    const job = createJob('keep-latest', (emit) => runKeepLatest({ senderEmail, keep: n }, emit))
+    res.json({ jobId: job.id, protected: false })
   } catch (err) {
     next(err)
   }
