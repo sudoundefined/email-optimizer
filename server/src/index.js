@@ -10,6 +10,7 @@ import inboxRoutes from './routes/inbox.js'
 import protectRoutes from './routes/protect.js'
 import storageRoutes from './routes/storage.js'
 import messageRoutes from './routes/messages.js'
+import { startScheduler } from './jobs/scheduler.js'
 
 const app = express()
 app.use(express.json())
@@ -37,4 +38,5 @@ app.use((err, req, res, next) => {
 
 app.listen(config.port, () => {
   console.log(`API server listening on http://localhost:${config.port}`)
+  startScheduler()
 })

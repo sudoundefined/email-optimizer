@@ -21,10 +21,12 @@ export function buildQuery(range) {
 }
 
 /**
- * Scan job runner: list candidate messages, fetch metadata, group by
- * sender, determine each sender's best unsubscribe method.
+ * Scan core: list candidate messages, fetch metadata, group by sender,
+ * determine each sender's best unsubscribe method. Returns the scan result
+ * WITHOUT caching it — callers decide whether to persist (runScan does;
+ * the digest runner does not, so it never clobbers the Senders-tab scan).
  */
-export async function runScan({ range = '6m', maxMessages = config.scanMaxMessages }, emit) {
+export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMessages }, emit) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail()
 
@@ -89,15 +91,22 @@ export async function runScan({ range = '6m', maxMessages = config.scanMaxMessag
       }
     }
 
-    const result = {
+    return {
       scannedAt: new Date().toISOString(),
       range,
       messageCount: messages.length,
       senders,
     }
-    setScan(result)
-    return { senders: senders.size, messages: messages.length }
   })
+}
+
+/**
+ * Scan job runner: run scanSenders and cache the result for the Senders tab.
+ */
+export async function runScan(opts, emit) {
+  const result = await scanSenders(opts, emit)
+  setScan(result)
+  return { senders: result.senders.size, messages: result.messageCount }
 }
 
 /** Serializable view of the scan for the API (senders sorted by count desc). */
