@@ -11,12 +11,14 @@ import protectRoutes from './routes/protect.js'
 import storageRoutes from './routes/storage.js'
 import messageRoutes from './routes/messages.js'
 import digestRoutes from './routes/digest.js'
+import legalRoutes from './routes/legal.js'
 import { startScheduler } from './jobs/scheduler.js'
 
 const app = express()
 app.use(express.json())
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
+app.use('/', legalRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/jobs', jobRoutes)
 app.use('/api', scanRoutes)
