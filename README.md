@@ -8,7 +8,7 @@ A personal web app for cleaning up your Gmail — scan for marketing clutter, bu
 
 | Tab | What it does |
 |-----|-------------|
-| **Senders** | Scan your mailbox by date range, see senders sorted by email count with unsubscribe-method badges (One-click / Email / Link / None). Select senders to unsubscribe, label, protect, or trash in bulk. |
+| **Senders** | Scan your mailbox by date range, see senders sorted by email count with unsubscribe-method badges (One-click / Email / Link / None). Select senders to unsubscribe, label, protect, keep-latest-N, or trash in bulk. |
 | **Inbox** | Live counts for Gmail groups (Important, Primary, Marketing, Social, etc.) with message drill-down. Quick-filter toolbar for one-click segments like "never opened", "large >5 MB", "old attachments". |
 | **Storage** | Reclaimable storage total, top 10 senders by size, storage-by-month chart, and a table of your largest attachments (>5 MB). |
 | **Labels** | Manage app-created `Unsub/*` labels — remove a label (keep emails) or trash its emails and delete the label. |
@@ -76,33 +76,35 @@ Open **http://localhost:5173** and sign in with Google.
    - **Unsubscribe** — results stream in per-sender as they complete
    - **Label** — review suggested categories, then create and apply Gmail labels (`Unsub/<Category>`)
    - **Protect / Unprotect** — add or remove senders from the protect-list
+   - **Keep latest…** — (single non-protected sender) keep the newest N emails from that sender and move the rest to Trash. Great for daily newsletters you skim but don't archive. Protected senders are refused.
    - **Move to Trash** — trash all scanned emails from selected senders (>500 emails requires typed confirmation)
 
 ### Inbox tab
 
-- **Quick filters** — never opened, unread marketing, large >5 MB, old newsletters, and more
-- **Groups** — clickable cards (Important, Primary, Marketing, Social, etc.) showing counts; click to see the 25 most recent messages
-- **All Gmail labels** — system, user, and app-created labels with email/unread counts
+- **Two-pane layout** — A master-detail view of your inbox.
+- **Smart filters** — Quick segments like never opened, unread marketing, large >5 MB, old newsletters.
+- **Trash all matching** — when a filter is active, move the *entire* matching set to Trash (not just the messages shown). Protected senders are automatically skipped, and the confirmation makes clear it affects every match.
+- **Newsletters & Groups** — Clickable items (Important, Primary, Marketing, Social, etc.) showing counts; click to see the messages in the detail pane.
 
 ### Storage tab
 
-- **Reclaimable storage** — total size and count of emails >1 MB
-- **Top senders by size** — bar chart of the 10 heaviest senders
-- **Storage by month** — bar chart of size over time
-- **Largest attachments (>5 MB)** — table of your biggest emails
+- **Reclaimable storage** — total size and count of emails >500 KB
+- **Storage by date** — Drill down into storage usage by year and month.
+- **Top senders & Size bands** — Browse large emails by sender or size bucket.
+- **Largest attachments (>5 MB)** — Default table view of your biggest emails.
 
 ### Labels tab
 
-- **Remove label, keep emails** — deletes only the label
-- **Trash emails + delete label** — moves emails to Trash, then removes the label
+- **Two-pane layout** — Browse all your system, user, and app-created labels.
+- **Manage App-created labels** — Remove a label (keep emails) or trash emails + delete label directly from the detail pane.
 
 ## Tests
 
 ```bash
-npm test    # 52 unit tests
+npm test    # 66 unit tests
 ```
 
-Covers: header parsing (RFC 2369/8058), mailto/MIME building with header-injection resistance, sender categorization, rate-limiter retry/backoff logic, inbox group definitions, protect-list heuristics and persistence, and storage aggregation.
+Covers: header parsing (RFC 2369/8058), mailto/MIME building with header-injection resistance, sender categorization, rate-limiter retry/backoff logic, inbox group definitions, quick-filter allow-list (client/server drift guard), keep-latest partitioning and sender-email injection guard, protect-list heuristics and persistence, and storage aggregation.
 
 ## Project structure
 

@@ -1,7 +1,10 @@
 import { getGmail } from '../gmail/client.js'
 import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { limited } from '../gmail/rateLimiter.js'
-import { getMetadata } from '../gmail/messages.js'
+import { getMetadata, listAllMessageIds } from '../gmail/messages.js'
+import { trashMessages } from './messageTrashService.js'
+import { listProtected } from './protectService.js'
+import { parseFrom } from './headerParser.js'
 import { listRegistered } from '../store/labelRegistry.js'
 
 /**
@@ -141,5 +144,82 @@ export async function filterMessages(query, max = 25) {
         subject: m.headers['subject'] || '',
         date: m.internalDate,
       }))
+  })
+}
+
+const FILTER_TRASH_MAX_MESSAGES = 10_000
+
+/**
+ * Allow-listed Gmail queries for the quick-filter toolbar.
+ * Keep in sync with client/src/components/FilterToolbar.tsx FILTERS.
+ * Bulk-trash only accepts these keys — never a raw client-supplied query.
+ */
+export const FILTERS = {
+  'never-opened': 'is:unread older_than:6m -in:trash -in:spam',
+  'low-engagement': 'is:unread older_than:3m -in:trash -in:spam',
+  'unread-marketing': 'is:unread category:promotions -in:trash -in:spam',
+  'unread-social': 'is:unread category:social -in:trash -in:spam',
+  'old-newsletters': 'category:updates older_than:1y -in:trash -in:spam',
+  'old-attachments': 'has:attachment older_than:1y -in:trash -in:spam',
+  'large-emails': 'larger:5M -in:trash -in:spam',
+  'stale-unread': 'is:unread older_than:6m -in:trash -in:spam',
+  'old-promotions': 'category:promotions older_than:1y -in:trash -in:spam',
+  'old-forums': 'category:forums older_than:1y -in:trash -in:spam',
+}
+
+/**
+ * Trash EVERY message matching an allow-listed filter key (not just a sample).
+ * Runs as a job. Gmail Trash only — never a permanent delete.
+ *
+ * Filters are content-scoped (e.g. "old attachments"), so they can sweep
+ * protected senders (banks, government, etc.). Before trashing we fetch each
+ * matched message's sender and drop any on the protect-list — upholding the
+ * same guarantee the keep-latest and unsubscribe paths honor.
+ *
+ * Returns { trashed, excluded, capped } where `excluded` counts protected
+ * messages skipped and `capped` indicates the 10k scan cap was hit.
+ */
+export async function trashByFilterKey(key, emit) {
+  const q = FILTERS[key]
+  if (!q) {
+    const err = new Error(`Unknown filter "${key}"`)
+    err.status = 400
+    throw err
+  }
+  return withAuthErrorHandling(async () => {
+    const gmail = await getGmail()
+    emit?.({ phase: 'listing', listed: 0 })
+    // Fetch one past the cap purely to detect truncation honestly.
+    const ids = await listAllMessageIds(gmail, q, {
+      maxMessages: FILTER_TRASH_MAX_MESSAGES + 1,
+      onProgress: (p) => emit?.({ phase: 'listing', ...p }),
+    })
+    const capped = ids.length > FILTER_TRASH_MAX_MESSAGES
+    const scanIds = capped ? ids.slice(0, FILTER_TRASH_MAX_MESSAGES) : ids
+    if (scanIds.length === 0) return { trashed: 0, excluded: 0, capped: false }
+
+    let trashIds = scanIds
+    let excluded = 0
+    const protectedList = await listProtected()
+    if (protectedList.length > 0) {
+      const protectedSet = new Set(protectedList.map((p) => p.email.toLowerCase()))
+      emit?.({ phase: 'checking', fetched: 0, total: scanIds.length })
+      const meta = await getMetadata(gmail, scanIds, {
+        onProgress: (p) => emit?.({ phase: 'checking', ...p }),
+      })
+      const allowed = []
+      for (const m of meta) {
+        const { email } = parseFrom(m.headers['from'])
+        if (email && protectedSet.has(email.toLowerCase())) excluded++
+        else allowed.push(m.id)
+      }
+      // getMetadata drops IDs whose fetch failed, so `allowed` only ever
+      // contains messages whose sender we actually verified (fail-safe).
+      trashIds = allowed
+    }
+
+    if (trashIds.length === 0) return { trashed: 0, excluded, capped }
+    const res = await trashMessages(trashIds, emit)
+    return { trashed: res.trashed, excluded, capped }
   })
 }

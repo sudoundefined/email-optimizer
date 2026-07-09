@@ -16,28 +16,27 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 - **Per-sender trash** — move all scanned emails from selected senders to Gmail Trash (30-day recovery)
 
 ### Inbox overview (v2)
-- **Live inbox groups** — Important, Primary, Marketing, Social, Updates, Forums, Starred, Unread, plus smart groups (attachments, large >5MB, stale unread 6mo+)
-- **All labels list** — system, user, and app-created labels with counts
-- **Message drill-down** — click a group to see its 25 most recent messages
+- **Two-pane layout** — left pane for quick-filter and groups navigation, right pane for message lists.
+- **Live inbox groups** — Important, Primary, Marketing, Social, Updates, Forums, Starred, Unread.
+- **Message drill-down** — click a group or filter to see its 25 most recent messages in the detail pane.
 
 ### Protection, filters & storage (v3)
 - **Sender protect-list** — auto-protect banks/utilities/government (domain + subject heuristics) plus manual protect/unprotect; protected senders are excluded from bulk unsubscribe and trash
-- **Quick-filter toolbar** — one-click inbox segments (never opened, unread marketing/social, old newsletters, large >5MB, old attachments, old promotions/forums)
-- **Storage recovery dashboard** — reclaimable storage total, top senders and months by size, largest attachments (>5MB) table
+- **Quick-filter toolbar** — one-click inbox segments (never opened, unread marketing/social, old newsletters, large >5 MB, old attachments, old promotions/forums)
+- **Storage recovery dashboard** — reclaimable storage total (>500 KB emails), drill-down by date, top senders and size bands, and a largest attachments table
+- **Labels master-detail** — comprehensive manager for system, user, and app-created labels with removal and bulk-trash capabilities
+
+### Retention & sweepers (v4)
+- **Keep latest N** — per-sender retention: keep the newest N emails from a sender and move the rest to Trash. Available from the Senders tray when a single non-protected sender is selected. Protected senders are refused; sender address is validated to prevent Gmail-query injection.
+- **Trash all matching (filters)** — the Inbox quick-filters can move the *entire* matching set to Trash (not just the visible sample), paged server-side. Protected senders are automatically skipped, and the result reports how many were skipped or whether the 10k scan cap was hit.
 
 ---
 
 ## 🚀 Now (no AI, high value)
 
-**Retention**
-- **Keep latest N** — per-sender retention policy: "keep the 3 most recent emails from this sender, trash the rest." Great for daily newsletters you skim but don't archive.
-
 **Scheduled & digest**
 - **Scheduled re-scan** — weekly cron job: scan for new marketing senders, generate a digest email listing them (with one-click unsubscribe links). Prevents inbox creep.
 - **Weekly digest email** — "You got mail from 12 new marketing senders this week. Unsubscribe or label them:" followed by sender list with inline action links.
-
-**Sweeper tools**
-- **Bulk-trash from Storage/Filters** — wire the storage dashboard and quick-filters directly into the existing trash job so heavy senders and stale mail can be cleared in place.
 
 ---
 
@@ -127,7 +126,7 @@ When choosing what to build next, weigh:
 3. **Complexity** — can we ship an MVP in 1-2 weeks?
 4. **Monetization** — does this justify a paid tier?
 
-**Quick wins** (Now tier): Keep-latest-N, scheduled digest, bulk-trash from storage/filters.  
+**Quick wins** (Now tier): scheduled digest of new marketing senders.  
 **Moat-builders** (Next tier): Auto-rules engine, engagement stats.  
 **Moonshots** (Later tier): AI summaries, natural-language commands.
 

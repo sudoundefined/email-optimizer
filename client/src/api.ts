@@ -58,6 +58,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ senderEmails }),
     }),
+  keepLatest: (senderEmail: string, keep: number) =>
+    request<{ jobId: string | null; protected: boolean }>('/api/senders/keep-latest', {
+      method: 'POST',
+      body: JSON.stringify({ senderEmail, keep }),
+    }),
   suggestions: () => request<Suggestion[]>('/api/labels/suggestions'),
   applyLabels: (assignments: { senderEmail: string; labelName: string }[]) =>
     request<{ jobId: string }>('/api/labels/apply', {
@@ -65,6 +70,7 @@ export const api = {
       body: JSON.stringify({ assignments }),
     }),
   labels: () => request<AppLabel[]>('/api/labels'),
+  labelMessages: (id: string) => request<GroupMessage[]>(`/api/labels/${id}/messages`),
   deleteLabelOnly: (id: string) =>
     request<{ ok: boolean }>(`/api/labels/${id}?mode=labelOnly`, { method: 'DELETE' }),
   trashLabel: (id: string) =>
@@ -74,6 +80,8 @@ export const api = {
   groupMessages: (key: string) => request<GroupMessage[]>(`/api/inbox/groups/${key}/messages`),
   allLabels: () => request<GmailLabel[]>('/api/inbox/labels'),
   filterMessages: (q: string) => request<GroupMessage[]>(`/api/inbox/filter?q=${encodeURIComponent(q)}`),
+  trashFilter: (key: string) =>
+    request<{ jobId: string }>(`/api/inbox/filter/${encodeURIComponent(key)}/trash`, { method: 'POST' }),
   protectedList: () => request<{ protected: ProtectedSender[] }>('/api/protect'),
   protectSenders: (emails: string[]) =>
     request<{ ok: boolean }>('/api/protect', { method: 'POST', body: JSON.stringify({ emails }) }),
@@ -81,7 +89,7 @@ export const api = {
     request<{ ok: boolean }>('/api/protect', { method: 'DELETE', body: JSON.stringify({ emails }) }),
   storageStats: () => request<StorageStats>('/api/storage/stats'),
   storageRefresh: () => request<{ ok: boolean }>('/api/storage/refresh', { method: 'POST' }),
-  storageDrillDown: (by: 'sender' | 'month' | 'year', value: string) =>
+  storageDrillDown: (by: 'sender' | 'month' | 'year' | 'size', value: string) =>
     request<StorageDrillMessage[]>(
       `/api/storage/messages?by=${encodeURIComponent(by)}&value=${encodeURIComponent(value)}`
     ),

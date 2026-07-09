@@ -6,6 +6,15 @@ export function bytesToMB(bytes) {
   return Math.round((bytes / (1024 * 1024)) * 100) / 100
 }
 
+export const SIZE_BANDS = [
+  { key: 'lt500k',   label: '< 500 KB',      minBytes: 0,          maxBytes: 512_000 },
+  { key: '500k-1m',  label: '500 KB – 1 MB', minBytes: 512_000,    maxBytes: 1_048_576 },
+  { key: '1m-5m',    label: '1 – 5 MB',      minBytes: 1_048_576,  maxBytes: 5_242_880 },
+  { key: '5m-10m',   label: '5 – 10 MB',     minBytes: 5_242_880,  maxBytes: 10_485_760 },
+  { key: '10m-25m',  label: '10 – 25 MB',    minBytes: 10_485_760, maxBytes: 26_214_400 },
+  { key: 'gt25m',    label: '> 25 MB',        minBytes: 26_214_400, maxBytes: Infinity },
+]
+
 export function aggregateBySender(messages, limit = 10) {
   const map = new Map()
   for (const m of messages) {
@@ -58,6 +67,21 @@ export function aggregateByYear(messages) {
   return [...map.values()]
     .sort((a, b) => b.year.localeCompare(a.year))
     .map(e => ({ year: e.year, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }))
+}
+
+export function aggregateBySizeBand(messages) {
+  const counts = new Map(SIZE_BANDS.map(b => [b.key, { totalBytes: 0, messageCount: 0 }]))
+  for (const m of messages) {
+    const band = SIZE_BANDS.find(b => m.sizeEstimate >= b.minBytes && m.sizeEstimate < b.maxBytes)
+    if (!band) continue
+    const entry = counts.get(band.key)
+    entry.totalBytes += m.sizeEstimate
+    entry.messageCount++
+  }
+  return SIZE_BANDS.map(b => {
+    const e = counts.get(b.key)
+    return { key: b.key, label: b.label, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }
+  })
 }
 
 export function filterLargeAttachments(messages, minSizeMB = 5) {
@@ -145,6 +169,7 @@ export async function getStorageStats(emit) {
       senders: aggregateBySender(messages, 10),
       months: aggregateByMonth(messages, 12),
       years: aggregateByYear(messages),
+      sizes: aggregateBySizeBand(messages),
       attachments: filterLargeAttachments(messages, 5),
     }
     cache = stats
@@ -201,6 +226,22 @@ export function getDrillDownMessages(by, value) {
   if (by === 'year') {
     return messages
       .filter(m => String(new Date(m.date).getFullYear()) === value)
+      .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
+      .map(m => ({
+        id: m.id,
+        from: m.from,
+        subject: m.subject,
+        sizeMB: bytesToMB(m.sizeEstimate),
+        date: m.date,
+        hasAttachment: m.hasAttachment,
+      }))
+  }
+
+  if (by === 'size') {
+    const band = SIZE_BANDS.find(b => b.key === value)
+    if (!band) return []
+    return messages
+      .filter(m => m.sizeEstimate >= band.minBytes && m.sizeEstimate < band.maxBytes)
       .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
       .map(m => ({
         id: m.id,
