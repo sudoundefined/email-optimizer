@@ -17,7 +17,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // Explicit IPv4 to match the server's 127.0.0.1 loopback bind
+        // (localhost can resolve to ::1 first on Windows).
+        target: 'http://127.0.0.1:3001',
         changeOrigin: false,
       },
     },
