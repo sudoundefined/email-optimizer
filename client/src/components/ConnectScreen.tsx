@@ -40,7 +40,7 @@ export default function ConnectScreen() {
             width: 64, height: 64, borderRadius: '16px', mb: 3,
             background: 'var(--color-accent)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 16px rgba(37, 99, 235, 0.25)',
+            boxShadow: '0 8px 16px rgba(0, 122, 255, 0.25)',
           }}
         >
           <MailIcon sx={{ color: '#fff', fontSize: 32 }} />

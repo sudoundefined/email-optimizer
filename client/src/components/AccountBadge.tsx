@@ -10,7 +10,7 @@ function initials(email: string) {
 }
 
 function avatarColor(email: string) {
-  const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#0ea5e9', '#8b5cf6']
+  const colors = ['#5856D6', '#FF2D55', '#34C759', '#FF9500', '#007AFF', '#00C7BE']
   let hash = 0
   for (const ch of email) hash = ch.charCodeAt(0) + ((hash << 5) - hash)
   return colors[Math.abs(hash) % colors.length]
@@ -25,8 +25,8 @@ export default function AccountBadge({ email, onLogout }: { email: string; onLog
         <Avatar
           sx={{
             width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700,
-            background: `linear-gradient(135deg, ${bg} 0%, ${bg}cc 100%)`,
-            border: '2px solid rgba(255,255,255,0.2)',
+            backgroundColor: bg,
+            border: '1px solid rgba(0,0,0,0.06)',
             cursor: 'default',
           }}
         >
@@ -35,7 +35,7 @@ export default function AccountBadge({ email, onLogout }: { email: string; onLog
       </Tooltip>
       <Typography
         variant="body2"
-        sx={{ color: 'rgba(255,255,255,0.65)', fontWeight: 500, display: { xs: 'none', lg: 'block' }, maxWidth: 160 }}
+        sx={{ color: 'rgba(60,60,67,0.6)', fontWeight: 500, display: { xs: 'none', lg: 'block' }, maxWidth: 160 }}
         noWrap
       >
         {email}
@@ -44,14 +44,14 @@ export default function AccountBadge({ email, onLogout }: { email: string; onLog
         size="small"
         onClick={onLogout}
         sx={{
-          color: 'rgba(255,255,255,0.55)',
+          color: 'rgba(60,60,67,0.75)',
           fontWeight: 600,
           fontSize: '0.75rem',
-          borderColor: 'rgba(255,255,255,0.15)',
+          borderColor: 'rgba(60,60,67,0.22)',
           border: '1px solid',
           borderRadius: '8px',
           px: 1.5, py: 0.5,
-          '&:hover': { color: '#fff', borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.08)' },
+          '&:hover': { color: '#007AFF', borderColor: 'rgba(0,122,255,0.4)', background: 'rgba(0,122,255,0.08)' },
         }}
       >
         Sign out

@@ -27,10 +27,10 @@ import LabelManager from './components/LabelManager'
 import DigestSettingsDialog from './components/DigestSettingsDialog'
 
 const TABS = [
-  { value: 'senders', label: 'Senders', icon: <PeopleIcon fontSize="small" />, color: '#6366f1' },
-  { value: 'inbox',   label: 'Inbox',   icon: <InboxIcon fontSize="small" />,   color: '#0ea5e9' },
-  { value: 'storage', label: 'Storage', icon: <StorageIcon fontSize="small" />, color: '#10b981' },
-  { value: 'labels',  label: 'Labels',  icon: <LabelIcon fontSize="small" />,   color: '#f59e0b' },
+  { value: 'senders', label: 'Senders', icon: <PeopleIcon fontSize="small" />, blurb: 'Find and manage marketing senders' },
+  { value: 'inbox',   label: 'Inbox',   icon: <InboxIcon fontSize="small" />,   blurb: 'Browse and filter your inbox' },
+  { value: 'storage', label: 'Storage', icon: <StorageIcon fontSize="small" />, blurb: 'Reclaim space from large emails' },
+  { value: 'labels',  label: 'Labels',  icon: <LabelIcon fontSize="small" />,   blurb: 'Manage your app-created labels' },
 ] as const
 
 type TabValue = (typeof TABS)[number]['value']
@@ -42,18 +42,19 @@ export default function App() {
 
   if (auth.loading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', bgcolor: '#f1f5f9' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', bgcolor: '#F2F2F7' }}>
         <Box sx={{ textAlign: 'center' }}>
           <Box
             sx={{
-              width: 64, height: 64, borderRadius: '50%', mx: 'auto', mb: 2,
-              background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
+              width: 60, height: 60, borderRadius: '15px', mx: 'auto', mb: 2.5,
+              background: '#007AFF',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(0,122,255,0.28)',
             }}
           >
-            <MailIcon sx={{ color: '#fff', fontSize: 32 }} />
+            <MailIcon sx={{ color: '#fff', fontSize: 30 }} />
           </Box>
-          <CircularProgress size={24} sx={{ color: '#6366f1' }} />
+          <CircularProgress size={22} sx={{ color: '#007AFF' }} />
         </Box>
       </Box>
     )
@@ -61,37 +62,39 @@ export default function App() {
 
   if (!auth.status?.connected) return <ConnectScreen />
 
-  const activeColor = TABS.find(t => t.value === tab)?.color ?? '#6366f1'
+  const active = TABS.find(t => t.value === tab)
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f1f5f9' }}>
-      {/* ── AppBar ── */}
+    <Box sx={{ minHeight: '100vh', bgcolor: '#F2F2F7' }}>
+      {/* ── Frosted toolbar (Apple material) ── */}
       <AppBar
         position="sticky"
         elevation={0}
         sx={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%)',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          backdropFilter: 'blur(12px)',
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'saturate(180%) blur(20px)',
+          WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+          borderBottom: '1px solid rgba(60,60,67,0.16)',
+          color: '#1C1C1E',
         }}
       >
-        <Toolbar sx={{ gap: 2, minHeight: 64 }}>
-          {/* Logo */}
+        <Toolbar sx={{ gap: 2, minHeight: 56 }}>
+          {/* App mark */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mr: 1 }}>
             <Box
               sx={{
-                width: 36, height: 36, borderRadius: '10px',
-                background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
+                width: 30, height: 30, borderRadius: '8px',
+                background: '#007AFF',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(99,102,241,0.5)',
+                boxShadow: '0 2px 6px rgba(0,122,255,0.35)',
                 flexShrink: 0,
               }}
             >
-              <MailIcon sx={{ color: '#fff', fontSize: 20 }} />
+              <MailIcon sx={{ color: '#fff', fontSize: 18 }} />
             </Box>
             <Typography
               variant="h6"
-              sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: '#fff', display: { xs: 'none', sm: 'block' } }}
+              sx={{ fontWeight: 700, letterSpacing: '-0.02em', color: '#1C1C1E', display: { xs: 'none', sm: 'block' } }}
               noWrap
             >
               Email Optimizer
@@ -100,28 +103,21 @@ export default function App() {
               label="Beta"
               size="small"
               sx={{
-                height: 18, fontSize: '0.6rem', fontWeight: 700,
-                background: 'rgba(99,102,241,0.3)', color: '#c7d2fe',
-                border: '1px solid rgba(99,102,241,0.4)',
+                height: 19, fontSize: '0.62rem', fontWeight: 600,
+                background: 'rgba(60,60,67,0.10)', color: 'rgba(60,60,67,0.7)',
                 display: { xs: 'none', md: 'flex' },
               }}
             />
           </Box>
 
-          {/* Tabs */}
+          {/* Tabs — single accent, Apple style */}
           <Tabs
             value={TABS.findIndex(t => t.value === tab)}
             onChange={(_, i) => setTab(TABS[i].value)}
             sx={{
               flex: 1, minWidth: 0,
-              '& .MuiTab-root': { color: 'rgba(255,255,255,0.55)', minHeight: 64 },
-              '& .MuiTab-root.Mui-selected': { color: '#fff' },
-              '& .MuiTabs-indicator': {
-                background: `linear-gradient(90deg, ${activeColor}, ${activeColor}aa)`,
-                height: 3,
-                borderRadius: '3px 3px 0 0',
-                transition: 'background 300ms ease',
-              },
+              '& .MuiTab-root': { color: 'rgba(60,60,67,0.6)', minHeight: 56 },
+              '& .MuiTab-root.Mui-selected': { color: '#007AFF' },
             }}
           >
             {TABS.map(t => (
@@ -138,7 +134,7 @@ export default function App() {
           <Tooltip title="Weekly digest settings">
             <IconButton
               onClick={() => setDigestOpen(true)}
-              sx={{ color: 'rgba(255,255,255,0.75)', '&:hover': { color: '#fff' } }}
+              sx={{ color: 'rgba(60,60,67,0.6)', '&:hover': { color: '#007AFF', background: 'rgba(0,122,255,0.08)' } }}
               aria-label="Weekly digest settings"
             >
               <ScheduleIcon fontSize="small" />
@@ -148,37 +144,34 @@ export default function App() {
         </Toolbar>
       </AppBar>
 
-      {/* ── Section header strip ── */}
+      {/* ── Section header ── */}
       <Box
         sx={{
-          background: `linear-gradient(90deg, ${activeColor}18 0%, transparent 60%)`,
-          borderBottom: `3px solid ${activeColor}30`,
           px: { xs: 2, sm: 3 },
-          py: 1.5,
+          py: 1.75,
           display: 'flex',
           alignItems: 'center',
           gap: 1.5,
+          borderBottom: '1px solid rgba(60,60,67,0.12)',
+          background: 'rgba(255,255,255,0.5)',
         }}
       >
         <Box
           sx={{
-            width: 32, height: 32, borderRadius: '8px',
-            background: `linear-gradient(135deg, ${activeColor} 0%, ${activeColor}cc 100%)`,
+            width: 32, height: 32, borderRadius: '9px',
+            background: '#007AFF',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 4px 12px ${activeColor}40`,
+            boxShadow: '0 2px 8px rgba(0,122,255,0.28)', color: '#fff',
           }}
         >
-          {TABS.find(t => t.value === tab)?.icon}
+          {active?.icon}
         </Box>
         <Box>
-          <Typography variant="subtitle2" sx={{ color: activeColor, fontWeight: 700 }}>
-            {TABS.find(t => t.value === tab)?.label}
+          <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+            {active?.label}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
-            {tab === 'senders' && 'Find and manage marketing senders'}
-            {tab === 'inbox'   && 'Browse and filter your inbox'}
-            {tab === 'storage' && 'Reclaim space from large emails'}
-            {tab === 'labels'  && 'Manage your app-created labels'}
+          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+            {active?.blurb}
           </Typography>
         </Box>
       </Box>
