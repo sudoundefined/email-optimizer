@@ -10,6 +10,7 @@ import inboxRoutes from './routes/inbox.js'
 import protectRoutes from './routes/protect.js'
 import storageRoutes from './routes/storage.js'
 import messageRoutes from './routes/messages.js'
+import digestRoutes from './routes/digest.js'
 import { startScheduler } from './jobs/scheduler.js'
 
 const app = express()
@@ -25,6 +26,7 @@ app.use('/api', inboxRoutes)
 app.use('/api', protectRoutes)
 app.use('/api', storageRoutes)
 app.use('/api', messageRoutes)
+app.use('/api', digestRoutes)
 
 // error middleware: NotConnectedError → 401, err.status honored, else 500
 app.use((err, req, res, next) => {
