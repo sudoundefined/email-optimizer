@@ -3,6 +3,11 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import TextField from '@mui/material/TextField'
 import LinearProgress from '@mui/material/LinearProgress'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
@@ -28,6 +33,9 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   const [showLabelReview, setShowLabelReview] = useState(false)
   const [confirmTrash, setConfirmTrash] = useState(false)
   const [trashDone, setTrashDone] = useState<string | null>(null)
+  const [keepDone, setKeepDone] = useState<string | null>(null)
+  const [showKeepDialog, setShowKeepDialog] = useState(false)
+  const [keepN, setKeepN] = useState(3)
   const [error, setError] = useState<string | null>(null)
   const [protectedList, setProtectedList] = useState<ProtectedSender[]>([])
   const [showProtected, setShowProtected] = useState(false)
@@ -36,6 +44,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   const scanJob = useJob()
   const unsubJob = useJob()
   const trashJob = useJob()
+  const keepJob = useJob()
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -141,6 +150,35 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     }
   }
 
+  const runKeepLatest = async () => {
+    setShowKeepDialog(false)
+    setError(null)
+    setKeepDone(null)
+    setProtectionWarning(null)
+    const target = selectedSenders.find((s) => !protectedSet.has(s.email.toLowerCase()))
+    if (!target) return
+    try {
+      const response = await api.keepLatest(target.email, keepN)
+      if (response.protected || !response.jobId) {
+        setProtectionWarning('That sender is protected and was skipped.')
+        return
+      }
+      const snapshot = await keepJob.start(() => Promise.resolve({ jobId: response.jobId! }))
+      if (snapshot.state === 'error') {
+        setError(snapshot.error || 'Keep-latest failed')
+      } else {
+        const r = snapshot.result as { trashed: number; kept: number; capped?: boolean }
+        setKeepDone(
+          `Kept the ${r.kept} newest email${r.kept === 1 ? '' : 's'} from ${target.name || target.email} and moved ${r.trashed.toLocaleString()} older one${r.trashed === 1 ? '' : 's'} to Trash (recoverable 30 days).${r.capped ? ' Note: only the 10,000 most recent were scanned — run again to trash more.' : ''}`
+        )
+        setSelected(new Set())
+        await loadSenders()
+      }
+    } catch (err) {
+      handleApiError(err)
+    }
+  }
+
   const runProtect = async () => {
     setError(null)
     setProtectionWarning(null)
@@ -191,12 +229,14 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   const selectedNonProtectedCount = selectedSenders.length - selectedProtectedCount
 
   const trashProgress = trashJob.job?.progress as { trashed?: number; total?: number } | null
+  const keepProgress = keepJob.job?.progress as { phase?: string; trashed?: number; total?: number; listed?: number } | null
 
   return (
     <div>
       <ScanControls onScan={runScan} job={scanJob.job} running={scanJob.running} scan={scan} />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {trashDone && <Alert severity="success" sx={{ mb: 2 }}>{trashDone}</Alert>}
+      {keepDone && <Alert severity="success" sx={{ mb: 2 }}>{keepDone}</Alert>}
       {protectionWarning && <Alert severity="warning" sx={{ mb: 2 }}>{protectionWarning}</Alert>}
 
       <ToggleButtonGroup
@@ -214,6 +254,17 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
         <Box sx={{ mb: 2 }}>
           <Typography variant="caption" color="text.secondary">
             Moving to Trash… {trashProgress.trashed ?? 0} / {trashProgress.total ?? '?'} emails
+          </Typography>
+          <LinearProgress sx={{ mt: 0.5 }} />
+        </Box>
+      )}
+
+      {keepJob.running && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            {keepProgress?.phase === 'trashing'
+              ? `Keeping latest, trashing older… ${keepProgress.trashed ?? 0} / ${keepProgress.total ?? '?'} emails`
+              : `Scanning sender history… ${keepProgress?.listed ?? 0} found`}
           </Typography>
           <LinearProgress sx={{ mt: 0.5 }} />
         </Box>
@@ -322,6 +373,18 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                 Unprotect
               </Button>
             )}
+            {selectedNonProtectedCount === 1 && (
+              <Button
+                variant="contained"
+                size="small"
+                color="inherit"
+                sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
+                disabled={unsubJob.running || trashJob.running || keepJob.running}
+                onClick={() => setShowKeepDialog(true)}
+              >
+                Keep latest…
+              </Button>
+            )}
             <Button
               variant="outlined"
               size="small"
@@ -351,6 +414,37 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
           onDisconnected={onDisconnected}
         />
       )}
+
+      {showKeepDialog && (() => {
+        const target = selectedSenders.find((s) => !protectedSet.has(s.email.toLowerCase()))
+        return (
+          <Dialog open onClose={() => setShowKeepDialog(false)} maxWidth="xs" fullWidth>
+            <DialogTitle>Keep latest emails</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Keep the newest emails from{' '}
+                <strong>{target?.name || target?.email}</strong> and move all older ones to
+                Trash (recoverable for 30 days). This does not unsubscribe you.
+              </Typography>
+              <TextField
+                type="number"
+                size="small"
+                label="Emails to keep"
+                value={keepN}
+                onChange={(e) => setKeepN(Math.max(0, Math.min(1000, Number(e.target.value) || 0)))}
+                slotProps={{ htmlInput: { min: 0, max: 1000 } }}
+                autoFocus
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowKeepDialog(false)}>Cancel</Button>
+              <Button variant="contained" color="error" onClick={runKeepLatest}>
+                Keep {keepN}, trash the rest
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )
+      })()}
 
       {confirmTrash && (
         <ConfirmDialog

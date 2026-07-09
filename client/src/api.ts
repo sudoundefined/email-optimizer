@@ -58,6 +58,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ senderEmails }),
     }),
+  keepLatest: (senderEmail: string, keep: number) =>
+    request<{ jobId: string | null; protected: boolean }>('/api/senders/keep-latest', {
+      method: 'POST',
+      body: JSON.stringify({ senderEmail, keep }),
+    }),
   suggestions: () => request<Suggestion[]>('/api/labels/suggestions'),
   applyLabels: (assignments: { senderEmail: string; labelName: string }[]) =>
     request<{ jobId: string }>('/api/labels/apply', {
@@ -65,6 +70,7 @@ export const api = {
       body: JSON.stringify({ assignments }),
     }),
   labels: () => request<AppLabel[]>('/api/labels'),
+  labelMessages: (id: string) => request<GroupMessage[]>(`/api/labels/${id}/messages`),
   deleteLabelOnly: (id: string) =>
     request<{ ok: boolean }>(`/api/labels/${id}?mode=labelOnly`, { method: 'DELETE' }),
   trashLabel: (id: string) =>
