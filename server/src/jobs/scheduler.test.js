@@ -25,6 +25,17 @@ describe('scheduler mostRecentSlot', () => {
     const slot = mostRecentSlot(at(2026, 7, 8, 10), 1, 8)
     assert.equal(slot, at(2026, 7, 6, 8))
   })
+
+  it('does not drift the hour across a week shift (DST-safe re-normalization)', () => {
+    // Whatever the hour, the returned slot must land exactly on that wall-clock
+    // hour, never an hour off from a date-shift normalization artifact.
+    for (const h of [0, 2, 8, 23]) {
+      const slot = new Date(mostRecentSlot(at(2026, 7, 6, 6), 1, h))
+      // now is Monday 06:00; for h>6 the slot rolls to the previous Monday
+      assert.equal(slot.getHours(), h, `hour ${h} must be preserved`)
+      assert.equal(slot.getDay(), 1, 'must land on Monday')
+    }
+  })
 })
 
 describe('scheduler isDigestDue', () => {

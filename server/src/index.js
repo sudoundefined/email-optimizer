@@ -40,7 +40,7 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: err.message || 'internal_error' })
 })
 
-app.listen(config.port, () => {
-  console.log(`API server listening on http://localhost:${config.port}`)
+app.listen(config.port, config.host, () => {
+  console.log(`API server listening on http://${config.host}:${config.port}`)
   startScheduler()
 })

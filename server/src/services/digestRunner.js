@@ -32,7 +32,6 @@ export async function computeDigest({ range = '6m' } = {}, emit) {
       newSenders,
       accountEmail,
       totalScanned: scan.messageCount,
-      allSenderEmails: senders.map((s) => s.email),
     }
   })
 }
@@ -46,10 +45,7 @@ export async function computeDigest({ range = '6m' } = {}, emit) {
  */
 export async function runDigest({ range = '6m', dryRun = false, at } = {}, emit) {
   return withAuthErrorHandling(async () => {
-    const { seeding, newSenders, accountEmail, totalScanned, allSenderEmails } = await computeDigest(
-      { range },
-      emit
-    )
+    const { seeding, newSenders, accountEmail, totalScanned } = await computeDigest({ range }, emit)
     const settings = await getSettings()
     const recipient = settings.recipient || accountEmail
     const stamp = at || new Date().toISOString()
@@ -58,11 +54,18 @@ export async function runDigest({ range = '6m', dryRun = false, at } = {}, emit)
       return { dryRun: true, seeding, newSenders, recipient, totalScanned, sent: false }
     }
 
-    // First run: seed the baseline from everything currently present, send nothing.
+    // First run: seed the baseline from the current MARKETING senders (same
+    // definition weekly runs use), send nothing. Seeding from marketing-only
+    // avoids permanently suppressing a sender that later becomes marketing.
     if (seeding) {
-      await recordRun({ at: stamp, reportedEmails: allSenderEmails, sent: false, recipient })
+      await recordRun({ at: stamp, reportedEmails: newSenders.map((s) => s.email), sent: false, recipient })
       return { dryRun: false, seeding: true, newSenders: [], recipient, totalScanned, sent: false }
     }
+
+    // Advance durable state (lastRunAt + baseline) BEFORE sending. Sending is
+    // at-least-once; persisting first makes the run at-most-once, so a crash or
+    // retry after a successful send can never re-send the same digest.
+    await recordRun({ at: stamp, reportedEmails: newSenders.map((s) => s.email), sent: newSenders.length > 0, recipient })
 
     let sent = false
     if (newSenders.length > 0) {
@@ -81,9 +84,6 @@ export async function runDigest({ range = '6m', dryRun = false, at } = {}, emit)
       sent = true
     }
 
-    // Advance the baseline (and lastRunAt) even when nothing was new, so the
-    // schedule doesn't immediately re-fire and senders aren't re-reported.
-    await recordRun({ at: stamp, reportedEmails: newSenders.map((s) => s.email), sent, recipient })
     return { dryRun: false, seeding: false, newSenders, recipient, totalScanned, sent }
   })
 }

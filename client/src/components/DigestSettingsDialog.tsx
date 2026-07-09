@@ -48,6 +48,8 @@ export default function DigestSettingsDialog({
   const handleApiError = useCallback(
     (err: unknown) => {
       if (err instanceof ApiError && err.status === 401) onDisconnected()
+      else if (err instanceof ApiError && err.code === 'digest_already_running')
+        setError('A digest run is already in progress. Please wait for it to finish.')
       else setError(err instanceof Error ? err.message : String(err))
     },
     [onDisconnected]
@@ -123,7 +125,7 @@ export default function DigestSettingsDialog({
     }
   }
 
-  const running = job.running
+  const running = job.running || Boolean(state?.running)
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

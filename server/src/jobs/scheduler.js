@@ -14,7 +14,11 @@ export function mostRecentSlot(now, dayOfWeek, hour) {
   d.setHours(hour, 0, 0, 0)
   const diff = (d.getDay() - dayOfWeek + 7) % 7
   d.setDate(d.getDate() - diff)
-  if (d.getTime() > now) d.setDate(d.getDate() - 7)
+  d.setHours(hour, 0, 0, 0) // re-normalize after the date shift (DST-safe)
+  if (d.getTime() > now) {
+    d.setDate(d.getDate() - 7)
+    d.setHours(hour, 0, 0, 0)
+  }
   return d.getTime()
 }
 
