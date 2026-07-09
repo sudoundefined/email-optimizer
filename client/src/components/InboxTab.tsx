@@ -330,10 +330,10 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
                 overflow: 'hidden',
                 animation: 'fadeInUp 0.5s ease-out 0.1s both',
                 transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
+                '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
               }}>
-                <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
-                  <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
+                  <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
                     🔍 Smart Filters
                   </Typography>
                 </Box>
@@ -348,10 +348,10 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
                 overflow: 'hidden',
                 animation: 'fadeInUp 0.5s ease-out 0.2s both',
                 transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
+                '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
               }}>
-                <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
-                  <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
+                  <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
                     📚 Newsletters & Groups
                   </Typography>
                 </Box>
@@ -515,15 +515,15 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 2,
-            background: 'linear-gradient(135deg, #1C1C1E 0%, #1C1C1E 100%)',
-            color: 'common.white',
+            background: 'rgba(255,255,255,0.80)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+            color: '#1C1C1E',
             borderRadius: '14px',
             px: 2.5,
             py: 1.25,
             zIndex: 50,
             width: 'min(560px, 92vw)',
-            boxShadow: '0 12px 40px rgba(49,46,129,0.5)',
-            border: '1px solid rgba(255,255,255,0.12)',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.16)',
+            border: '1px solid rgba(60,60,67,0.16)',
             animation: 'fadeInUp 0.3s ease-out',
           }}
           role="toolbar"
@@ -533,14 +533,14 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
             <Box
               sx={{
                 px: 1.25, py: 0.25, borderRadius: '4px',
-                background: 'linear-gradient(135deg,#5856D6,#5856D6)',
+                background: '#007AFF',
                 fontWeight: 800, fontSize: '0.875rem', color: '#fff',
                 boxShadow: '0 2px 8px rgba(0,122,255,0.4)',
               }}
             >
               {selected.size}
             </Box>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+            <Typography variant="body2" sx={{ color: 'rgba(60,60,67,0.7)' }}>
               messages selected
             </Typography>
           </Stack>
@@ -548,21 +548,16 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
             <Button
               variant="contained"
               size="small"
+              color="error"
               disabled={trashJob.running}
               onClick={() => setConfirmTrash(true)}
-              sx={{
-                background: 'linear-gradient(135deg,#FF3B30,#FF3B30)',
-                boxShadow: '0 2px 8px rgba(239,68,68,0.4)',
-                borderRadius: '14px',
-                '&:hover': { background: 'linear-gradient(135deg,#FF3B30,#FF3B30)' },
-              }}
             >
               Move to Trash
             </Button>
             <Button
               variant="text"
               size="small"
-              sx={{ color: 'rgba(255,255,255,0.45)', borderRadius: '14px', '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: 'rgba(60,60,67,0.6)', borderRadius: '14px', '&:hover': { color: '#007AFF', background: 'rgba(0,122,255,0.08)' } }}
               onClick={() => setSelected(new Set())}
             >
               Clear

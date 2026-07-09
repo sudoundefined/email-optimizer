@@ -383,10 +383,10 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                 borderRadius: '14px', overflow: 'hidden',
                 animation: 'fadeInUp 0.5s ease-out 0.1s both',
                 transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                '&:hover': { boxShadow: '0 8px 24px rgba(88, 86, 214, 0.12)', transform: 'translateY(-2px)' },
+                '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
               }}>
-                <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
-                  <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
+                  <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
                     🗂 Segments
                   </Typography>
                 </Box>
@@ -429,10 +429,10 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                   borderRadius: '14px', overflow: 'hidden',
                   animation: 'fadeInUp 0.5s ease-out 0.15s both',
                   transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                  '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
+                  '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
                 }}>
-                  <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
-                    <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                  <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
+                    <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
                       🏷 Categories
                     </Typography>
                   </Box>
@@ -569,9 +569,9 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             // the button set or the counts change.
             width: 'min(980px, 94vw)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, overflow: 'hidden',
-            background: 'linear-gradient(135deg, #1C1C1E 0%, #1C1C1E 100%)',
-            color: 'common.white', borderRadius: '14px', px: 2.5, py: 1.25, zIndex: 50,
-            boxShadow: '0 12px 40px rgba(49, 46, 129, 0.5)', border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(255,255,255,0.80)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+            color: '#1C1C1E', borderRadius: '16px', px: 2.5, py: 1.25, zIndex: 50,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.16)', border: '1px solid rgba(60,60,67,0.16)',
             animation: 'fadeInUp 0.3s ease-out',
           }}
           role="toolbar"
@@ -581,12 +581,12 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             <Box sx={{
               minWidth: 28, height: 28, px: 1, borderRadius: '8px', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'linear-gradient(135deg,#5856D6,#5856D6)', fontWeight: 800, fontSize: '0.85rem', color: '#fff',
+              background: '#007AFF', fontWeight: 700, fontSize: '0.85rem', color: '#fff',
             }}>
               {selected.size}
             </Box>
-            <Typography variant="body2" noWrap sx={{ color: 'rgba(255,255,255,0.75)' }}>
-              senders · <strong style={{ color: '#fff' }}>{selectedEmailCount.toLocaleString()}</strong> emails
+            <Typography variant="body2" noWrap sx={{ color: 'rgba(60,60,67,0.7)' }}>
+              senders · <strong style={{ color: '#1C1C1E' }}>{selectedEmailCount.toLocaleString()}</strong> emails
               {selectedUnsubscribable < selected.size && ` · ${selectedUnsubscribable} unsub-able`}
             </Typography>
           </Stack>
@@ -600,7 +600,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             <Button
               variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', whiteSpace: 'nowrap', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', whiteSpace: 'nowrap', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
               disabled={busy}
               onClick={() => setShowLabelReview(true)}
             >
@@ -608,7 +608,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             <Button
               variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
               disabled={selectedNonProtectedCount === 0 || busy}
               onClick={runProtect}
             >
@@ -616,7 +616,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             <Button
               variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
               disabled={selectedProtectedCount === 0 || busy}
               onClick={runUnprotect}
             >
@@ -624,15 +624,15 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             <Button
               variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', whiteSpace: 'nowrap', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              sx={{ bgcolor: 'rgba(60,60,67,0.08)', color: '#1C1C1E', whiteSpace: 'nowrap', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(60,60,67,0.14)' } }}
               disabled={selectedNonProtectedCount !== 1 || busy}
               onClick={() => setShowKeepDialog(true)}
             >
               Keep latest…
             </Button>
             <Button
-              variant="contained" size="small"
-              sx={{ whiteSpace: 'nowrap', background: 'linear-gradient(135deg,#FF3B30,#FF3B30)', '&:hover': { background: 'linear-gradient(135deg,#FF3B30,#FF3B30)' } }}
+              variant="contained" size="small" color="error"
+              sx={{ whiteSpace: 'nowrap' }}
               disabled={busy}
               onClick={() => setConfirmTrash(true)}
             >
@@ -640,7 +640,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             <Button
               variant="text" size="small"
-              sx={{ color: 'rgba(255,255,255,0.55)', '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: 'rgba(60,60,67,0.6)', '&:hover': { color: '#007AFF', background: 'rgba(0,122,255,0.08)' } }}
               onClick={() => setSelected(new Set())}
             >
               Clear
