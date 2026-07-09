@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { createJob } from '../jobs/jobManager.js'
 import { requireScan } from '../store/scanCache.js'
 import { suggestCategory } from '../services/categorizer.js'
-import { runApplyLabels, listAppLabels, deleteLabelOnly, runTrashLabel } from '../services/labelService.js'
+import { runApplyLabels, listAppLabels, deleteLabelOnly, runTrashLabel, getLabelMessages } from '../services/labelService.js'
 
 const router = Router()
 
@@ -54,6 +54,15 @@ router.delete('/labels/:id', async (req, res, next) => {
       return res.json({ jobId: job.id })
     }
     res.status(400).json({ error: 'mode must be labelOnly or trashEmails' })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/labels/:id/messages', async (req, res, next) => {
+  try {
+    const max = Math.max(1, Math.min(Number(req.query.max) || 25, 100))
+    res.json(await getLabelMessages(req.params.id, max))
   } catch (err) {
     next(err)
   }

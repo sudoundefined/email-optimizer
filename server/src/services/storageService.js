@@ -33,7 +33,7 @@ export function aggregateBySender(messages, limit = 10) {
     .map(e => ({ email: e.email, name: e.name, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }))
 }
 
-export function aggregateByMonth(messages, limit = 12) {
+export function aggregateByMonth(messages) {
   const map = new Map()
   for (const m of messages) {
     const d = new Date(m.date)
@@ -48,7 +48,6 @@ export function aggregateByMonth(messages, limit = 12) {
   }
   return [...map.values()]
     .sort((a, b) => b.month.localeCompare(a.month))
-    .slice(0, limit)
     .map(e => ({ month: e.month, totalMB: bytesToMB(e.totalBytes), messageCount: e.messageCount }))
 }
 
@@ -111,7 +110,7 @@ async function fetchLargeMessages(gmail, emit) {
     const res = await limited(() =>
       gmail.users.messages.list({
         userId: 'me',
-        q: 'larger:1M -in:trash -in:spam',
+        q: 'larger:500K -in:trash -in:spam',
         maxResults: 500,
         pageToken,
       })
@@ -167,7 +166,7 @@ export async function getStorageStats(emit) {
       totalMB: bytesToMB(totalBytes),
       messageCount: messages.length,
       senders: aggregateBySender(messages, 10),
-      months: aggregateByMonth(messages, 12),
+      months: aggregateByMonth(messages),
       years: aggregateByYear(messages),
       sizes: aggregateBySizeBand(messages),
       attachments: filterLargeAttachments(messages, 5),

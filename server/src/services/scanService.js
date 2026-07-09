@@ -6,6 +6,7 @@ import { setScan } from '../store/scanCache.js'
 import { config } from '../config.js'
 
 const RANGE_TO_QUERY = {
+  '1m': 'newer_than:1m',
   '3m': 'newer_than:3m',
   '6m': 'newer_than:6m',
   '1y': 'newer_than:1y',

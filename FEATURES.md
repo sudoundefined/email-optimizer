@@ -57,7 +57,7 @@ The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Label
 4. Senders appear in a sortable table with email counts and an unsubscribe-method badge.
 
 **Notes:**
-- Scans up to 5,000 messages per run (configurable via `scanMaxMessages`).
+- Scans the full matching set by default (no message cap). Set `SCAN_MAX_MESSAGES` to cap it if you want to limit Gmail API usage.
 - Results are cached in memory for the session; re-scan to refresh.
 - After each scan, banks/utilities/government senders are **auto-protected** (see [protect-list](#4-sender-protect-list)).
 

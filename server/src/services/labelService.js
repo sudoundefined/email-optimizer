@@ -4,6 +4,7 @@ import { limited } from '../gmail/rateLimiter.js'
 import { requireScan } from '../store/scanCache.js'
 import { listRegistered, registerLabel, unregisterLabel } from '../store/labelRegistry.js'
 import { config } from '../config.js'
+import { getMetadata } from '../gmail/messages.js'
 
 const BATCH_MODIFY_MAX = 1000
 
@@ -167,5 +168,26 @@ export async function runTrashLabel({ labelId }, emit) {
 
     await deleteLabelOnly(labelId)
     return { trashed: allIds.length }
+  })
+}
+
+/** Fetches recent messages for a specific label ID */
+export async function getLabelMessages(labelId, max = 25) {
+  return withAuthErrorHandling(async () => {
+    const gmail = await getGmail()
+    const res = await limited(() =>
+      gmail.users.messages.list({ userId: 'me', labelIds: [labelId], maxResults: max })
+    )
+    const ids = (res.data.messages || []).map((m) => m.id)
+    if (ids.length === 0) return []
+    const messages = await getMetadata(gmail, ids, {})
+    return messages
+      .sort((a, b) => b.internalDate - a.internalDate)
+      .map((m) => ({
+        id: m.id,
+        from: m.headers['from'] || '',
+        subject: m.headers['subject'] || '',
+        date: m.internalDate,
+      }))
   })
 }

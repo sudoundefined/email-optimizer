@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -7,7 +7,6 @@ import CardContent from '@mui/material/CardContent'
 import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
-import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
@@ -19,8 +18,9 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import StorageOutlined from '@mui/icons-material/StorageOutlined'
 import { api, ApiError } from '../api'
-import type { StorageAttachment, StorageDrillMessage, StorageStats, StorageYear } from '../types'
+import type { StorageAttachment, StorageDrillMessage, StorageStats, StorageYear, StorageSizeBand } from '../types'
 import ConfirmDialog from './ConfirmDialog'
 import { useJob } from '../hooks/useJob'
 
@@ -67,11 +67,35 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
   const panelSelected = ids.filter((id) => selected.has(id)).length
 
   return (
-    <Paper variant="outlined" sx={{ mt: 2, mb: 3 }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+              border: '1px solid rgba(30, 41, 59, 0.1)',
+        borderRadius: 0,
+        overflow: 'hidden',
+        animation: 'fadeInUp 0.4s ease-out',
+        background: 'rgba(255,255,255,0.85)',
+        backdropFilter: 'blur(12px)',
+      }}
+    >
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 3,
+          py: 2,
+          borderBottom: 1,
+          borderColor: 'divider',
+          background: 'var(--color-dominant-light)',
+        }}
+      >
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography variant="subtitle2">{title}</Typography>
+          <Typography variant="h6">{title}</Typography>
           {messages && (
             <Chip
               label={`${messages.length} emails`}
@@ -88,20 +112,20 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
 
       {/* Body */}
       {loading && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 2 }}>
-          <CircularProgress size={16} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 3, py: 3 }}>
+          <CircularProgress size={20} />
           <Typography variant="body2" color="text.secondary">Loading messages…</Typography>
         </Box>
       )}
 
       {messages && messages.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 3, py: 3 }}>
           No messages found for this selection.
         </Typography>
       )}
 
       {messages && messages.length > 0 && (
-        <TableContainer sx={{ maxHeight: 420, overflowY: 'auto' }}>
+        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
@@ -172,7 +196,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-type DrillKey = { by: 'sender'; value: string } | { by: 'month'; value: string } | { by: 'year'; value: string } | null
+type DrillKey = { by: 'sender'; value: string } | { by: 'month'; value: string } | { by: 'year'; value: string } | { by: 'size'; value: string } | null
 
 export default function StorageTab({ onDisconnected }: { onDisconnected: () => void }) {
   const [stats, setStats] = useState<StorageStats | null>(null)
@@ -190,6 +214,29 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const trashJob = useJob()
+
+  // year-expand state for the left-pane date filter
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
+  const toggleYear = (year: string) => {
+    setExpandedYears(prev => {
+      const next = new Set(prev)
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
+      return next
+    })
+  }
+
+  // group months by year for dependent filtering
+  const monthsByYear = useMemo(() => {
+    if (!stats) return {}
+    const groups: Record<string, typeof stats.months> = {}
+    for (const m of stats.months) {
+      const year = m.month.split('-')[0]
+      if (!groups[year]) groups[year] = []
+      groups[year].push(m)
+    }
+    return groups
+  }, [stats])
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -227,7 +274,7 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
   }
 
   // Open drill-down for a sender email, month string, or year string
-  const openDrill = async (by: 'sender' | 'month' | 'year', value: string) => {
+  const openDrill = async (by: 'sender' | 'month' | 'year' | 'size', value: string) => {
     // toggle off if same key clicked again
     if (drillKey?.by === by && drillKey.value === value) {
       setDrillKey(null)
@@ -309,9 +356,32 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
   if (loading) {
     return (
-      <Typography variant="body2" color="text.secondary">
-        Analyzing your largest emails… this can take a moment.
-      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          py: 8,
+          gap: 2,
+        }}
+      >
+        <Box
+          sx={{
+            animation: 'pulse 1.8s ease-in-out infinite',
+            '@keyframes pulse': {
+              '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+              '50%': { opacity: 0.5, transform: 'scale(0.92)' },
+            },
+          }}
+        >
+          <StorageOutlined sx={{ fontSize: 48, color: '#10b981' }} />
+        </Box>
+        <CircularProgress size={28} sx={{ color: '#10b981' }} />
+        <Typography variant="body2" color="text.secondary">
+          Analyzing your largest emails… this can take a moment.
+        </Typography>
+      </Box>
     )
   }
 
@@ -321,9 +391,6 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
   if (!stats) return null
 
-  const maxSenderMB = Math.max(1, ...stats.senders.map((s) => s.totalMB))
-  const maxMonthMB = Math.max(1, ...stats.months.map((m) => m.totalMB))
-  const maxYearMB = Math.max(1, ...(stats.years ?? []).map((y) => y.totalMB))
   const allAttachmentsSelected =
     stats.attachments.length > 0 && stats.attachments.every((a) => selectedIds.has(a.id))
 
@@ -336,6 +403,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
       ? `Emails from ${drillKey.value}`
       : drillKey?.by === 'year'
       ? `Emails from ${drillKey.value}`
+      : drillKey?.by === 'size'
+      ? `Emails sized ${(stats.sizes ?? []).find(s => s.key === drillKey.value)?.label ?? drillKey.value}`
       : ''
 
   return (
@@ -345,298 +414,367 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="body2" color="text.secondary">
-          Storage analysis covers every email larger than 1 MB (outside Trash and Spam). Cached for 5
-          minutes. Click any sender or month bar to browse its messages.
+          Storage analysis covers every email larger than 500 KB (outside Trash and Spam). Cached for 5
+          minutes. Click any category to browse its messages.
         </Typography>
         <Button size="small" variant="outlined" onClick={refresh} sx={{ ml: 2, flexShrink: 0 }}>
           Refresh
         </Button>
       </Box>
 
-      <Grid container spacing={2.5} sx={{ mb: 1 }}>
-        {/* Reclaimable storage */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">Reclaimable storage</Typography>
-              <Typography variant="h3" sx={{ fontWeight: 700 }}>
+      {/* Reclaimable storage hero card */}
+      <Card
+        sx={{
+          background: 'var(--card-hero)',
+          color: '#fff',
+          mb: 3,
+          position: 'relative',
+          overflow: 'hidden',
+          animation: 'fadeInUp 0.5s ease-out, pulseGlow 4s ease-in-out infinite',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.08), transparent)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 3s linear infinite',
+            pointerEvents: 'none',
+          },
+        }}
+      >
+        <CardContent sx={{ position: 'relative', zIndex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.1em' }}>
+                Reclaimable storage
+              </Typography>
+              <Typography variant="h2" sx={{ fontWeight: 700, color: '#fff' }}>
                 {stats.totalMB.toLocaleString()} MB
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5 }}>
                 across {stats.messageCount.toLocaleString()} large emails
               </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+            </Box>
+            <Box sx={{
+              width: 56, height: 56, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(8px)',
+            }}>
+              <StorageOutlined sx={{ fontSize: 28, color: '#fff' }} />
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
 
-        {/* Top senders — each row is clickable */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">Top senders by size</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Click a row to browse its messages
-              </Typography>
-              {stats.senders.length === 0 && (
-                <Typography variant="body2" color="text.secondary">No large emails found.</Typography>
-              )}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
+      <Grid container spacing={3}>
+        {/* LEFT PANE — Navigation */}
+        <Grid size={{ xs: 12, md: 4, lg: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            
+            {/* Storage by Year -> Month */}
+            <Card sx={{
+              borderRadius: 0,
+              overflow: 'hidden',
+              animation: 'fadeInUp 0.5s ease-out 0.1s both',
+              transition: 'box-shadow 0.3s ease, transform 0.2s ease',
+              '&:hover': { boxShadow: '0 8px 24px rgba(14, 165, 233, 0.12)', transform: 'translateY(-2px)' },
+            }}>
+              <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
+                <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                  📅 Storage by date
+                </Typography>
+              </Box>
+              <CardContent sx={{ p: '8px !important' }}>
+                {(stats.years ?? []).length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>No large emails found.</Typography>
+                )}
+                {(stats.years ?? []).map((y: StorageYear) => {
+                  const isExpanded = expandedYears.has(y.year)
+                  return (
+                    <Box key={y.year}>
+                      {/* Year Row */}
+                      <Box
+                        onClick={() => toggleYear(y.year)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          px: 1,
+                          py: 1,
+                          borderRadius: 1,
+                          cursor: 'pointer',
+                          bgcolor: isExpanded ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
+                          '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.08)' },
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{y.year}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {y.totalMB.toLocaleString()} MB
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                            {isExpanded ? '▲' : '▼'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {/* Nested Months */}
+                      {isExpanded && (monthsByYear[y.year] || []).map((m) => {
+                        const active = drillKey?.by === 'month' && drillKey.value === m.month
+                        return (
+                          <Box
+                            key={m.month}
+                            onClick={() => openDrill('month', m.month)}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              pl: 3,
+                              pr: 1,
+                              py: 0.75,
+                              borderRadius: 1,
+                              cursor: 'pointer',
+                              bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                              borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
+                              '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                            }}
+                          >
+                            <Typography variant="body2" sx={{ color: active ? 'var(--color-accent)' : 'text.primary' }}>
+                              {new Date(Number(m.month.split('-')[0]), Number(m.month.split('-')[1]) - 1).toLocaleString('default', { month: 'long' })}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: active ? 'var(--color-accent)' : 'text.secondary' }}>
+                              {m.totalMB.toLocaleString()} MB
+                            </Typography>
+                          </Box>
+                        )
+                      })}
+                    </Box>
+                  )
+                })}
+              </CardContent>
+            </Card>
+
+            {/* Top Senders */}
+            <Card sx={{
+              borderRadius: 0,
+              overflow: 'hidden',
+              animation: 'fadeInUp 0.5s ease-out 0.2s both',
+              transition: 'box-shadow 0.3s ease, transform 0.2s ease',
+              '&:hover': { boxShadow: '0 8px 24px rgba(139, 92, 246, 0.12)', transform: 'translateY(-2px)' },
+            }}>
+              <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
+                <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                  👤 Top Senders
+                </Typography>
+              </Box>
+              <CardContent sx={{ p: '8px !important' }}>
+                {stats.senders.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>No large emails found.</Typography>
+                )}
                 {stats.senders.map((s) => {
                   const active = drillKey?.by === 'sender' && drillKey.value === s.email
                   return (
                     <Box
                       key={s.email}
                       onClick={() => openDrill('sender', s.email)}
-                      title={`${s.email} — ${s.messageCount} emails — click to browse`}
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1,
-                        px: 0.75,
-                        py: 0.5,
+                        justifyContent: 'space-between',
+                        px: 1,
+                        py: 0.75,
                         borderRadius: 1,
                         cursor: 'pointer',
-                        bgcolor: active ? 'action.selected' : 'transparent',
-                        border: active ? 1 : 0,
-                        borderColor: 'primary.main',
-                        '&:hover': { bgcolor: 'action.hover' },
-                        transition: 'background-color 150ms ease',
+                        bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                        borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
+                        '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
                       }}
                     >
-                      <Typography variant="caption" noWrap sx={{ minWidth: 90, maxWidth: 90 }}>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 140, color: active ? 'var(--color-accent)' : 'text.primary' }}>
                         {parseFromHeader(s.name)}
                       </Typography>
-                      <Box
-                        sx={{
-                          height: 16,
-                          bgcolor: active ? 'primary.main' : 'primary.light',
-                          borderRadius: 1,
-                          width: `${Math.max(4, (s.totalMB / maxSenderMB) * 120)}px`,
-                          flexShrink: 0,
-                          transition: 'width 200ms ease, background-color 150ms ease',
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                      <Typography variant="caption" sx={{ color: active ? 'var(--color-accent)' : 'text.secondary' }}>
                         {s.totalMB.toLocaleString()} MB
                       </Typography>
                     </Box>
                   )
                 })}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
 
-        {/* Storage by month — each row is clickable */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">Storage by month</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Click a row to browse its messages
-              </Typography>
-              {stats.months.length === 0 && (
-                <Typography variant="body2" color="text.secondary">No large emails found.</Typography>
-              )}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
-                {stats.months.map((m) => {
-                  const active = drillKey?.by === 'month' && drillKey.value === m.month
+            {/* Size Bands */}
+            <Card sx={{
+              borderRadius: 0,
+              overflow: 'hidden',
+              animation: 'fadeInUp 0.5s ease-out 0.3s both',
+              transition: 'box-shadow 0.3s ease, transform 0.2s ease',
+              '&:hover': { boxShadow: '0 8px 24px rgba(245, 158, 11, 0.12)', transform: 'translateY(-2px)' },
+            }}>
+              <Box sx={{ background: 'var(--card-size)', px: 2, py: 1.25 }}>
+                <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                  📦 By Size
+                </Typography>
+              </Box>
+              <CardContent sx={{ p: '8px !important' }}>
+                {(stats.sizes ?? []).every(s => s.messageCount === 0) && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>No large emails found.</Typography>
+                )}
+                {(stats.sizes ?? []).map((s: StorageSizeBand) => {
+                  const active = drillKey?.by === 'size' && drillKey.value === s.key
+                  const disabled = s.messageCount === 0
                   return (
                     <Box
-                      key={m.month}
-                      onClick={() => openDrill('month', m.month)}
-                      title={`${m.messageCount} emails — click to browse`}
+                      key={s.key}
+                      onClick={() => !disabled && openDrill('size', s.key)}
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1,
-                        px: 0.75,
-                        py: 0.5,
+                        justifyContent: 'space-between',
+                        px: 1,
+                        py: 0.75,
                         borderRadius: 1,
-                        cursor: 'pointer',
-                        bgcolor: active ? 'action.selected' : 'transparent',
-                        border: active ? 1 : 0,
-                        borderColor: 'primary.main',
-                        '&:hover': { bgcolor: 'action.hover' },
-                        transition: 'background-color 150ms ease',
+                        cursor: disabled ? 'default' : 'pointer',
+                        opacity: disabled ? 0.4 : 1,
+                        bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                        borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
+                        '&:hover': disabled ? {} : { bgcolor: 'rgba(37, 99, 235, 0.12)' },
                       }}
                     >
-                      <Typography variant="caption" noWrap sx={{ minWidth: 90, maxWidth: 90 }}>
-                        {m.month}
+                      <Typography variant="body2" sx={{ color: active ? 'var(--color-accent)' : 'text.primary' }}>
+                        {s.label}
                       </Typography>
-                      <Box
-                        sx={{
-                          height: 16,
-                          bgcolor: active ? 'primary.main' : 'primary.light',
-                          borderRadius: 1,
-                          width: `${Math.max(4, (m.totalMB / maxMonthMB) * 120)}px`,
-                          flexShrink: 0,
-                          transition: 'width 200ms ease, background-color 150ms ease',
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                        {m.totalMB.toLocaleString()} MB
+                      <Typography variant="caption" sx={{ color: active ? 'var(--color-accent)' : 'text.secondary' }}>
+                        {disabled ? '0 emails' : `${s.totalMB.toLocaleString()} MB`}
                       </Typography>
                     </Box>
                   )
                 })}
-              </Box>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+          </Box>
         </Grid>
 
-        {/* Storage by year — each row is clickable */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">Storage by year</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Click a row to browse its messages
-              </Typography>
-              {(stats.years ?? []).length === 0 && (
-                <Typography variant="body2" color="text.secondary">No large emails found.</Typography>
-              )}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
-                {(stats.years ?? []).map((y: StorageYear) => {
-                  const active = drillKey?.by === 'year' && drillKey.value === y.year
-                  return (
-                    <Box
-                      key={y.year}
-                      onClick={() => openDrill('year', y.year)}
-                      title={`${y.messageCount} emails — click to browse`}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        px: 0.75,
-                        py: 0.5,
-                        borderRadius: 1,
-                        cursor: 'pointer',
-                        bgcolor: active ? 'action.selected' : 'transparent',
-                        border: active ? 1 : 0,
-                        borderColor: 'primary.main',
-                        '&:hover': { bgcolor: 'action.hover' },
-                        transition: 'background-color 150ms ease',
-                      }}
-                    >
-                      <Typography variant="caption" noWrap sx={{ minWidth: 90, maxWidth: 90 }}>
-                        {y.year}
-                      </Typography>
-                      <Box
-                        sx={{
-                          height: 16,
-                          bgcolor: active ? 'primary.main' : 'primary.light',
-                          borderRadius: 1,
-                          width: `${Math.max(4, (y.totalMB / maxYearMB) * 120)}px`,
-                          flexShrink: 0,
-                          transition: 'width 200ms ease, background-color 150ms ease',
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                        {y.totalMB.toLocaleString()} MB · {y.messageCount} emails
-                      </Typography>
-                    </Box>
-                  )
-                })}
+        {/* RIGHT PANE — Content */}
+        <Grid size={{ xs: 12, md: 8, lg: 9 }}>
+          {drillKey ? (
+            <Box sx={{ height: 'calc(100vh - 200px)', minHeight: 400 }}>
+              <DrillPanel
+                title={drillTitle}
+                messages={drillMessages}
+                loading={drillLoading}
+                selected={selectedIds}
+                onSelectedChange={setSelectedIds}
+                onClose={closeDrill}
+              />
+            </Box>
+          ) : (
+            <Card
+              variant="outlined"
+              sx={{
+                border: '1px solid rgba(30, 41, 59, 0.1)',
+                borderRadius: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                height: 'calc(100vh - 200px)',
+                minHeight: 400,
+                animation: 'fadeInUp 0.5s ease-out 0.15s both',
+                background: 'rgba(255,255,255,0.85)',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              <Box sx={{ p: 3, borderBottom: '1px solid rgba(30, 41, 59, 0.06)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Largest attachments (&gt;5 MB)</Typography>
+                  {selectedIds.size > 0 && (
+                    <Chip
+                      label={`${selectedIds.size} selected`}
+                      color="primary"
+                      size="small"
+                      onDelete={() => setSelectedIds(new Set())}
+                    />
+                  )}
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Default view showing all massive attachments across your mailbox.
+                </Typography>
               </Box>
-            </CardContent>
-          </Card>
+
+              {stats.attachments.length === 0 ? (
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="body2" color="text.secondary">No attachments larger than 5 MB found.</Typography>
+                </Box>
+              ) : (
+                <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            size="small"
+                            checked={allAttachmentsSelected}
+                            indeterminate={selectedIds.size > 0 && !allAttachmentsSelected}
+                            onChange={toggleAllAttachments}
+                            aria-label="Select all attachments"
+                          />
+                        </TableCell>
+                        <TableCell>From</TableCell>
+                        <TableCell>Subject</TableCell>
+                        <TableCell align="right">Size</TableCell>
+                        <TableCell align="right">Date</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {stats.attachments.map((a: StorageAttachment) => (
+                        <TableRow
+                          key={a.id}
+                          hover
+                          selected={selectedIds.has(a.id)}
+                          onClick={() => toggleAttachment(a.id)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              size="small"
+                              checked={selectedIds.has(a.id)}
+                              onChange={() => toggleAttachment(a.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Select ${a.subject || '(no subject)'}`}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ maxWidth: 160 }}>
+                            <Tooltip title={a.from} placement="top-start">
+                              <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                                {parseFromHeader(a.from)}
+                              </Typography>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell sx={{ maxWidth: 280 }}>
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {a.subject || '(no subject)'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{a.sizeMB.toLocaleString()} MB</TableCell>
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(a.date).toLocaleDateString(undefined, {
+                                month: 'short', day: 'numeric', year: 'numeric',
+                              })}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Card>
+          )}
         </Grid>
       </Grid>
-
-      {/* Drill-down panel — appears below the cards when a sender/month is selected */}
-      {drillKey && (
-        <DrillPanel
-          title={drillTitle}
-          messages={drillMessages}
-          loading={drillLoading}
-          selected={selectedIds}
-          onSelectedChange={setSelectedIds}
-          onClose={closeDrill}
-        />
-      )}
-
-      {drillKey && <Divider sx={{ mb: 3 }} />}
-
-      {/* Largest attachments table — selectable */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>Largest attachments (&gt;5 MB)</Typography>
-        {selectedIds.size > 0 && (
-          <Chip
-            label={`${selectedIds.size} selected`}
-            color="primary"
-            size="small"
-            onDelete={() => setSelectedIds(new Set())}
-          />
-        )}
-      </Box>
-
-      {stats.attachments.length === 0 && (
-        <Typography variant="body2" color="text.secondary">No attachments larger than 5 MB found.</Typography>
-      )}
-
-      {stats.attachments.length > 0 && (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    size="small"
-                    checked={allAttachmentsSelected}
-                    indeterminate={selectedIds.size > 0 && !allAttachmentsSelected}
-                    onChange={toggleAllAttachments}
-                    aria-label="Select all attachments"
-                  />
-                </TableCell>
-                <TableCell>From</TableCell>
-                <TableCell>Subject</TableCell>
-                <TableCell align="right">Size</TableCell>
-                <TableCell align="right">Date</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {stats.attachments.map((a: StorageAttachment) => (
-                <TableRow
-                  key={a.id}
-                  hover
-                  selected={selectedIds.has(a.id)}
-                  onClick={() => toggleAttachment(a.id)}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      size="small"
-                      checked={selectedIds.has(a.id)}
-                      onChange={() => toggleAttachment(a.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Select ${a.subject || '(no subject)'}`}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {parseFromHeader(a.from)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {a.subject || '(no subject)'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">{a.sizeMB.toLocaleString()} MB</TableCell>
-                  <TableCell align="right">
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(a.date).toLocaleDateString(undefined, {
-                        month: 'short', day: 'numeric', year: 'numeric',
-                      })}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
 
       {/* Floating trash tray — appears when anything is selected */}
       {selectedIds.size > 0 && (
@@ -650,37 +788,42 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
             display: 'flex',
             alignItems: 'center',
             gap: 2,
-            bgcolor: 'grey.900',
+            background: 'var(--color-dominant)',
             color: 'common.white',
-            borderRadius: 3,
+            borderRadius: 0,
             px: 2.5,
             py: 1.5,
             zIndex: 50,
             maxWidth: 'min(92vw, 600px)',
+            border: '1px solid rgba(15, 23, 42, 0.15)',
           }}
           role="toolbar"
           aria-label="Actions for selected messages"
         >
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1 }}>
             <Chip label={selectedIds.size} color="primary" size="small" />
-            <Typography variant="body2" sx={{ color: 'grey.400' }}>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.65)' }}>
               messages selected
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1}>
             <Button
-              variant="outlined"
+              variant="contained"
               size="small"
               color="error"
               disabled={trashJob.running}
               onClick={() => setConfirmTrash(true)}
+              sx={{
+                background: 'var(--color-accent)',
+                '&:hover': { background: 'var(--color-dominant)' },
+              }}
             >
               Move to Trash
             </Button>
             <Button
               variant="text"
               size="small"
-              sx={{ color: 'grey.500' }}
+              sx={{ color: 'rgba(255,255,255,0.5)' }}
               onClick={() => setSelectedIds(new Set())}
             >
               Clear

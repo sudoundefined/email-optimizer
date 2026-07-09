@@ -5,7 +5,8 @@
       "name": "client",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "C:/Users/deepa/email-unsubscriber/client", "run", "dev"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": false
     }
   ]
 }

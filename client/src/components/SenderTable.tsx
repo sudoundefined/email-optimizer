@@ -4,35 +4,55 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
-import Paper from '@mui/material/Paper'
 import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
+import Tooltip from '@mui/material/Tooltip'
+import ShieldOutlined from '@mui/icons-material/ShieldOutlined'
 import type { Sender, Suggestion, UnsubMethod } from '../types'
 
-const METHOD_CHIPS: Record<UnsubMethod, { label: string; color: 'success' | 'info' | 'warning' | 'default' }> = {
-  oneclick: { label: 'One-click', color: 'success' },
-  mailto: { label: 'Email', color: 'info' },
-  link: { label: 'Link', color: 'warning' },
-  none: { label: 'None', color: 'default' },
+const METHOD_CHIPS: Record<UnsubMethod, { label: string; bg: string; plain?: boolean }> = {
+  oneclick: { label: '⚡ One-click', bg: 'var(--color-accent)' },
+  mailto:   { label: '✉ Email',     bg: '#3b82f6' },
+  link:     { label: '🔗 Link',      bg: '#64748b' },
+  none:     { label: 'None',         bg: '', plain: true },
+}
+
+export const CATEGORY_COLORS: Record<string, string> = {
+  Promotions:  '#6366f1',
+  Newsletters: '#0ea5e9',
+  Social:      '#ec4899',
+  Shopping:    '#f59e0b',
+  Finance:     '#10b981',
+  Travel:      '#8b5cf6',
+  Other:       '#94a3b8',
+}
+
+function volumeColor(n: number): string {
+  return n > 100 ? '#ef4444' : n > 20 ? '#f59e0b' : '#10b981'
 }
 
 export default function SenderTable({
-  senders,
-  selected,
-  onSelectedChange,
-  suggestions,
+  senders, selected, onSelectedChange, suggestions, protectedSet,
 }: {
   senders: Sender[]
   selected: Set<string>
   onSelectedChange: (next: Set<string>) => void
   suggestions: Map<string, Suggestion>
+  protectedSet: Set<string>
 }) {
   const allSelected = senders.length > 0 && senders.every((s) => selected.has(s.email))
+  const someSelected = senders.some((s) => selected.has(s.email))
 
   const toggleAll = () => {
-    onSelectedChange(allSelected ? new Set() : new Set(senders.map((s) => s.email)))
+    if (allSelected) {
+      const next = new Set(selected)
+      senders.forEach((s) => next.delete(s.email))
+      onSelectedChange(next)
+    } else {
+      onSelectedChange(new Set([...selected, ...senders.map((s) => s.email)]))
+    }
   }
 
   const toggle = (email: string) => {
@@ -42,18 +62,29 @@ export default function SenderTable({
     onSelectedChange(next)
   }
 
+  if (senders.length === 0) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          No senders match this filter.
+        </Typography>
+      </Box>
+    )
+  }
+
   return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table size="small">
+    <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
+      <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
             <TableCell padding="checkbox">
               <Checkbox
                 size="small"
                 checked={allSelected}
-                indeterminate={selected.size > 0 && !allSelected}
+                indeterminate={someSelected && !allSelected}
                 onChange={toggleAll}
                 aria-label="Select all senders"
+                sx={{ color: 'var(--color-accent)', '&.Mui-checked': { color: 'var(--color-accent)' } }}
               />
             </TableCell>
             <TableCell>Sender</TableCell>
@@ -67,6 +98,8 @@ export default function SenderTable({
           {senders.map((s) => {
             const chip = METHOD_CHIPS[s.method]
             const suggestion = suggestions.get(s.email)
+            const catColor = suggestion ? (CATEGORY_COLORS[suggestion.category] ?? '#94a3b8') : undefined
+            const isProtected = protectedSet.has(s.email.toLowerCase())
             return (
               <TableRow
                 key={s.email}
@@ -82,47 +115,72 @@ export default function SenderTable({
                     onChange={() => toggle(s.email)}
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Select ${s.name || s.email}`}
+                    sx={{ color: 'var(--color-accent)', '&.Mui-checked': { color: 'var(--color-accent)' } }}
                   />
                 </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {s.name || s.email}
-                  </Typography>
-                  {s.name && (
-                    <Typography variant="caption" color="text.secondary">
-                      {s.email}
-                    </Typography>
-                  )}
+                <TableCell sx={{ maxWidth: 240 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    {isProtected && (
+                      <Tooltip title="Protected — excluded from bulk unsubscribe and trash">
+                        <ShieldOutlined sx={{ fontSize: 15, color: '#10b981', flexShrink: 0 }} />
+                      </Tooltip>
+                    )}
+                    <Box sx={{ overflow: 'hidden' }}>
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 700, color: '#0f172a' }}>
+                        {s.name || s.email}
+                      </Typography>
+                      {s.name && (
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                          {s.email}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2">{s.messageCount.toLocaleString()}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: volumeColor(s.messageCount) }}>
+                    {s.messageCount.toLocaleString()}
+                  </Typography>
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    size="small"
-                    label={chip.label}
-                    color={chip.color}
-                    variant={chip.color === 'default' ? 'outlined' : 'filled'}
-                  />
+                  {!chip.plain ? (
+                    <Box
+                      sx={{
+                        display: 'inline-flex', alignItems: 'center',
+                        px: 1, py: 0.25, borderRadius: '6px',
+                        background: chip.bg, fontSize: '0.7rem', fontWeight: 700,
+                        color: '#fff', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {chip.label}
+                    </Box>
+                  ) : (
+                    <Chip size="small" label="None" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+                  )}
                 </TableCell>
                 <TableCell>
                   {suggestion && (
-                    <Typography
-                      variant="body2"
-                      color={suggestion.confidence === 'low' ? 'text.secondary' : 'text.primary'}
-                      sx={{ fontStyle: suggestion.confidence === 'low' ? 'italic' : 'normal' }}
+                    <Box
+                      sx={{
+                        display: 'inline-flex', alignItems: 'center',
+                        px: 1, py: 0.25, borderRadius: '6px',
+                        background: catColor ? `${catColor}18` : 'transparent',
+                        border: `1px solid ${catColor ?? '#94a3b8'}30`,
+                        fontSize: '0.7rem', fontWeight: 600,
+                        color: catColor ?? '#94a3b8',
+                        fontStyle: suggestion.confidence === 'low' ? 'italic' : 'normal',
+                        opacity: suggestion.confidence === 'low' ? 0.7 : 1,
+                      }}
                       title={suggestion.reason}
                     >
                       {suggestion.category}
-                    </Typography>
+                    </Box>
                   )}
                 </TableCell>
-                <TableCell>
-                  <Box sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {s.latestSubject}
-                    </Typography>
-                  </Box>
+                <TableCell sx={{ maxWidth: 280 }}>
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {s.latestSubject}
+                  </Typography>
                 </TableCell>
               </TableRow>
             )
