@@ -8,6 +8,7 @@ import type {
   GroupMessage,
   GmailLabel,
   ProtectedSender,
+  Filter,
   StorageStats,
   StorageDrillMessage,
   DigestState,
@@ -81,6 +82,7 @@ export const api = {
   inboxGroups: () => request<InboxGroup[]>('/api/inbox/groups'),
   groupMessages: (key: string) => request<GroupMessage[]>(`/api/inbox/groups/${key}/messages`),
   allLabels: () => request<GmailLabel[]>('/api/inbox/labels'),
+  inboxFilters: () => request<Filter[]>('/api/inbox/filters'),
   filterMessages: (q: string) => request<GroupMessage[]>(`/api/inbox/filter?q=${encodeURIComponent(q)}`),
   trashFilter: (key: string) =>
     request<{ jobId: string }>(`/api/inbox/filter/${encodeURIComponent(key)}/trash`, { method: 'POST' }),

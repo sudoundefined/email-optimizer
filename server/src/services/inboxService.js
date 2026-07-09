@@ -150,22 +150,24 @@ export async function filterMessages(query, max = 25) {
 const FILTER_TRASH_MAX_MESSAGES = 10_000
 
 /**
- * Allow-listed Gmail queries for the quick-filter toolbar.
- * Keep in sync with client/src/components/FilterToolbar.tsx FILTERS.
- * Bulk-trash only accepts these keys — never a raw client-supplied query.
+ * Canonical quick-filter definitions — the SINGLE source of truth. The client
+ * fetches these via GET /api/inbox/filters (no duplicated client-side list).
  */
-export const FILTERS = {
-  'never-opened': 'is:unread older_than:6m -in:trash -in:spam',
-  'low-engagement': 'is:unread older_than:3m -in:trash -in:spam',
-  'unread-marketing': 'is:unread category:promotions -in:trash -in:spam',
-  'unread-social': 'is:unread category:social -in:trash -in:spam',
-  'old-newsletters': 'category:updates older_than:1y -in:trash -in:spam',
-  'old-attachments': 'has:attachment older_than:1y -in:trash -in:spam',
-  'large-emails': 'larger:5M -in:trash -in:spam',
-  'stale-unread': 'is:unread older_than:6m -in:trash -in:spam',
-  'old-promotions': 'category:promotions older_than:1y -in:trash -in:spam',
-  'old-forums': 'category:forums older_than:1y -in:trash -in:spam',
-}
+export const FILTER_DEFS = [
+  { key: 'never-opened', label: 'Never opened', query: 'is:unread older_than:6m -in:trash -in:spam', category: 'engagement' },
+  { key: 'low-engagement', label: 'Rarely read', query: 'is:unread older_than:3m -in:trash -in:spam', category: 'engagement' },
+  { key: 'unread-marketing', label: 'Unread marketing', query: 'is:unread category:promotions -in:trash -in:spam', category: 'category' },
+  { key: 'unread-social', label: 'Unread social', query: 'is:unread category:social -in:trash -in:spam', category: 'category' },
+  { key: 'old-newsletters', label: 'Old newsletters', query: 'category:updates older_than:1y -in:trash -in:spam', category: 'category' },
+  { key: 'old-attachments', label: 'Old with attachments', query: 'has:attachment older_than:1y -in:trash -in:spam', category: 'cleanup' },
+  { key: 'large-emails', label: 'Large (>5 MB)', query: 'larger:5M -in:trash -in:spam', category: 'cleanup' },
+  { key: 'stale-unread', label: 'Unread 6 mo+', query: 'is:unread older_than:6m -in:trash -in:spam', category: 'cleanup' },
+  { key: 'old-promotions', label: 'Old promotions', query: 'category:promotions older_than:1y -in:trash -in:spam', category: 'cleanup' },
+  { key: 'old-forums', label: 'Old forums', query: 'category:forums older_than:1y -in:trash -in:spam', category: 'category' },
+]
+
+/** key -> query, derived from FILTER_DEFS. Used by the bulk trash-by-key path. */
+export const FILTERS = Object.fromEntries(FILTER_DEFS.map((d) => [d.key, d.query]))
 
 /**
  * Trash EVERY message matching an allow-listed filter key (not just a sample).

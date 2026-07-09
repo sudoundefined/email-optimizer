@@ -19,7 +19,7 @@ A personal web app for cleaning up your Gmail — scan for marketing clutter, bu
 
 | Layer | Tech |
 |-------|------|
-| Client | React 18, Vite, TypeScript, Material UI v6, Emotion |
+| Client | React 18, Vite, TypeScript, Material UI v9, Emotion |
 | Server | Node.js, Express, Google Gmail API |
 | Infra | npm workspaces monorepo, no database |
 
