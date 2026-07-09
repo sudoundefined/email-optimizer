@@ -20,7 +20,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { MailOutlined, SearchOutlined } from '@mui/icons-material'
 import { api, ApiError } from '../api'
-import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender } from '../types'
+import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription } from '../types'
 import { useJob } from '../hooks/useJob'
 import ScanControls from './ScanControls'
 import SenderTable, { CATEGORY_COLORS } from './SenderTable'
@@ -29,13 +29,14 @@ import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
 import ProtectedTab from './ProtectedTab'
 
-type Segment = 'all' | 'unsub' | 'nomethod' | 'protected'
+type Segment = 'all' | 'unsub' | 'nomethod' | 'subscriptions' | 'protected'
 type SortKey = 'volume' | 'name' | 'recent'
 
 const SEGMENTS: { key: Segment; label: string; blurb: string }[] = [
   { key: 'all', label: 'All senders', blurb: 'Everything from your scan' },
   { key: 'unsub', label: 'With unsubscribe', blurb: 'One-click, email, or link' },
   { key: 'nomethod', label: 'No method', blurb: 'No unsubscribe detected' },
+  { key: 'subscriptions', label: 'Subscriptions', blurb: 'Recurring paid services' },
   { key: 'protected', label: 'Protected list', blurb: 'Shielded from bulk actions' },
 ]
 
@@ -53,6 +54,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   const [error, setError] = useState<string | null>(null)
   const [protectedList, setProtectedList] = useState<ProtectedSender[]>([])
   const [protectionWarning, setProtectionWarning] = useState<string | null>(null)
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
 
   // redesign: filter/sort/search state driving the two-pane view
   const [segment, setSegment] = useState<Segment>('all')
@@ -80,6 +82,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       setSuggestions(await api.suggestions())
       const protectedRes = await api.protectedList()
       setProtectedList(protectedRes.protected)
+      setSubscriptions(await api.subscriptions())
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 409)) return
       handleApiError(err)
@@ -263,9 +266,17 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       all: all.length,
       unsub: all.filter((s) => s.method !== 'none').length,
       nomethod: all.filter((s) => s.method === 'none').length,
+      subscriptions: subscriptions.length,
       protected: protectedList.length,
     }
-  }, [scan, protectedList])
+  }, [scan, protectedList, subscriptions])
+
+  // Map sender email → its detected subscription (vendor + cadence).
+  const subMap = useMemo(() => {
+    const m = new Map<string, Subscription>()
+    for (const s of subscriptions) m.set(s.email.toLowerCase(), s)
+    return m
+  }, [subscriptions])
 
   // ── Category counts (left pane) ────────────────────────────────────────────
   const categoryCounts = useMemo(() => {
@@ -283,6 +294,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     let list: Sender[] = scan.senders
     if (segment === 'unsub') list = list.filter((s) => s.method !== 'none')
     else if (segment === 'nomethod') list = list.filter((s) => s.method === 'none')
+    else if (segment === 'subscriptions') list = list.filter((s) => subMap.has(s.email.toLowerCase()))
     if (category) list = list.filter((s) => suggestionMap.get(s.email)?.category === category)
     const q = search.trim().toLowerCase()
     if (q) {
@@ -543,6 +555,24 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                     <MenuItem value="recent">Sort: Most recent</MenuItem>
                   </Select>
                 </Box>
+                {segment === 'subscriptions' && (
+                  <Box sx={{ px: 3, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.08)', display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+                      Recurring services detected from your scan — select to unsubscribe, keep-latest, or trash:
+                    </Typography>
+                    {[...new Map(subscriptions.map((s) => [s.vendor, s])).values()].slice(0, 16).map((s) => (
+                      <Chip
+                        key={s.vendor}
+                        size="small"
+                        label={s.cadence === 'unknown' ? s.vendor : `${s.vendor} · ${s.cadence}`}
+                        sx={{ background: 'rgba(88,86,214,0.12)', color: '#5856D6', fontWeight: 500 }}
+                      />
+                    ))}
+                    {subscriptions.length === 0 && (
+                      <Typography variant="caption" color="text.secondary">No recurring services matched — scan a wider date range to catch more.</Typography>
+                    )}
+                  </Box>
+                )}
                 <SenderTable
                   senders={visibleSenders}
                   selected={selected}

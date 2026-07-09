@@ -76,7 +76,7 @@ Open **http://localhost:5173** and sign in with Google.
    - **Link** — opens the sender's unsubscribe page for you to complete
 3. Select senders — a floating action tray appears with:
    - **Unsubscribe** — results stream in per-sender as they complete
-   - **Label** — review suggested categories, then create and apply Gmail labels (`Unsub/<Category>`)
+   - **Label** — review suggested categories (12-category taxonomy: Work, Banking, Shopping, Travel, Medical, Tax, Bills, Subscriptions, Newsletters, Social, Promotions, Personal), then create top-level Gmail labels and **tag in place** — nothing leaves your inbox unless you tick *Also archive*.
    - **Protect / Unprotect** — add or remove senders from the protect-list
    - **Keep latest…** — (single non-protected sender) keep the newest N emails from that sender and move the rest to Trash. Great for daily newsletters you skim but don't archive. Protected senders are refused.
    - **Move to Trash** — trash all scanned emails from selected senders (>500 emails requires typed confirmation)
@@ -111,10 +111,10 @@ Open **http://localhost:5173** and sign in with Google.
 ## Tests
 
 ```bash
-npm test    # 90 unit tests
+npm test    # 105 unit tests
 ```
 
-Covers: header parsing (RFC 2369/8058), mailto/MIME building with header-injection resistance, sender categorization, rate-limiter retry/backoff logic, inbox group definitions, quick-filter allow-list (single-source FILTER_DEFS), keep-latest partitioning and sender-email injection guard, digest store/settings/baseline, digest builders (XSS-safe HTML + MIME), scheduler due-logic, protect-list heuristics and persistence, and storage aggregation.
+Covers: header parsing (RFC 2369/8058), mailto/MIME building with header-injection resistance, sender categorization (expanded 12-category taxonomy), recurring-subscription detection, rate-limiter retry/backoff logic, inbox group definitions, quick-filter allow-list (single-source FILTER_DEFS), keep-latest partitioning and sender-email injection guard, digest store/settings/baseline, digest builders (XSS-safe HTML + MIME), scheduler due-logic, protect-list heuristics and persistence, and storage aggregation.
 
 ## Project structure
 

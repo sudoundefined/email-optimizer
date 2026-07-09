@@ -10,6 +10,17 @@ export interface Sender {
   method: UnsubMethod
 }
 
+export interface Subscription {
+  vendor: string
+  email: string
+  name: string
+  domain: string
+  messageCount: number
+  cadence: 'weekly' | 'monthly' | 'quarterly' | 'annual' | 'unknown'
+  lastSeen: number
+  method: UnsubMethod
+}
+
 export interface ScanResult {
   scannedAt: string
   range: string
@@ -154,12 +165,18 @@ export interface StorageStats {
 }
 
 export const CATEGORIES = [
-  'Promotions',
+  'Work',
+  'Banking',
+  'Shopping',
+  'Travel',
+  'Medical',
+  'Tax',
+  'Bills',
+  'Subscriptions',
   'Newsletters',
   'Social',
-  'Shopping',
-  'Finance',
-  'Travel',
+  'Promotions',
+  'Personal',
   'Other',
 ]
 

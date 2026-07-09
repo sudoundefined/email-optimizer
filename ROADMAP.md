@@ -11,8 +11,8 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 ### Core cleanup (v1)
 - **Bulk unsubscribe** — RFC 8058 one-click, mailto automation, manual link surfacing
 - **Sender scan** — group by sender, show counts & unsubscribe methods, date-range filtering
-- **Auto-categorization** — heuristic-based labeling (Promotions, Newsletters, Social, Shopping, Finance, Travel)
-- **Label management** — create `Unsub/*` labels, remove labels, trash emails + delete label
+- **Auto-categorization** — heuristic 12-category taxonomy (Work, Banking, Shopping, Travel, Medical, Tax, Bills, Subscriptions, Newsletters, Social, Promotions, Personal); tags in place by default with an opt-in "also archive"
+- **Label management** — create top-level (or `Unsub/*`) labels, remove labels, trash emails + delete label
 - **Per-sender trash** — move all scanned emails from selected senders to Gmail Trash (30-day recovery)
 
 ### Inbox overview (v2)
@@ -33,6 +33,10 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 ### Scheduling & digest (v5)
 - **Weekly digest email** — an in-process weekly scheduler scans for **new** marketing senders (vs. a persisted baseline) and emails you a summary from your own Gmail, each with an unsubscribe link. First run seeds the baseline silently; later runs report only genuinely new senders. Configurable day/hour/recipient via the digest settings dialog, with preview and send-now. Sender-supplied content is HTML-escaped; single-job guard prevents double-sends. *Reliable scheduling depends on production OAuth (see below).*
 - **OAuth verification assets** — public privacy/terms pages (`/legal/*`) and a submission guide (`docs/OAUTH_VERIFICATION.md`) to move the app Testing → Production and remove the 7-day token expiry.
+
+### Labels & subscriptions (v6)
+- **Expanded label taxonomy + tag-only/archive** — 12 top-level categories, previewed and applied without moving mail by default; opt-in archive removes `INBOX` (recoverable in All Mail).
+- **Subscriptions detector** — a shared `RECURRING_VENDORS` list (also feeding the Subscriptions label) detects recurring paid services from scan metadata with monthly/annual cadence; surfaced as a Subscriptions segment wired to the existing per-sender action tray. Heuristic and cache-only — no AI, no extra Gmail calls.
 
 ---
 
@@ -63,6 +67,11 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 **Smart classification**
 - **AI categorizer** — replace heuristic category assignment with Claude API calls. More accurate, handles edge cases (e.g., "invoice from Stripe" → Finance, "Stripe blog" → Newsletters).
 - **Priority scoring** — Claude analyzes subject + snippet to rank inbox by urgency/importance (like Shortwave's "Focus Inbox").
+
+**Content extraction (deferred — needs Claude API + email-body reads)**
+- **Expense & Finance tracker** — extract purchases (food, travel, shopping, bills) with merchant/amount/date from receipts and statements; aggregate spend by month and category.
+- **Career extractor** — surface offer letters, interview invites, certifications, recruiter messages, promotion emails, and performance reviews with a one-line summary each.
+- Both build on a shared batched, prompt-cached extraction service. The subscriptions detector already ships heuristically (v6); an AI pass could add amounts/renewal dates later.
 
 **Summaries & drafting**
 - **One-line summaries** — each inbox group gets a Claude-generated summary: "Marketing: 3 sales, 2 new product launches. Social: 1 LinkedIn message, 4 Twitter notifications."

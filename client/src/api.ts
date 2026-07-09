@@ -1,6 +1,7 @@
 import type {
   AuthStatus,
   ScanResult,
+  Subscription,
   Suggestion,
   AppLabel,
   JobSnapshot,
@@ -51,6 +52,7 @@ export const api = {
   startScan: (range: string) =>
     request<{ jobId: string }>('/api/scan', { method: 'POST', body: JSON.stringify({ range }) }),
   senders: () => request<ScanResult>('/api/senders'),
+  subscriptions: () => request<Subscription[]>('/api/subscriptions'),
   startUnsubscribe: (senderEmails: string[]) =>
     request<{ jobId: string | null; excluded: number }>('/api/unsubscribe', {
       method: 'POST',
@@ -67,10 +69,13 @@ export const api = {
       body: JSON.stringify({ senderEmail, keep }),
     }),
   suggestions: () => request<Suggestion[]>('/api/labels/suggestions'),
-  applyLabels: (assignments: { senderEmail: string; labelName: string }[]) =>
+  applyLabels: (
+    assignments: { senderEmail: string; labelName: string }[],
+    opts?: { archive?: boolean; topLevel?: boolean }
+  ) =>
     request<{ jobId: string }>('/api/labels/apply', {
       method: 'POST',
-      body: JSON.stringify({ assignments }),
+      body: JSON.stringify({ assignments, ...opts }),
     }),
   labels: () => request<AppLabel[]>('/api/labels'),
   labelMessages: (id: string) => request<GroupMessage[]>(`/api/labels/${id}/messages`),
