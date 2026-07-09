@@ -162,3 +162,43 @@ export const CATEGORIES = [
   'Travel',
   'Other',
 ]
+
+export interface DigestSettings {
+  enabled: boolean
+  dayOfWeek: number // 0-6, Sunday=0
+  hour: number // 0-23
+  recipient: string // '' means the connected account's own address
+}
+
+export interface DigestRunHistory {
+  at: string
+  newSenders: number
+  sent: boolean
+  recipient: string | null
+  error: string | null
+}
+
+export interface DigestState {
+  settings: DigestSettings
+  lastRunAt: string | null
+  knownSenderCount: number
+  history: DigestRunHistory[]
+  running: boolean
+}
+
+export interface DigestNewSender {
+  email: string
+  name: string
+  messageCount: number
+  method: UnsubMethod
+  unsubUrl: string | null
+}
+
+export interface DigestRunResult {
+  dryRun: boolean
+  seeding: boolean
+  newSenders: DigestNewSender[]
+  recipient: string
+  totalScanned: number
+  sent: boolean
+}

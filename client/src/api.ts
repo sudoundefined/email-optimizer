@@ -10,6 +10,8 @@ import type {
   ProtectedSender,
   StorageStats,
   StorageDrillMessage,
+  DigestState,
+  DigestSettings,
 } from './types'
 
 export class ApiError extends Error {
@@ -98,4 +100,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ messageIds }),
     }),
+  digest: () => request<DigestState>('/api/digest'),
+  saveDigestSettings: (settings: Partial<DigestSettings>) =>
+    request<{ settings: DigestSettings }>('/api/digest/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    }),
+  runDigest: () => request<{ jobId: string }>('/api/digest/run', { method: 'POST' }),
+  previewDigest: () => request<{ jobId: string }>('/api/digest/preview', { method: 'POST' }),
 }
