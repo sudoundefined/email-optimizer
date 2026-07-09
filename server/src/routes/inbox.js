@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { listGroups, groupMessages, listAllLabels, filterMessages } from '../services/inboxService.js'
+import { listGroups, groupMessages, listAllLabels, filterMessages, trashByFilterKey, FILTERS } from '../services/inboxService.js'
+import { createJob } from '../jobs/jobManager.js'
 
 const router = Router()
 
@@ -36,6 +37,19 @@ router.get('/inbox/filter', async (req, res, next) => {
     }
     const max = Math.min(Number(req.query.max) || 25, 100)
     res.json(await filterMessages(q, max))
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/inbox/filter/:key/trash', (req, res, next) => {
+  try {
+    const { key } = req.params
+    if (!FILTERS[key]) {
+      return res.status(400).json({ error: `Unknown filter "${key}"` })
+    }
+    const job = createJob('filter-trash', (emit) => trashByFilterKey(key, emit))
+    res.json({ jobId: job.id })
   } catch (err) {
     next(err)
   }

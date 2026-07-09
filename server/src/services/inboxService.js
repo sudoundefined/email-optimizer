@@ -1,7 +1,8 @@
 import { getGmail } from '../gmail/client.js'
 import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { limited } from '../gmail/rateLimiter.js'
-import { getMetadata } from '../gmail/messages.js'
+import { getMetadata, listAllMessageIds } from '../gmail/messages.js'
+import { trashMessages } from './messageTrashService.js'
 import { listRegistered } from '../store/labelRegistry.js'
 
 /**
@@ -141,5 +142,51 @@ export async function filterMessages(query, max = 25) {
         subject: m.headers['subject'] || '',
         date: m.internalDate,
       }))
+  })
+}
+
+const FILTER_TRASH_MAX_MESSAGES = 10_000
+
+/**
+ * Allow-listed Gmail queries for the quick-filter toolbar.
+ * Keep in sync with client/src/components/FilterToolbar.tsx FILTERS.
+ * Bulk-trash only accepts these keys — never a raw client-supplied query.
+ */
+export const FILTERS = {
+  'never-opened': 'is:unread older_than:6m -in:trash -in:spam',
+  'low-engagement': 'is:unread older_than:3m -in:trash -in:spam',
+  'unread-marketing': 'is:unread category:promotions -in:trash -in:spam',
+  'unread-social': 'is:unread category:social -in:trash -in:spam',
+  'old-newsletters': 'category:updates older_than:1y -in:trash -in:spam',
+  'old-attachments': 'has:attachment older_than:1y -in:trash -in:spam',
+  'large-emails': 'larger:5M -in:trash -in:spam',
+  'stale-unread': 'is:unread older_than:6m -in:trash -in:spam',
+  'old-promotions': 'category:promotions older_than:1y -in:trash -in:spam',
+  'old-forums': 'category:forums older_than:1y -in:trash -in:spam',
+}
+
+/**
+ * Trash EVERY message matching an allow-listed filter key (not just a sample).
+ * Runs as a job. Gmail Trash only — never a permanent delete.
+ * Returns { trashed, capped } where capped indicates the 10k cap was hit.
+ */
+export async function trashByFilterKey(key, emit) {
+  const q = FILTERS[key]
+  if (!q) {
+    const err = new Error(`Unknown filter "${key}"`)
+    err.status = 400
+    throw err
+  }
+  return withAuthErrorHandling(async () => {
+    const gmail = await getGmail()
+    emit?.({ phase: 'listing', listed: 0 })
+    const ids = await listAllMessageIds(gmail, q, {
+      maxMessages: FILTER_TRASH_MAX_MESSAGES,
+      onProgress: (p) => emit?.({ phase: 'listing', ...p }),
+    })
+    const capped = ids.length >= FILTER_TRASH_MAX_MESSAGES
+    if (ids.length === 0) return { trashed: 0, capped: false }
+    const res = await trashMessages(ids, emit)
+    return { trashed: res.trashed, capped }
   })
 }
