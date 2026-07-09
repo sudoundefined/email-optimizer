@@ -23,11 +23,15 @@ router.get('/labels/suggestions', (req, res, next) => {
 router.post('/labels/apply', (req, res, next) => {
   try {
     requireScan()
-    const { assignments } = req.body || {}
+    const { assignments, archive, topLevel } = req.body || {}
     if (!Array.isArray(assignments) || assignments.length === 0) {
       return res.status(400).json({ error: 'assignments must be a non-empty array' })
     }
-    const job = createJob('apply-labels', (emit) => runApplyLabels({ assignments }, emit))
+    // topLevel:true → bare organizational labels (Work, Banking…); otherwise the
+    // default Unsub/ prefix used by the unsubscribe-labeling flow.
+    const opts = { assignments, archive: Boolean(archive) }
+    if (topLevel) opts.prefix = ''
+    const job = createJob('apply-labels', (emit) => runApplyLabels(opts, emit))
     res.json({ jobId: job.id })
   } catch (err) {
     next(err)

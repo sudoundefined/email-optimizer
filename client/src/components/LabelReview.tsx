@@ -6,7 +6,9 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
+import Checkbox from '@mui/material/Checkbox'
 import FormControl from '@mui/material/FormControl'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import LinearProgress from '@mui/material/LinearProgress'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
@@ -33,6 +35,7 @@ export default function LabelReview({
   )
   const [error, setError] = useState<string | null>(null)
   const [doneMessage, setDoneMessage] = useState<string | null>(null)
+  const [archive, setArchive] = useState(false)
   const applyJob = useJob()
 
   const byCategory = useMemo(() => {
@@ -53,12 +56,13 @@ export default function LabelReview({
     setError(null)
     try {
       const payload = [...assignments].map(([senderEmail, labelName]) => ({ senderEmail, labelName }))
-      const snapshot = await applyJob.start(() => api.applyLabels(payload))
+      const snapshot = await applyJob.start(() => api.applyLabels(payload, { topLevel: true, archive }))
       if (snapshot.state === 'error') setError(snapshot.error || 'Applying labels failed')
       else {
-        const result = snapshot.result as { applied: { label: string; messages: number }[] }
+        const result = snapshot.result as { applied: { label: string; messages: number }[]; archived?: boolean }
         setDoneMessage(
-          result.applied.map((a) => `${a.label}: ${a.messages} emails`).join(' · ')
+          `${result.applied.map((a) => `${a.label}: ${a.messages} emails`).join(' · ')}` +
+            (result.archived ? ' — moved out of the inbox (recoverable in All Mail).' : ' — tagged in place, still in your inbox.')
         )
       }
     } catch (err) {
@@ -76,14 +80,15 @@ export default function LabelReview({
       <DialogTitle>Review labels</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Labels are created in Gmail as <code>Unsub/&lt;Category&gt;</code> and applied to every
-          scanned email from each sender.
+          Each category becomes a Gmail label applied to every scanned email from the sender.
+          By default this <strong>tags in place</strong> — nothing leaves your inbox. Review the
+          grouping below, then create the labels.
         </Typography>
 
         {[...byCategory.entries()].map(([category, group]) => (
           <Box key={category} sx={{ mb: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Unsub/{category}{' '}
+              {category}{' '}
               <Typography component="span" variant="body2" color="text.secondary">
                 ({group.length} senders)
               </Typography>
@@ -127,15 +132,34 @@ export default function LabelReview({
         )}
         {doneMessage && <Alert severity="success" sx={{ mt: 1 }}>Labels applied — {doneMessage}</Alert>}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={applyJob.running}>
-          {doneMessage ? 'Close' : 'Cancel'}
-        </Button>
-        {!doneMessage && (
-          <Button variant="contained" onClick={apply} disabled={applyJob.running}>
-            {applyJob.running ? 'Applying…' : 'Create & apply labels'}
+      <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+        {!doneMessage ? (
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={archive}
+                onChange={(e) => setArchive(e.target.checked)}
+                disabled={applyJob.running}
+              />
+            }
+            label={
+              <Typography variant="body2" color="text.secondary">
+                Also archive tagged emails (move out of inbox)
+              </Typography>
+            }
+          />
+        ) : <span />}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button onClick={onClose} disabled={applyJob.running}>
+            {doneMessage ? 'Close' : 'Cancel'}
           </Button>
-        )}
+          {!doneMessage && (
+            <Button variant="contained" onClick={apply} disabled={applyJob.running}>
+              {applyJob.running ? 'Applying…' : archive ? 'Create labels, tag & archive' : 'Create labels & tag'}
+            </Button>
+          )}
+        </Box>
       </DialogActions>
     </Dialog>
   )

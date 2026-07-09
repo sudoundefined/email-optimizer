@@ -154,12 +154,18 @@ export interface StorageStats {
 }
 
 export const CATEGORIES = [
-  'Promotions',
+  'Work',
+  'Banking',
+  'Shopping',
+  'Travel',
+  'Medical',
+  'Tax',
+  'Bills',
+  'Subscriptions',
   'Newsletters',
   'Social',
-  'Shopping',
-  'Finance',
-  'Travel',
+  'Promotions',
+  'Personal',
   'Other',
 ]
 

@@ -38,8 +38,12 @@ async function ensureLabel(gmail, name, existingByName) {
  * Job runner: create labels as needed and apply them to all scanned
  * messages of the assigned senders.
  * assignments: [{senderEmail, labelName}] — labelName without prefix.
+ * prefix: label namespace. Defaults to config.labelPrefix (`Unsub/`) for the
+ *   unsubscribe flow; pass '' for bare top-level organizational labels.
+ * archive: when true, also remove INBOX (moves tagged mail out of the inbox).
+ *   Default false = pure tag, inbox untouched (recoverable — never deletes).
  */
-export async function runApplyLabels({ assignments }, emit) {
+export async function runApplyLabels({ assignments, prefix = config.labelPrefix, archive = false }, emit) {
   return withAuthErrorHandling(async () => {
     const scan = requireScan()
     const gmail = await getGmail()
@@ -54,9 +58,9 @@ export async function runApplyLabels({ assignments }, emit) {
     for (const { senderEmail, labelName } of assignments) {
       const sender = scan.senders.get(String(senderEmail).toLowerCase())
       if (!sender || !labelName) continue
-      const fullName = labelName.startsWith(config.labelPrefix)
-        ? labelName
-        : config.labelPrefix + labelName
+      const fullName = prefix && !labelName.startsWith(prefix)
+        ? prefix + labelName
+        : labelName
       if (!idsByLabel.has(fullName)) idsByLabel.set(fullName, [])
       idsByLabel.get(fullName).push(...sender.messageIds)
     }
@@ -67,11 +71,13 @@ export async function runApplyLabels({ assignments }, emit) {
 
     for (const [fullName, ids] of idsByLabel) {
       const labelId = await ensureLabel(gmail, fullName, existingByName)
+      const requestBody = { addLabelIds: [labelId] }
+      if (archive) requestBody.removeLabelIds = ['INBOX']
       for (const ids1000 of chunk([...new Set(ids)], BATCH_MODIFY_MAX)) {
         await limited(() =>
           gmail.users.messages.batchModify({
             userId: 'me',
-            requestBody: { ids: ids1000, addLabelIds: [labelId] },
+            requestBody: { ...requestBody, ids: ids1000 },
           })
         )
         labeled += ids1000.length
@@ -80,7 +86,7 @@ export async function runApplyLabels({ assignments }, emit) {
       applied.push({ label: fullName, messages: new Set(ids).size })
     }
 
-    return { applied, totalMessages }
+    return { applied, totalMessages, archived: archive }
   })
 }
 

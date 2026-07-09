@@ -22,13 +22,19 @@ const METHOD_CHIPS: Record<UnsubMethod, { label: string; bg: string; plain?: boo
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  Promotions:  '#5856D6',
-  Newsletters: '#007AFF',
-  Social:      '#FF2D55',
-  Shopping:    '#FF9500',
-  Finance:     '#34C759',
-  Travel:      '#00C7BE',
-  Other:       '#AEAEB2',
+  Work:          '#0A84FF', // systemBlue (light)
+  Banking:       '#34C759', // systemGreen
+  Shopping:      '#FF9500', // systemOrange
+  Travel:        '#00C7BE', // systemTeal
+  Medical:       '#FF375F', // systemPink/red
+  Tax:           '#BF5AF2', // systemPurple
+  Bills:         '#FF9F0A', // systemYellow-orange
+  Subscriptions: '#5856D6', // systemIndigo
+  Newsletters:   '#007AFF', // systemBlue
+  Social:        '#FF2D55', // systemPink
+  Promotions:    '#AF52DE', // systemPurple (light)
+  Personal:      '#30B0C7', // systemCyan
+  Other:         '#AEAEB2', // systemGray
 }
 
 function volumeColor(n: number): string {

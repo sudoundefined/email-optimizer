@@ -67,10 +67,13 @@ export const api = {
       body: JSON.stringify({ senderEmail, keep }),
     }),
   suggestions: () => request<Suggestion[]>('/api/labels/suggestions'),
-  applyLabels: (assignments: { senderEmail: string; labelName: string }[]) =>
+  applyLabels: (
+    assignments: { senderEmail: string; labelName: string }[],
+    opts?: { archive?: boolean; topLevel?: boolean }
+  ) =>
     request<{ jobId: string }>('/api/labels/apply', {
       method: 'POST',
-      body: JSON.stringify({ assignments }),
+      body: JSON.stringify({ assignments, ...opts }),
     }),
   labels: () => request<AppLabel[]>('/api/labels'),
   labelMessages: (id: string) => request<GroupMessage[]>(`/api/labels/${id}/messages`),
