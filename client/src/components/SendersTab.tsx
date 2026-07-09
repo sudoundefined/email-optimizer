@@ -556,97 +556,98 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       )}
 
       {/* ── Floating action tray ── */}
-      {!showProtectedView && selected.size > 0 && (
+      {!showProtectedView && selected.size > 0 && (() => {
+        const busy = unsubJob.running || trashJob.running || keepJob.running
+        return (
         <Paper
           elevation={0}
           sx={{
-            position: 'fixed', left: '50%', bottom: 22, transform: 'translateX(-50%)',
-            display: 'flex', alignItems: 'center', gap: 2,
+            position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)',
+            // Fixed width + space-between keeps the bar perfectly centered and the
+            // action group pinned to the right edge, so it never slides sideways as
+            // the button set or the counts change.
+            width: 'min(980px, 94vw)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, overflow: 'hidden',
             background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-            color: 'common.white', borderRadius: 0, px: 2.5, py: 1.5, zIndex: 50,
-            maxWidth: 'min(94vw, 900px)', flexWrap: 'wrap',
-            boxShadow: '0 8px 32px rgba(99,102,241,0.45)', border: '1px solid rgba(255,255,255,0.10)',
+            color: 'common.white', borderRadius: '14px', px: 2.5, py: 1.25, zIndex: 50,
+            boxShadow: '0 12px 40px rgba(49, 46, 129, 0.5)', border: '1px solid rgba(255,255,255,0.12)',
             animation: 'fadeInUp 0.3s ease-out',
           }}
           role="toolbar"
           aria-label="Actions for selected senders"
         >
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', minWidth: 0 }}>
             <Box sx={{
-              px: 1.25, py: 0.25, borderRadius: '4px',
-              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', fontWeight: 800, fontSize: '0.875rem', color: '#fff',
+              minWidth: 28, height: 28, px: 1, borderRadius: '8px', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', fontWeight: 800, fontSize: '0.85rem', color: '#fff',
             }}>
               {selected.size}
             </Box>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+            <Typography variant="body2" noWrap sx={{ color: 'rgba(255,255,255,0.75)' }}>
               senders · <strong style={{ color: '#fff' }}>{selectedEmailCount.toLocaleString()}</strong> emails
               {selectedUnsubscribable < selected.size && ` · ${selectedUnsubscribable} unsub-able`}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0, overflowX: 'auto', py: 0.25, '& > *': { flexShrink: 0 } }}>
             <Button
               variant="contained" size="small"
-              disabled={selectedUnsubscribable === 0 || unsubJob.running || trashJob.running}
+              disabled={selectedUnsubscribable === 0 || busy}
               onClick={runUnsubscribe}
             >
               Unsubscribe
             </Button>
             <Button
               variant="contained" size="small" color="inherit"
-              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
-              disabled={unsubJob.running || trashJob.running}
+              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', whiteSpace: 'nowrap', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              disabled={busy}
               onClick={() => setShowLabelReview(true)}
             >
               Label…
             </Button>
-            {selectedNonProtectedCount > 0 && (
-              <Button
-                variant="contained" size="small" color="inherit"
-                sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
-                disabled={unsubJob.running || trashJob.running}
-                onClick={runProtect}
-              >
-                Protect
-              </Button>
-            )}
-            {selectedProtectedCount > 0 && (
-              <Button
-                variant="contained" size="small" color="inherit"
-                sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
-                disabled={unsubJob.running || trashJob.running}
-                onClick={runUnprotect}
-              >
-                Unprotect
-              </Button>
-            )}
-            {selectedNonProtectedCount === 1 && (
-              <Button
-                variant="contained" size="small" color="inherit"
-                sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
-                disabled={unsubJob.running || trashJob.running || keepJob.running}
-                onClick={() => setShowKeepDialog(true)}
-              >
-                Keep latest…
-              </Button>
-            )}
+            <Button
+              variant="contained" size="small" color="inherit"
+              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              disabled={selectedNonProtectedCount === 0 || busy}
+              onClick={runProtect}
+            >
+              Protect
+            </Button>
+            <Button
+              variant="contained" size="small" color="inherit"
+              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              disabled={selectedProtectedCount === 0 || busy}
+              onClick={runUnprotect}
+            >
+              Unprotect
+            </Button>
+            <Button
+              variant="contained" size="small" color="inherit"
+              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', whiteSpace: 'nowrap', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
+              disabled={selectedNonProtectedCount !== 1 || busy}
+              onClick={() => setShowKeepDialog(true)}
+            >
+              Keep latest…
+            </Button>
             <Button
               variant="contained" size="small"
-              sx={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)', '&:hover': { background: 'linear-gradient(135deg,#dc2626,#b91c1c)' } }}
-              disabled={unsubJob.running || trashJob.running}
+              sx={{ whiteSpace: 'nowrap', background: 'linear-gradient(135deg,#ef4444,#dc2626)', '&:hover': { background: 'linear-gradient(135deg,#dc2626,#b91c1c)' } }}
+              disabled={busy}
               onClick={() => setConfirmTrash(true)}
             >
               Move to Trash
             </Button>
             <Button
               variant="text" size="small"
-              sx={{ color: 'rgba(255,255,255,0.5)', '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: 'rgba(255,255,255,0.55)', '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
               onClick={() => setSelected(new Set())}
             >
               Clear
             </Button>
           </Stack>
         </Paper>
-      )}
+        )
+      })()}
 
       {showLabelReview && scan && (
         <LabelReview

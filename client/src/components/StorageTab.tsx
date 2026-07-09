@@ -15,6 +15,7 @@ import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
+import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
@@ -41,9 +42,18 @@ interface DrillPanelProps {
 }
 
 function DrillPanel({ title, messages, loading, selected, onSelectedChange, onClose }: DrillPanelProps) {
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
+  useEffect(() => { setPage(0) }, [messages])
+
   if (!messages && !loading) return null
 
-  const ids = messages?.map((m) => m.id) ?? []
+  const paginate = (messages?.length ?? 0) > rowsPerPage
+  const pageCount = Math.max(1, Math.ceil((messages?.length ?? 0) / rowsPerPage))
+  const safePage = Math.min(page, pageCount - 1)
+  const start = safePage * rowsPerPage
+  const pageRows = paginate ? (messages ?? []).slice(start, start + rowsPerPage) : (messages ?? [])
+  const ids = pageRows.map((m) => m.id)
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id))
   const someSelected = ids.some((id) => selected.has(id))
 
@@ -64,7 +74,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
     onSelectedChange(next)
   }
 
-  const panelSelected = ids.filter((id) => selected.has(id)).length
+  const panelSelected = (messages ?? []).filter((m) => selected.has(m.id)).length
 
   return (
     <Paper
@@ -135,7 +145,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
                     checked={allSelected}
                     indeterminate={someSelected && !allSelected}
                     onChange={toggleAll}
-                    aria-label="Select all"
+                    aria-label="Select all on this page"
                   />
                 </TableCell>
                 <TableCell>From</TableCell>
@@ -145,7 +155,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
               </TableRow>
             </TableHead>
             <TableBody>
-              {messages.map((m) => (
+              {pageRows.map((m) => (
                 <TableRow
                   key={m.id}
                   hover
@@ -190,6 +200,19 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
           </Table>
         </TableContainer>
       )}
+      {paginate && (
+        <TablePagination
+          component="div"
+          count={messages?.length ?? 0}
+          page={safePage}
+          onPageChange={(_, p) => setPage(p)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0) }}
+          rowsPerPageOptions={[50, 100, 200]}
+          labelRowsPerPage="Per page"
+          sx={{ borderTop: '1px solid rgba(30, 41, 59, 0.08)', flexShrink: 0 }}
+        />
+      )}
     </Paper>
   )
 }
@@ -212,6 +235,24 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
   // unified selection across attachment table + drill-down panel
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // attachments pagination
+  const [attachPage, setAttachPage] = useState(0)
+  const [attachRowsPerPage, setAttachRowsPerPage] = useState(100)
+  useEffect(() => { setAttachPage(0) }, [stats?.attachments])
+  const attachView = useMemo(() => {
+    const list = stats?.attachments ?? []
+    const paginate = list.length > attachRowsPerPage
+    const pageCount = Math.max(1, Math.ceil(list.length / attachRowsPerPage))
+    const safePage = Math.min(attachPage, pageCount - 1)
+    const startIdx = safePage * attachRowsPerPage
+    return {
+      paginate,
+      safePage,
+      rows: paginate ? list.slice(startIdx, startIdx + attachRowsPerPage) : list,
+      total: list.length,
+    }
+  }, [stats, attachPage, attachRowsPerPage])
 
   const trashJob = useJob()
 
@@ -312,8 +353,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
   const toggleAllAttachments = () => {
     if (!stats) return
-    const allIds = stats.attachments.map((a) => a.id)
-    const allSelected = allIds.every((id) => selectedIds.has(id))
+    const allIds = attachView.rows.map((a) => a.id)
+    const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id))
     if (allSelected) {
       const next = new Set(selectedIds)
       allIds.forEach((id) => next.delete(id))
@@ -392,7 +433,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
   if (!stats) return null
 
   const allAttachmentsSelected =
-    stats.attachments.length > 0 && stats.attachments.every((a) => selectedIds.has(a.id))
+    attachView.rows.length > 0 && attachView.rows.every((a) => selectedIds.has(a.id))
+  const someAttachmentsSelected = attachView.rows.some((a) => selectedIds.has(a.id))
 
   const drillTitle =
     drillKey?.by === 'sender'
@@ -716,9 +758,9 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                           <Checkbox
                             size="small"
                             checked={allAttachmentsSelected}
-                            indeterminate={selectedIds.size > 0 && !allAttachmentsSelected}
+                            indeterminate={someAttachmentsSelected && !allAttachmentsSelected}
                             onChange={toggleAllAttachments}
-                            aria-label="Select all attachments"
+                            aria-label="Select all attachments on this page"
                           />
                         </TableCell>
                         <TableCell>From</TableCell>
@@ -728,7 +770,7 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {stats.attachments.map((a: StorageAttachment) => (
+                      {attachView.rows.map((a: StorageAttachment) => (
                         <TableRow
                           key={a.id}
                           hover
@@ -771,6 +813,19 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                   </Table>
                 </TableContainer>
               )}
+              {attachView.paginate && (
+                <TablePagination
+                  component="div"
+                  count={attachView.total}
+                  page={attachView.safePage}
+                  onPageChange={(_, p) => setAttachPage(p)}
+                  rowsPerPage={attachRowsPerPage}
+                  onRowsPerPageChange={(e) => { setAttachRowsPerPage(parseInt(e.target.value, 10)); setAttachPage(0) }}
+                  rowsPerPageOptions={[50, 100, 200]}
+                  labelRowsPerPage="Per page"
+                  sx={{ borderTop: '1px solid rgba(30, 41, 59, 0.08)', flexShrink: 0 }}
+                />
+              )}
             </Card>
           )}
         </Grid>
@@ -783,18 +838,20 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
           sx={{
             position: 'fixed',
             left: '50%',
-            bottom: 22,
+            bottom: 24,
             transform: 'translateX(-50%)',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 2,
             background: 'var(--color-dominant)',
             color: 'common.white',
-            borderRadius: 0,
+            borderRadius: '14px',
             px: 2.5,
-            py: 1.5,
+            py: 1.25,
             zIndex: 50,
-            maxWidth: 'min(92vw, 600px)',
+            width: 'min(560px, 92vw)',
+            boxShadow: '0 12px 40px rgba(15, 23, 42, 0.45)',
             border: '1px solid rgba(15, 23, 42, 0.15)',
           }}
           role="toolbar"
