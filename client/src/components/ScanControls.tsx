@@ -40,9 +40,10 @@ const STAT_CARDS = [
 ]
 
 export default function ScanControls({
-  onScan, job, running, scan,
+  onScan, onCancel, job, running, scan,
 }: {
   onScan: (range: string) => void
+  onCancel?: () => void
   job: JobSnapshot | null
   running: boolean
   scan: ScanResult | null
@@ -90,6 +91,18 @@ export default function ScanControls({
           >
             {running ? 'Scanning…' : 'Scan mailbox'}
           </Button>
+
+          {/* Cancel button — only while a scan is running */}
+          {running && onCancel && (
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={onCancel}
+              sx={{ px: 2 }}
+            >
+              Cancel
+            </Button>
+          )}
 
           {/* Stat pills — only when scan loaded and not running */}
           {!running && scan && (

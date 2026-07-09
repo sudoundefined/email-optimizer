@@ -79,6 +79,7 @@ export const api = {
   trashLabel: (id: string) =>
     request<{ jobId: string }>(`/api/labels/${id}?mode=trashEmails`, { method: 'DELETE' }),
   job: (id: string) => request<JobSnapshot>(`/api/jobs/${id}`),
+  cancelJob: (id: string) => request<{ cancelled: boolean }>(`/api/jobs/${id}/cancel`, { method: 'POST' }),
   inboxGroups: () => request<InboxGroup[]>('/api/inbox/groups'),
   groupMessages: (key: string) => request<GroupMessage[]>(`/api/inbox/groups/${key}/messages`),
   allLabels: () => request<GmailLabel[]>('/api/inbox/labels'),

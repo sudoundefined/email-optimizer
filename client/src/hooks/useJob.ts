@@ -10,6 +10,7 @@ export function useJob() {
   const [job, setJob] = useState<JobSnapshot | null>(null)
   const [running, setRunning] = useState(false)
   const cleanupRef = useRef<() => void>(() => {})
+  const jobIdRef = useRef<string | null>(null)
 
   const start = useCallback(async (starter: () => Promise<{ jobId: string }>) => {
     cleanupRef.current()
@@ -19,6 +20,7 @@ export function useJob() {
     try {
       const res = await starter()
       jobId = res.jobId
+      jobIdRef.current = jobId
     } catch (err) {
       setRunning(false)
       throw err
@@ -67,5 +69,15 @@ export function useJob() {
     })
   }, [])
 
-  return { job, running, start }
+  const cancel = useCallback(async () => {
+    const id = jobIdRef.current
+    if (!id) return
+    try {
+      await api.cancelJob(id)
+    } catch {
+      /* best effort — the job may have already finished */
+    }
+  }, [])
+
+  return { job, running, start, cancel }
 }

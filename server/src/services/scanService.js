@@ -27,20 +27,27 @@ export function buildQuery(range) {
  * WITHOUT caching it — callers decide whether to persist (runScan does;
  * the digest runner does not, so it never clobbers the Senders-tab scan).
  */
-export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMessages }, emit) {
+export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMessages }, emit, signal) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail()
+    const throwIfAborted = () => {
+      if (signal?.aborted) throw new Error('cancelled')
+    }
 
     emit({ phase: 'listing', listed: 0 })
     const ids = await listAllMessageIds(gmail, buildQuery(range), {
       maxMessages,
+      signal,
       onProgress: (p) => emit({ phase: 'listing', ...p }),
     })
+    throwIfAborted()
 
     emit({ phase: 'fetching', fetched: 0, total: ids.length })
     const messages = await getMetadata(gmail, ids, {
+      signal,
       onProgress: (p) => emit({ phase: 'fetching', ...p }),
     })
+    throwIfAborted()
 
     emit({ phase: 'grouping', total: messages.length })
     const senders = new Map()
@@ -104,8 +111,8 @@ export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMe
 /**
  * Scan job runner: run scanSenders and cache the result for the Senders tab.
  */
-export async function runScan(opts, emit) {
-  const result = await scanSenders(opts, emit)
+export async function runScan(opts, emit, signal) {
+  const result = await scanSenders(opts, emit, signal)
   setScan(result)
   return { senders: result.senders.size, messages: result.messageCount }
 }

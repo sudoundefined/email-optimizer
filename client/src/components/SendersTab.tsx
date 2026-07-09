@@ -99,6 +99,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     try {
       const snapshot = await scanJob.start(() => api.startScan(range))
       if (snapshot.state === 'error') setError(snapshot.error || 'Scan failed')
+      else if (snapshot.state === 'cancelled') setError('Scan cancelled.')
       else await loadSenders()
     } catch (err) {
       handleApiError(err)
@@ -306,7 +307,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
 
   return (
     <div>
-      <ScanControls onScan={runScan} job={scanJob.job} running={scanJob.running} scan={scan} />
+      <ScanControls onScan={runScan} onCancel={scanJob.cancel} job={scanJob.job} running={scanJob.running} scan={scan} />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {trashDone && <Alert severity="success" sx={{ mb: 2 }}>{trashDone}</Alert>}
       {keepDone && <Alert severity="success" sx={{ mb: 2 }}>{keepDone}</Alert>}
