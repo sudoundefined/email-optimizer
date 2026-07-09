@@ -1,51 +1,51 @@
-# Design Rules and System Constraints (Clean Minimalist)
+# Design Rules and System Constraints (Apple Human Interface Guidelines)
 
-This document defines the strict styling and UI development constraints that must be followed on every screen and component. We are using a Clean Minimalist, SaaS-inspired design language.
+This document defines the styling and UI development constraints for every screen and component. The app follows an **Apple Human Interface Guidelines (HIG)**-inspired design language: the system font, Apple system colors, rounded rectangles, translucent materials, hairline separators, and restrained shadows.
 
 ---
 
 ## 1. Typography and Fonts
 
 ### Font Categories
-We classify text into a robust, premium UI font stack:
-*   **Primary Font**: The entire application uses a modern sans-serif. Priority order: `Inter`, `SF Pro Display`, `Roboto`, or `system-ui`. This ensures maximum legibility and a professional SaaS feel.
-*   **Mono Font**: For code elements, badges, values, timestamps, and metadata. Options: `JetBrains Mono`, `Fira Code`, or `IBM Plex Mono`.
+*   **Primary Font**: The San Francisco system stack — `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif`. This renders as SF on Apple devices and a native system sans elsewhere; no web-font import.
+*   **Mono Font**: For code, values, and metadata — `ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace`.
 
 ### Typography Hierarchy
-*   **Hierarchy Scaling**: Use standard, comfortable scaling (e.g., 14px body, 16px subtitle, 24px/32px headers) to ensure readability. Avoid extreme jumps in sizing.
-*   **Font Weights**: Use standard font weights (400 for body, 500/600 for buttons/labels, 700/800 for headers).
+*   **Scale (HIG-inspired, tuned for a dense web app)**: 15px body, 13px secondary body, 17–22px section titles, 28px page title. Negative letter-spacing (`-0.01em` to `-0.02em`) on headings.
+*   **Font Weights**: 400 body, 500/590/600 for controls and labels, 700 for headers. (SF's 590 "semibold" is used for buttons.)
 
 ---
 
 ## 2. Color System
 
-All colors must be controlled via CSS variables (or themed design tokens). The layout follows the 80-15-5 rule (Base, Text, Accent).
+Colors are Apple system colors, exposed as MUI palette entries and CSS variables.
 
-### CSS Variables Definition
+### System palette
 ```css
 :root {
-  /* Dominant Color: Used for text and icons */
-  --color-dominant: #1e293b;       /* Slate 800 */
-  --color-dominant-light: #f3f4f6; /* Gray 100 - App Background */
-  
-  /* Accent Color: Vibrant Electric Blue for primary buttons, active states, call-to-actions */
-  --color-accent: #2563eb;         /* Blue 600 */
+  --color-dominant: #1C1C1E;              /* label (primary text/icons) */
+  --color-dominant-light: #F2F2F7;        /* systemGroupedBackground */
+  --color-accent: #007AFF;                /* systemBlue */
+  --color-accent-soft: rgba(0,122,255,0.10);
+  --hairline: rgba(60,60,67,0.18);        /* separator */
 }
 ```
+Full system set: blue `#007AFF`, indigo `#5856D6`, green `#34C759`, orange `#FF9500`, red `#FF3B30`, pink `#FF2D55`, teal `#00C7BE`. Secondary text is `rgba(60,60,67,0.60)`. Use a **single accent** (systemBlue) for primary actions and selection — avoid per-tab accent colors.
 
 ---
 
 ## 3. Spacing, Layout, and Shapes
 
 ### Spacing Rhythm
-All margins, paddings, gaps, and heights must align to an **8px grid rhythm** (multiples of 8px).
-*   **Valid increments**: `8px` (1x), `16px` (2x), `24px` (3x), `32px` (4x), `48px` (6x), `64px` (8x).
+Align margins, paddings, gaps to an **8px grid** (8/16/24/32/48/64). MUI `spacing` units (0.5 = 4px) are fine for finer control.
 
-### Layout & Shapes (Soft UI)
-*   **Cards and Containers**: Use crisp white (`#ffffff`) for content cards floating on the light gray background.
-*   **Soft Shadows**: Introduce **soft, diffuse drop shadows** (e.g., `0 4px 12px rgba(0,0,0,0.05)`) to give depth to cards.
-*   **Corners**: Use squared corners (`border-radius: 0`) for layout elements, cards, and dialogs for a sharp, flat look. Use pill-shaped styles (`border-radius: 24px`) for specific inner list items, like label navigation buttons, to act as chips.
-*   **Two-Pane Master-Detail Pattern**: For data-heavy tabs (Inbox, Storage, Labels), use a full-width two-pane layout (Grid). The left pane acts as navigation/filtering and the right pane displays detailed lists or tables.
+### Layout & Shapes (Apple materials)
+*   **Cards and Containers**: Crisp white (`#ffffff`) surfaces on the `#F2F2F7` grouped background.
+*   **Corners (rounded rectangles)**: Cards/panes **14px**, dialogs **18px**, floating trays **16px**, inputs/buttons **10px**, small chips/badges **8px**. **No sharp `border-radius: 0` corners** on visible surfaces.
+*   **Soft Shadows**: Restrained, neutral shadows — cards use `0 1px 2px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.05)`. Avoid colored glows.
+*   **Materials / translucency**: The top toolbar is a frosted material — `rgba(255,255,255,0.72)` with `backdrop-filter: saturate(180%) blur(20px)`. Floating action trays use a dark material — `rgba(28,28,30,0.92)` with backdrop blur, white text, solid Apple-colored buttons (systemBlue primary, systemRed destructive).
+*   **Separators**: Hairline borders at `rgba(60,60,67,0.10–0.18)` instead of heavy dividers.
+*   **Two-Pane Master-Detail Pattern**: For data-heavy tabs (Senders, Inbox, Storage, Labels), a full-width two-pane Grid — left pane navigates/filters, right pane shows lists/tables.
 
 ---
 

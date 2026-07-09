@@ -4,8 +4,12 @@ import { EventEmitter } from 'node:events'
 const jobs = new Map()
 const MAX_FINISHED = 20
 
+function isFinished(j) {
+  return j.state === 'done' || j.state === 'error' || j.state === 'cancelled'
+}
+
 function pruneFinished() {
-  const finished = [...jobs.values()].filter((j) => j.state === 'done' || j.state === 'error')
+  const finished = [...jobs.values()].filter(isFinished)
   while (finished.length > MAX_FINISHED) {
     const oldest = finished.shift()
     jobs.delete(oldest.id)
@@ -13,12 +17,14 @@ function pruneFinished() {
 }
 
 /**
- * Starts an async job. runner receives an emit(progress) callback and
- * its return value becomes the job result.
+ * Starts an async job. runner receives (emit, signal): emit(progress) streams
+ * progress, and signal is an AbortSignal that fires when the job is cancelled.
+ * Its return value becomes the job result.
  * Returns the job record {id, name, state, progress, result, error}.
  */
 export function createJob(name, runner) {
   const id = crypto.randomUUID()
+  const controller = new AbortController()
   const job = {
     id,
     name,
@@ -28,6 +34,7 @@ export function createJob(name, runner) {
     error: null,
     startedAt: Date.now(),
     events: new EventEmitter(),
+    controller,
   }
   job.events.setMaxListeners(50)
   jobs.set(id, job)
@@ -38,20 +45,33 @@ export function createJob(name, runner) {
   }
 
   Promise.resolve()
-    .then(() => runner(emit))
+    .then(() => runner(emit, controller.signal))
     .then((result) => {
       job.state = 'done'
       job.result = result
       job.events.emit('end')
     })
     .catch((err) => {
-      job.state = 'error'
-      job.error = err?.message || String(err)
+      if (controller.signal.aborted) {
+        job.state = 'cancelled'
+        job.error = 'cancelled'
+      } else {
+        job.state = 'error'
+        job.error = err?.message || String(err)
+      }
       job.events.emit('end')
     })
     .finally(pruneFinished)
 
   return job
+}
+
+/** Request cancellation of a running job. Returns true if it was running. */
+export function cancelJob(id) {
+  const job = jobs.get(id)
+  if (!job || job.state !== 'running') return false
+  job.controller.abort()
+  return true
 }
 
 export function getJob(id) {

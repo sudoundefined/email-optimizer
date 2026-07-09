@@ -45,7 +45,7 @@ function SelectableMessageList({
 }) {
   if (loading) return (
     <Box sx={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', py: 6, flexDirection: 'column', gap: 2 }}>
-      <CircularProgress size={28} sx={{ color: '#0ea5e9' }} />
+      <CircularProgress size={28} sx={{ color: '#007AFF' }} />
       <Typography variant="body2" color="text.secondary">Loading messages…</Typography>
     </Box>
   )
@@ -303,9 +303,9 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
       {groups === null && !error && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, gap: 2 }}>
           <Box sx={{ animation: 'pulse 1.8s ease-in-out infinite' }}>
-            <InboxIcon sx={{ fontSize: 48, color: '#0ea5e9' }} />
+            <InboxIcon sx={{ fontSize: 48, color: '#007AFF' }} />
           </Box>
-          <CircularProgress size={28} sx={{ color: '#0ea5e9' }} />
+          <CircularProgress size={28} sx={{ color: '#007AFF' }} />
           <Typography variant="body2" color="text.secondary">Reading your inbox…</Typography>
         </Box>
       )}
@@ -326,11 +326,11 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
               
               {/* Filters Card */}
               <Card sx={{
-                borderRadius: 0,
+                borderRadius: '14px',
                 overflow: 'hidden',
                 animation: 'fadeInUp 0.5s ease-out 0.1s both',
                 transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                '&:hover': { boxShadow: '0 8px 24px rgba(14, 165, 233, 0.12)', transform: 'translateY(-2px)' },
+                '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
               }}>
                 <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
                   <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
@@ -344,11 +344,11 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
 
               {/* Newsletters & Groups Card */}
               <Card sx={{
-                borderRadius: 0,
+                borderRadius: '14px',
                 overflow: 'hidden',
                 animation: 'fadeInUp 0.5s ease-out 0.2s both',
                 transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                '&:hover': { boxShadow: '0 8px 24px rgba(99, 102, 241, 0.12)', transform: 'translateY(-2px)' },
+                '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
               }}>
                 <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
                   <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
@@ -374,9 +374,9 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
                           mb: 0.5,
                           borderRadius: 1,
                           cursor: 'pointer',
-                          bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                          bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
                           borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                          '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                          '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.12)' },
                         }}
                       >
                         <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -392,7 +392,7 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
                             {g.approx && '≈'}{g.count.toLocaleString()}
                           </Typography>
                           {g.unread !== null && g.unread > 0 && (
-                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600 }}>
+                            <Typography variant="caption" sx={{ color: '#34C759', fontWeight: 600 }}>
                               {g.unread.toLocaleString()} unread
                             </Typography>
                           )}
@@ -412,8 +412,8 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
               <Card
                 variant="outlined"
                 sx={{
-                  border: '1px solid rgba(30, 41, 59, 0.1)',
-                  borderRadius: 0,
+                  border: '1px solid rgba(60, 60, 67, 0.1)',
+                  borderRadius: '14px',
                   display: 'flex',
                   flexDirection: 'column',
                   height: 'calc(100vh - 200px)',
@@ -427,7 +427,7 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
                   sx={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     px: 3, py: 2,
-                    borderBottom: '1px solid rgba(30, 41, 59, 0.06)',
+                    borderBottom: '1px solid rgba(60, 60, 67, 0.06)',
                     background: 'var(--color-dominant-light)',
                   }}
                 >
@@ -476,8 +476,8 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
               <Box
                 sx={{
                   textAlign: 'center', py: 10,
-                  background: 'linear-gradient(135deg, rgba(14,165,233,0.03) 0%, transparent 100%)',
-                  borderRadius: 0, border: '1px dashed rgba(14,165,233,0.2)',
+                  background: 'linear-gradient(135deg, rgba(0,122,255,0.03) 0%, transparent 100%)',
+                  borderRadius: '14px', border: '1px dashed rgba(0,122,255,0.2)',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   height: 'calc(100vh - 200px)', minHeight: 400,
                 }}
@@ -485,9 +485,9 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
                 <Box
                   sx={{
                     width: 72, height: 72, borderRadius: '20px', mb: 2,
-                    background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)',
+                    background: 'linear-gradient(135deg, #007AFF 0%, #007AFF 100%)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(14,165,233,0.2)',
+                    boxShadow: '0 8px 24px rgba(0,122,255,0.2)',
                   }}
                 >
                   <InboxIcon sx={{ color: '#fff', fontSize: 36 }} />
@@ -515,7 +515,7 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 2,
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+            background: 'linear-gradient(135deg, #1C1C1E 0%, #1C1C1E 100%)',
             color: 'common.white',
             borderRadius: '14px',
             px: 2.5,
@@ -533,9 +533,9 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
             <Box
               sx={{
                 px: 1.25, py: 0.25, borderRadius: '4px',
-                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                background: 'linear-gradient(135deg,#5856D6,#5856D6)',
                 fontWeight: 800, fontSize: '0.875rem', color: '#fff',
-                boxShadow: '0 2px 8px rgba(99,102,241,0.4)',
+                boxShadow: '0 2px 8px rgba(0,122,255,0.4)',
               }}
             >
               {selected.size}
@@ -551,10 +551,10 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
               disabled={trashJob.running}
               onClick={() => setConfirmTrash(true)}
               sx={{
-                background: 'linear-gradient(135deg,#ef4444,#dc2626)',
+                background: 'linear-gradient(135deg,#FF3B30,#FF3B30)',
                 boxShadow: '0 2px 8px rgba(239,68,68,0.4)',
-                borderRadius: 0,
-                '&:hover': { background: 'linear-gradient(135deg,#dc2626,#b91c1c)' },
+                borderRadius: '14px',
+                '&:hover': { background: 'linear-gradient(135deg,#FF3B30,#FF3B30)' },
               }}
             >
               Move to Trash
@@ -562,7 +562,7 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
             <Button
               variant="text"
               size="small"
-              sx={{ color: 'rgba(255,255,255,0.45)', borderRadius: 0, '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: 'rgba(255,255,255,0.45)', borderRadius: '14px', '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
               onClick={() => setSelected(new Set())}
             >
               Clear

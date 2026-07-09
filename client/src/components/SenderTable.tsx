@@ -16,23 +16,23 @@ import type { Sender, Suggestion, UnsubMethod } from '../types'
 
 const METHOD_CHIPS: Record<UnsubMethod, { label: string; bg: string; plain?: boolean }> = {
   oneclick: { label: '⚡ One-click', bg: 'var(--color-accent)' },
-  mailto:   { label: '✉ Email',     bg: '#3b82f6' },
-  link:     { label: '🔗 Link',      bg: '#64748b' },
+  mailto:   { label: '✉ Email',     bg: '#007AFF' },
+  link:     { label: '🔗 Link',      bg: '#8E8E93' },
   none:     { label: 'None',         bg: '', plain: true },
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  Promotions:  '#6366f1',
-  Newsletters: '#0ea5e9',
-  Social:      '#ec4899',
-  Shopping:    '#f59e0b',
-  Finance:     '#10b981',
-  Travel:      '#8b5cf6',
-  Other:       '#94a3b8',
+  Promotions:  '#5856D6',
+  Newsletters: '#007AFF',
+  Social:      '#FF2D55',
+  Shopping:    '#FF9500',
+  Finance:     '#34C759',
+  Travel:      '#00C7BE',
+  Other:       '#AEAEB2',
 }
 
 function volumeColor(n: number): string {
-  return n > 100 ? '#ef4444' : n > 20 ? '#f59e0b' : '#10b981'
+  return n > 100 ? '#FF3B30' : n > 20 ? '#FF9500' : '#34C759'
 }
 
 export default function SenderTable({
@@ -115,7 +115,7 @@ export default function SenderTable({
           {pageRows.map((s) => {
             const chip = METHOD_CHIPS[s.method]
             const suggestion = suggestions.get(s.email)
-            const catColor = suggestion ? (CATEGORY_COLORS[suggestion.category] ?? '#94a3b8') : undefined
+            const catColor = suggestion ? (CATEGORY_COLORS[suggestion.category] ?? '#AEAEB2') : undefined
             const isProtected = protectedSet.has(s.email.toLowerCase())
             return (
               <TableRow
@@ -139,11 +139,11 @@ export default function SenderTable({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                     {isProtected && (
                       <Tooltip title="Protected — excluded from bulk unsubscribe and trash">
-                        <ShieldOutlined sx={{ fontSize: 15, color: '#10b981', flexShrink: 0 }} />
+                        <ShieldOutlined sx={{ fontSize: 15, color: '#34C759', flexShrink: 0 }} />
                       </Tooltip>
                     )}
                     <Box sx={{ overflow: 'hidden' }}>
-                      <Typography variant="body2" noWrap sx={{ fontWeight: 700, color: '#0f172a' }}>
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 700, color: '#1C1C1E' }}>
                         {s.name || s.email}
                       </Typography>
                       {s.name && (
@@ -182,9 +182,9 @@ export default function SenderTable({
                         display: 'inline-flex', alignItems: 'center',
                         px: 1, py: 0.25, borderRadius: '6px',
                         background: catColor ? `${catColor}18` : 'transparent',
-                        border: `1px solid ${catColor ?? '#94a3b8'}30`,
+                        border: `1px solid ${catColor ?? '#AEAEB2'}30`,
                         fontSize: '0.7rem', fontWeight: 600,
-                        color: catColor ?? '#94a3b8',
+                        color: catColor ?? '#AEAEB2',
                         fontStyle: suggestion.confidence === 'low' ? 'italic' : 'normal',
                         opacity: suggestion.confidence === 'low' ? 0.7 : 1,
                       }}
@@ -215,7 +215,7 @@ export default function SenderTable({
           onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0) }}
           rowsPerPageOptions={[50, 100, 200]}
           labelRowsPerPage="Per page"
-          sx={{ borderTop: '1px solid rgba(30, 41, 59, 0.08)', flexShrink: 0 }}
+          sx={{ borderTop: '1px solid rgba(60, 60, 67, 0.08)', flexShrink: 0 }}
         />
       )}
     </Box>

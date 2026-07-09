@@ -99,6 +99,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     try {
       const snapshot = await scanJob.start(() => api.startScan(range))
       if (snapshot.state === 'error') setError(snapshot.error || 'Scan failed')
+      else if (snapshot.state === 'cancelled') setError('Scan cancelled.')
       else await loadSenders()
     } catch (err) {
       handleApiError(err)
@@ -306,7 +307,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
 
   return (
     <div>
-      <ScanControls onScan={runScan} job={scanJob.job} running={scanJob.running} scan={scan} />
+      <ScanControls onScan={runScan} onCancel={scanJob.cancel} job={scanJob.job} running={scanJob.running} scan={scan} />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {trashDone && <Alert severity="success" sx={{ mb: 2 }}>{trashDone}</Alert>}
       {keepDone && <Alert severity="success" sx={{ mb: 2 }}>{keepDone}</Alert>}
@@ -356,7 +357,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
           <Grid size={{ xs: 12, md: 4, lg: 3 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {/* Search */}
-              <Card sx={{ borderRadius: 0, animation: 'fadeInUp 0.5s ease-out 0.05s both' }}>
+              <Card sx={{ borderRadius: '14px', animation: 'fadeInUp 0.5s ease-out 0.05s both' }}>
                 <CardContent sx={{ p: '12px !important' }}>
                   <TextField
                     size="small"
@@ -379,10 +380,10 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
 
               {/* Segments */}
               <Card sx={{
-                borderRadius: 0, overflow: 'hidden',
+                borderRadius: '14px', overflow: 'hidden',
                 animation: 'fadeInUp 0.5s ease-out 0.1s both',
                 transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                '&:hover': { boxShadow: '0 8px 24px rgba(139, 92, 246, 0.12)', transform: 'translateY(-2px)' },
+                '&:hover': { boxShadow: '0 8px 24px rgba(88, 86, 214, 0.12)', transform: 'translateY(-2px)' },
               }}>
                 <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
                   <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
@@ -400,9 +401,9 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                         sx={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           px: 1, py: 1, mb: 0.5, borderRadius: 1, cursor: 'pointer',
-                          bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                          bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
                           borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                          '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                          '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.12)' },
                         }}
                       >
                         <Box sx={{ overflow: 'hidden' }}>
@@ -425,10 +426,10 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
               {/* Categories */}
               {!showProtectedView && categoryCounts.length > 0 && (
                 <Card sx={{
-                  borderRadius: 0, overflow: 'hidden',
+                  borderRadius: '14px', overflow: 'hidden',
                   animation: 'fadeInUp 0.5s ease-out 0.15s both',
                   transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                  '&:hover': { boxShadow: '0 8px 24px rgba(14, 165, 233, 0.12)', transform: 'translateY(-2px)' },
+                  '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
                 }}>
                   <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
                     <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
@@ -441,8 +442,8 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                       sx={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         px: 1, py: 0.75, mb: 0.5, borderRadius: 1, cursor: 'pointer',
-                        bgcolor: category === null ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
-                        '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                        bgcolor: category === null ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
+                        '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.12)' },
                       }}
                     >
                       <Typography variant="body2" sx={{ fontWeight: 600, color: category === null ? 'var(--color-accent)' : 'text.primary' }}>
@@ -451,7 +452,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                     </Box>
                     {categoryCounts.map(([cat, count]) => {
                       const active = category === cat
-                      const color = CATEGORY_COLORS[cat] ?? '#94a3b8'
+                      const color = CATEGORY_COLORS[cat] ?? '#AEAEB2'
                       return (
                         <Box
                           key={cat}
@@ -486,12 +487,12 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
               <Card
                 variant="outlined"
                 sx={{
-                  border: '1px solid rgba(30, 41, 59, 0.1)', borderRadius: 0,
+                  border: '1px solid rgba(60, 60, 67, 0.1)', borderRadius: '14px',
                   display: 'flex', flexDirection: 'column', height: paneHeight, minHeight: 400,
                   animation: 'fadeInUp 0.4s ease-out', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
                 }}
               >
-                <Box sx={{ px: 3, py: 2, borderBottom: '1px solid rgba(30, 41, 59, 0.06)', background: 'var(--color-dominant-light)' }}>
+                <Box sx={{ px: 3, py: 2, borderBottom: '1px solid rgba(60, 60, 67, 0.06)', background: 'var(--color-dominant-light)' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>Protected list</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                     Senders shielded from bulk unsubscribe and trash. Banks, utilities, and government are auto-protected.
@@ -505,14 +506,14 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
               <Card
                 variant="outlined"
                 sx={{
-                  border: '1px solid rgba(30, 41, 59, 0.1)', borderRadius: 0,
+                  border: '1px solid rgba(60, 60, 67, 0.1)', borderRadius: '14px',
                   display: 'flex', flexDirection: 'column', height: paneHeight, minHeight: 400,
                   animation: 'fadeInUp 0.4s ease-out', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
                 }}
               >
                 <Box sx={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2,
-                  px: 3, py: 2, borderBottom: '1px solid rgba(30, 41, 59, 0.06)', background: 'var(--color-dominant-light)',
+                  px: 3, py: 2, borderBottom: '1px solid rgba(60, 60, 67, 0.06)', background: 'var(--color-dominant-light)',
                 }}>
                   <Box sx={{ minWidth: 0 }}>
                     <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -523,7 +524,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                           label={category}
                           size="small"
                           onDelete={() => setCategory(null)}
-                          sx={{ background: `${CATEGORY_COLORS[category] ?? '#94a3b8'}18`, color: CATEGORY_COLORS[category] ?? '#64748b' }}
+                          sx={{ background: `${CATEGORY_COLORS[category] ?? '#AEAEB2'}18`, color: CATEGORY_COLORS[category] ?? '#8E8E93' }}
                         />
                       )}
                       {selected.size > 0 && (
@@ -568,7 +569,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             // the button set or the counts change.
             width: 'min(980px, 94vw)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, overflow: 'hidden',
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+            background: 'linear-gradient(135deg, #1C1C1E 0%, #1C1C1E 100%)',
             color: 'common.white', borderRadius: '14px', px: 2.5, py: 1.25, zIndex: 50,
             boxShadow: '0 12px 40px rgba(49, 46, 129, 0.5)', border: '1px solid rgba(255,255,255,0.12)',
             animation: 'fadeInUp 0.3s ease-out',
@@ -580,7 +581,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             <Box sx={{
               minWidth: 28, height: 28, px: 1, borderRadius: '8px', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', fontWeight: 800, fontSize: '0.85rem', color: '#fff',
+              background: 'linear-gradient(135deg,#5856D6,#5856D6)', fontWeight: 800, fontSize: '0.85rem', color: '#fff',
             }}>
               {selected.size}
             </Box>
@@ -631,7 +632,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             <Button
               variant="contained" size="small"
-              sx={{ whiteSpace: 'nowrap', background: 'linear-gradient(135deg,#ef4444,#dc2626)', '&:hover': { background: 'linear-gradient(135deg,#dc2626,#b91c1c)' } }}
+              sx={{ whiteSpace: 'nowrap', background: 'linear-gradient(135deg,#FF3B30,#FF3B30)', '&:hover': { background: 'linear-gradient(135deg,#FF3B30,#FF3B30)' } }}
               disabled={busy}
               onClick={() => setConfirmTrash(true)}
             >

@@ -13,8 +13,8 @@ router.post('/scan', (req, res) => {
     return res.status(409).json({ error: 'scan_already_running' })
   }
   const { range = '6m', maxMessages } = req.body || {}
-  const job = createJob('scan', async (emit) => {
-    const result = await runScan({ range, maxMessages }, emit)
+  const job = createJob('scan', async (emit, signal) => {
+    const result = await runScan({ range, maxMessages }, emit, signal)
     try {
       const scan = getScan()
       if (scan) {

@@ -83,8 +83,8 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-              border: '1px solid rgba(30, 41, 59, 0.1)',
-        borderRadius: 0,
+              border: '1px solid rgba(60, 60, 67, 0.1)',
+        borderRadius: '14px',
         overflow: 'hidden',
         animation: 'fadeInUp 0.4s ease-out',
         background: 'rgba(255,255,255,0.85)',
@@ -210,7 +210,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
           onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0) }}
           rowsPerPageOptions={[50, 100, 200]}
           labelRowsPerPage="Per page"
-          sx={{ borderTop: '1px solid rgba(30, 41, 59, 0.08)', flexShrink: 0 }}
+          sx={{ borderTop: '1px solid rgba(60, 60, 67, 0.08)', flexShrink: 0 }}
         />
       )}
     </Paper>
@@ -416,9 +416,9 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
             },
           }}
         >
-          <StorageOutlined sx={{ fontSize: 48, color: '#10b981' }} />
+          <StorageOutlined sx={{ fontSize: 48, color: '#34C759' }} />
         </Box>
-        <CircularProgress size={28} sx={{ color: '#10b981' }} />
+        <CircularProgress size={28} sx={{ color: '#34C759' }} />
         <Typography variant="body2" color="text.secondary">
           Analyzing your largest emails… this can take a moment.
         </Typography>
@@ -480,7 +480,7 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.08), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.08), transparent)',
             backgroundSize: '200% 100%',
             animation: 'shimmer 3s linear infinite',
             pointerEvents: 'none',
@@ -519,11 +519,11 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
             
             {/* Storage by Year -> Month */}
             <Card sx={{
-              borderRadius: 0,
+              borderRadius: '14px',
               overflow: 'hidden',
               animation: 'fadeInUp 0.5s ease-out 0.1s both',
               transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 8px 24px rgba(14, 165, 233, 0.12)', transform: 'translateY(-2px)' },
+              '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
             }}>
               <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
                 <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
@@ -549,8 +549,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                           py: 1,
                           borderRadius: 1,
                           cursor: 'pointer',
-                          bgcolor: isExpanded ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
-                          '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.08)' },
+                          bgcolor: isExpanded ? 'rgba(0, 122, 255, 0.05)' : 'transparent',
+                          '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.08)' },
                         }}
                       >
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{y.year}</Typography>
@@ -579,9 +579,9 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                               py: 0.75,
                               borderRadius: 1,
                               cursor: 'pointer',
-                              bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                              bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
                               borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                              '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                              '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.12)' },
                             }}
                           >
                             <Typography variant="body2" sx={{ color: active ? 'var(--color-accent)' : 'text.primary' }}>
@@ -601,11 +601,11 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
             {/* Top Senders */}
             <Card sx={{
-              borderRadius: 0,
+              borderRadius: '14px',
               overflow: 'hidden',
               animation: 'fadeInUp 0.5s ease-out 0.2s both',
               transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 8px 24px rgba(139, 92, 246, 0.12)', transform: 'translateY(-2px)' },
+              '&:hover': { boxShadow: '0 8px 24px rgba(88, 86, 214, 0.12)', transform: 'translateY(-2px)' },
             }}>
               <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
                 <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
@@ -630,9 +630,9 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                         py: 0.75,
                         borderRadius: 1,
                         cursor: 'pointer',
-                        bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                        bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
                         borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                        '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                        '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.12)' },
                       }}
                     >
                       <Typography variant="body2" noWrap sx={{ maxWidth: 140, color: active ? 'var(--color-accent)' : 'text.primary' }}>
@@ -649,11 +649,11 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
 
             {/* Size Bands */}
             <Card sx={{
-              borderRadius: 0,
+              borderRadius: '14px',
               overflow: 'hidden',
               animation: 'fadeInUp 0.5s ease-out 0.3s both',
               transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 8px 24px rgba(245, 158, 11, 0.12)', transform: 'translateY(-2px)' },
+              '&:hover': { boxShadow: '0 8px 24px rgba(255, 149, 0, 0.12)', transform: 'translateY(-2px)' },
             }}>
               <Box sx={{ background: 'var(--card-size)', px: 2, py: 1.25 }}>
                 <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
@@ -680,9 +680,9 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                         borderRadius: 1,
                         cursor: disabled ? 'default' : 'pointer',
                         opacity: disabled ? 0.4 : 1,
-                        bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                        bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
                         borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                        '&:hover': disabled ? {} : { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                        '&:hover': disabled ? {} : { bgcolor: 'rgba(0, 122, 255, 0.12)' },
                       }}
                     >
                       <Typography variant="body2" sx={{ color: active ? 'var(--color-accent)' : 'text.primary' }}>
@@ -717,8 +717,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
             <Card
               variant="outlined"
               sx={{
-                border: '1px solid rgba(30, 41, 59, 0.1)',
-                borderRadius: 0,
+                border: '1px solid rgba(60, 60, 67, 0.1)',
+                borderRadius: '14px',
                 display: 'flex',
                 flexDirection: 'column',
                 height: 'calc(100vh - 200px)',
@@ -728,7 +728,7 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                 backdropFilter: 'blur(12px)',
               }}
             >
-              <Box sx={{ p: 3, borderBottom: '1px solid rgba(30, 41, 59, 0.06)' }}>
+              <Box sx={{ p: 3, borderBottom: '1px solid rgba(60, 60, 67, 0.06)' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>Largest attachments (&gt;5 MB)</Typography>
                   {selectedIds.size > 0 && (
@@ -823,7 +823,7 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
                   onRowsPerPageChange={(e) => { setAttachRowsPerPage(parseInt(e.target.value, 10)); setAttachPage(0) }}
                   rowsPerPageOptions={[50, 100, 200]}
                   labelRowsPerPage="Per page"
-                  sx={{ borderTop: '1px solid rgba(30, 41, 59, 0.08)', flexShrink: 0 }}
+                  sx={{ borderTop: '1px solid rgba(60, 60, 67, 0.08)', flexShrink: 0 }}
                 />
               )}
             </Card>
@@ -851,8 +851,8 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
             py: 1.25,
             zIndex: 50,
             width: 'min(560px, 92vw)',
-            boxShadow: '0 12px 40px rgba(15, 23, 42, 0.45)',
-            border: '1px solid rgba(15, 23, 42, 0.15)',
+            boxShadow: '0 12px 40px rgba(60, 60, 67, 0.45)',
+            border: '1px solid rgba(60, 60, 67, 0.15)',
           }}
           role="toolbar"
           aria-label="Actions for selected messages"

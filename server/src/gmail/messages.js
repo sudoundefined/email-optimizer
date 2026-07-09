@@ -4,10 +4,11 @@ import { limited } from './rateLimiter.js'
  * Lists message ids matching a Gmail search query, paginating until
  * exhaustion or maxMessages.
  */
-export async function listAllMessageIds(gmail, q, { maxMessages = 5000, onProgress } = {}) {
+export async function listAllMessageIds(gmail, q, { maxMessages = 5000, onProgress, signal } = {}) {
   const ids = new Set()
   let pageToken
   do {
+    if (signal?.aborted) break
     const res = await limited(() =>
       gmail.users.messages.list({
         userId: 'me',
@@ -19,7 +20,7 @@ export async function listAllMessageIds(gmail, q, { maxMessages = 5000, onProgre
     for (const m of res.data.messages || []) ids.add(m.id)
     pageToken = res.data.nextPageToken
     onProgress?.({ listed: ids.size })
-  } while (pageToken && ids.size < maxMessages)
+  } while (pageToken && ids.size < maxMessages && !signal?.aborted)
   return [...ids].slice(0, maxMessages)
 }
 
@@ -30,19 +31,21 @@ const METADATA_HEADERS = ['From', 'Subject', 'Date', 'List-Unsubscribe', 'List-U
  * Returns array of {id, internalDate, labelIds, headers: {name: value}}.
  * Individual failures are skipped rather than aborting the whole fetch.
  */
-export async function getMetadata(gmail, ids, { onProgress } = {}) {
+export async function getMetadata(gmail, ids, { onProgress, signal } = {}) {
   let fetched = 0
   const results = await Promise.all(
     ids.map((id) =>
-      limited(() =>
-        gmail.users.messages.get({
+      limited(() => {
+        if (signal?.aborted) return null // skip queued fetches once cancelled
+        return gmail.users.messages.get({
           userId: 'me',
           id,
           format: 'metadata',
           metadataHeaders: METADATA_HEADERS,
         })
-      )
+      })
         .then((res) => {
+          if (!res) return null
           const headers = {}
           for (const h of res.data.payload?.headers || []) {
             // last occurrence wins; these headers don't legitimately repeat

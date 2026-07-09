@@ -25,7 +25,7 @@ export interface AuthStatus {
 export interface JobSnapshot {
   id: string
   name: string
-  state: 'running' | 'done' | 'error'
+  state: 'running' | 'done' | 'error' | 'cancelled'
   progress: Record<string, unknown> | null
   result: unknown
   error: string | null

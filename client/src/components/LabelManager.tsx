@@ -201,7 +201,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
   if (labels === null && !error) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary' }}>
-        <CircularProgress size={24} sx={{ color: '#f59e0b' }} />
+        <CircularProgress size={24} sx={{ color: '#FF9500' }} />
         <Typography variant="body2">Loading labels…</Typography>
       </Box>
     )
@@ -212,7 +212,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {trashMsgsDone && <Alert severity="success" sx={{ mb: 2 }}>{trashMsgsDone}</Alert>}
       {trashJob.running && progress && (
-        <Box sx={{ mb: 2, p: 2, borderRadius: 2, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+        <Box sx={{ mb: 2, p: 2, borderRadius: 2, background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)' }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             {progress.phase === 'collecting' && `🔍 Collecting emails… ${progress.collected ?? 0}`}
             {progress.phase === 'trashing' && `🗑️ Moving to Trash… ${progress.trashed ?? 0} / ${progress.total ?? '?'}`}
@@ -226,7 +226,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
         <Grid size={{ xs: 12, md: 4.5, lg: 3.5 }}>
           <Card
             sx={{
-              borderRadius: 0,
+              borderRadius: '14px',
               overflow: 'hidden',
               animation: 'fadeInUp 0.5s ease-out',
             }}
@@ -235,7 +235,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
             <Box
               sx={{
                 px: 2, py: 1.5,
-                background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                background: 'linear-gradient(135deg, #FF9500 0%, #FFB340 100%)',
                 display: 'flex', alignItems: 'center', gap: 1.5,
               }}
             >
@@ -298,13 +298,13 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
                           mb: 1,
                           py: 1,
                           px: 2.5,
-                          border: isSelected ? '1px solid #f59e0b' : '1px solid rgba(30, 41, 59, 0.08)',
-                          bgcolor: isSelected ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                          border: isSelected ? '1px solid #FF9500' : '1px solid rgba(60, 60, 67, 0.08)',
+                          bgcolor: isSelected ? 'rgba(255, 149, 0, 0.08)' : 'transparent',
                           '&.Mui-selected': {
-                            bgcolor: 'rgba(245, 158, 11, 0.08)',
-                            '&:hover': { bgcolor: 'rgba(245, 158, 11, 0.12)' },
+                            bgcolor: 'rgba(255, 149, 0, 0.08)',
+                            '&:hover': { bgcolor: 'rgba(255, 149, 0, 0.12)' },
                           },
-                          '&:hover': { bgcolor: 'rgba(30, 41, 59, 0.04)' },
+                          '&:hover': { bgcolor: 'rgba(60, 60, 67, 0.04)' },
                         }}
                       >
                         <Stack spacing={1} sx={{ width: '100%' }}>
@@ -313,7 +313,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
                               variant="body2"
                               sx={{
                                 fontWeight: isSelected ? 700 : 500,
-                                color: isSelected ? '#f59e0b' : 'text.primary',
+                                color: isSelected ? '#FF9500' : 'text.primary',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -323,11 +323,11 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
                               {prettyLabelName(l)}
                             </Typography>
                             {l.appCreated ? (
-                              <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', background: 'linear-gradient(135deg,#10b981,#34d399)', fontSize: '0.65rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>App</Box>
+                              <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', background: 'linear-gradient(135deg,#34C759,#34C759)', fontSize: '0.65rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>App</Box>
                             ) : l.type === 'system' ? (
                               <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', border: '1px solid rgba(0,0,0,0.12)', fontSize: '0.65rem', fontWeight: 500, color: 'text.secondary', lineHeight: 1 }}>Sys</Box>
                             ) : (
-                              <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', fontSize: '0.65rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>User</Box>
+                              <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', background: 'linear-gradient(135deg,#5856D6,#5856D6)', fontSize: '0.65rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>User</Box>
                             )}
                           </Stack>
                           <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -343,7 +343,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
                                   fontSize: '0.65rem',
                                   fontWeight: 700,
                                   background: 'rgba(239, 68, 68, 0.1)',
-                                  color: '#ef4444',
+                                  color: '#FF3B30',
                                   border: 'none',
                                 }}
                               />
@@ -365,8 +365,8 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
             <Card
               variant="outlined"
               sx={{
-                border: '1px solid rgba(30, 41, 59, 0.1)',
-                borderRadius: 0,
+                border: '1px solid rgba(60, 60, 67, 0.1)',
+                borderRadius: '14px',
                 display: 'flex',
                 flexDirection: 'column',
                 height: 'calc(100vh - 200px)',
@@ -377,7 +377,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
               }}
             >
               {/* Header section inside Right Card */}
-              <Box sx={{ p: 3, borderBottom: '1px solid rgba(30, 41, 59, 0.06)' }}>
+              <Box sx={{ p: 3, borderBottom: '1px solid rgba(60, 60, 67, 0.06)' }}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <Box>
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
@@ -408,7 +408,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
                         sx={{
                           fontSize: '0.72rem',
                           borderRadius: '8px',
-                          border: '1px solid rgba(30, 41, 59, 0.15)',
+                          border: '1px solid rgba(60, 60, 67, 0.15)',
                           color: 'var(--color-dominant)',
                           '&:hover': { background: 'var(--color-dominant-light)' },
                         }}
@@ -424,7 +424,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
                           fontSize: '0.72rem',
                           borderRadius: '8px',
                           border: '1px solid rgba(239,68,68,0.25)',
-                          color: '#ef4444',
+                          color: '#FF3B30',
                           '&:hover': { background: 'rgba(239,68,68,0.07)' },
                         }}
                       >
@@ -438,7 +438,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
               {/* Message List area */}
               {messagesLoading ? (
                 <Box sx={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', py: 6, flexDirection: 'column', gap: 2 }}>
-                  <CircularProgress size={28} sx={{ color: '#f59e0b' }} />
+                  <CircularProgress size={28} sx={{ color: '#FF9500' }} />
                   <Typography variant="body2" color="text.secondary">Fetching label messages...</Typography>
                 </Box>
               ) : messages && messages.length === 0 ? (
@@ -512,8 +512,8 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
             <Box
               sx={{
                 textAlign: 'center', py: 10,
-                background: 'linear-gradient(135deg, rgba(245,158,11,0.03) 0%, transparent 100%)',
-                borderRadius: 0, border: '1px dashed rgba(245,158,11,0.2)',
+                background: 'linear-gradient(135deg, rgba(255,149,0,0.03) 0%, transparent 100%)',
+                borderRadius: '14px', border: '1px dashed rgba(255,149,0,0.2)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 height: 'calc(100vh - 200px)', minHeight: 400,
               }}
@@ -521,9 +521,9 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
               <Box
                 sx={{
                   width: 72, height: 72, borderRadius: '20px', mb: 2,
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                  background: 'linear-gradient(135deg, #FF9500 0%, #FFB340 100%)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 8px 24px rgba(245,158,11,0.2)',
+                  boxShadow: '0 8px 24px rgba(255,149,0,0.2)',
                 }}
               >
                 <LabelOutlined sx={{ color: '#fff', fontSize: 36 }} />
@@ -550,7 +550,7 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 2,
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+            background: 'linear-gradient(135deg, #1C1C1E 0%, #1C1C1E 100%)',
             color: 'common.white',
             borderRadius: '14px',
             px: 2.5,
@@ -568,9 +568,9 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
             <Box
               sx={{
                 px: 1.25, py: 0.25, borderRadius: '8px',
-                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                background: 'linear-gradient(135deg,#5856D6,#5856D6)',
                 fontWeight: 800, fontSize: '0.875rem', color: '#fff',
-                boxShadow: '0 2px 8px rgba(99,102,241,0.4)',
+                boxShadow: '0 2px 8px rgba(0,122,255,0.4)',
               }}
             >
               {selectedMsgIds.size}
@@ -586,9 +586,9 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
               disabled={trashJob.running}
               onClick={() => setConfirmTrashMsgs(true)}
               sx={{
-                background: 'linear-gradient(135deg,#ef4444,#dc2626)',
+                background: 'linear-gradient(135deg,#FF3B30,#FF3B30)',
                 boxShadow: '0 2px 8px rgba(239,68,68,0.4)',
-                '&:hover': { background: 'linear-gradient(135deg,#dc2626,#b91c1c)' },
+                '&:hover': { background: 'linear-gradient(135deg,#FF3B30,#FF3B30)' },
               }}
             >
               Move to Trash
