@@ -75,6 +75,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setError(null)
     setUnsubSummary(null)
     setTrashDone(null)
+    setKeepDone(null)
     setSelected(new Set())
     try {
       const snapshot = await scanJob.start(() => api.startScan(range))
@@ -89,6 +90,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setError(null)
     setUnsubSummary(null)
     setTrashDone(null)
+    setKeepDone(null)
     setProtectionWarning(null)
     try {
       const emails = [...selected]
@@ -118,6 +120,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setError(null)
     setUnsubSummary(null)
     setTrashDone(null)
+    setKeepDone(null)
     setProtectionWarning(null)
     try {
       const emails = [...selected]
@@ -154,6 +157,8 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setShowKeepDialog(false)
     setError(null)
     setKeepDone(null)
+    setTrashDone(null)
+    setUnsubSummary(null)
     setProtectionWarning(null)
     const target = selectedSenders.find((s) => !protectedSet.has(s.email.toLowerCase()))
     if (!target) return
@@ -431,8 +436,8 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
                 size="small"
                 label="Emails to keep"
                 value={keepN}
-                onChange={(e) => setKeepN(Math.max(0, Math.min(1000, Number(e.target.value) || 0)))}
-                slotProps={{ htmlInput: { min: 0, max: 1000 } }}
+                onChange={(e) => setKeepN(Math.max(1, Math.min(1000, Math.floor(Number(e.target.value) || 1))))}
+                slotProps={{ htmlInput: { min: 1, max: 1000, step: 1 } }}
                 autoFocus
               />
             </DialogContent>

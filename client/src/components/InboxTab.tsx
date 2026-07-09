@@ -269,12 +269,23 @@ export default function InboxTab({ onDisconnected }: { onDisconnected: () => voi
         setError(snapshot.error || 'Trash failed')
         return
       }
-      const r = snapshot.result as { trashed: number; capped?: boolean }
+      const r = snapshot.result as { trashed: number; excluded?: number; capped?: boolean }
+      const excludedNote =
+        r.excluded && r.excluded > 0
+          ? ` ${r.excluded.toLocaleString()} protected message${r.excluded === 1 ? '' : 's'} skipped.`
+          : ''
+      const cappedNote = r.capped ? ' Only the first 10,000 were scanned — run again to clear more.' : ''
       setTrashDone(
-        `Moved ${r.trashed.toLocaleString()} message${r.trashed === 1 ? '' : 's'} matching "${activeFilter.label}" to Trash. Recoverable for 30 days.${r.capped ? ' Only the first 10,000 were trashed — run again to clear more.' : ''}`
+        `Moved ${r.trashed.toLocaleString()} message${r.trashed === 1 ? '' : 's'} matching "${activeFilter.label}" to Trash. Recoverable for 30 days.${excludedNote}${cappedNote}`
       )
       setFilterResults([])
       setSelected(new Set())
+      // Group counts can overlap this filter (e.g. promotions), so refetch them.
+      try {
+        setGroups(await api.inboxGroups())
+      } catch {
+        /* keep stale counts; success alert already shown */
+      }
     } catch (err) {
       handleApiError(err)
     }

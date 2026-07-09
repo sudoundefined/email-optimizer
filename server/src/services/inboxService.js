@@ -3,6 +3,8 @@ import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { limited } from '../gmail/rateLimiter.js'
 import { getMetadata, listAllMessageIds } from '../gmail/messages.js'
 import { trashMessages } from './messageTrashService.js'
+import { listProtected } from './protectService.js'
+import { parseFrom } from './headerParser.js'
 import { listRegistered } from '../store/labelRegistry.js'
 
 /**
@@ -168,7 +170,14 @@ export const FILTERS = {
 /**
  * Trash EVERY message matching an allow-listed filter key (not just a sample).
  * Runs as a job. Gmail Trash only — never a permanent delete.
- * Returns { trashed, capped } where capped indicates the 10k cap was hit.
+ *
+ * Filters are content-scoped (e.g. "old attachments"), so they can sweep
+ * protected senders (banks, government, etc.). Before trashing we fetch each
+ * matched message's sender and drop any on the protect-list — upholding the
+ * same guarantee the keep-latest and unsubscribe paths honor.
+ *
+ * Returns { trashed, excluded, capped } where `excluded` counts protected
+ * messages skipped and `capped` indicates the 10k scan cap was hit.
  */
 export async function trashByFilterKey(key, emit) {
   const q = FILTERS[key]
@@ -180,13 +189,37 @@ export async function trashByFilterKey(key, emit) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail()
     emit?.({ phase: 'listing', listed: 0 })
+    // Fetch one past the cap purely to detect truncation honestly.
     const ids = await listAllMessageIds(gmail, q, {
-      maxMessages: FILTER_TRASH_MAX_MESSAGES,
+      maxMessages: FILTER_TRASH_MAX_MESSAGES + 1,
       onProgress: (p) => emit?.({ phase: 'listing', ...p }),
     })
-    const capped = ids.length >= FILTER_TRASH_MAX_MESSAGES
-    if (ids.length === 0) return { trashed: 0, capped: false }
-    const res = await trashMessages(ids, emit)
-    return { trashed: res.trashed, capped }
+    const capped = ids.length > FILTER_TRASH_MAX_MESSAGES
+    const scanIds = capped ? ids.slice(0, FILTER_TRASH_MAX_MESSAGES) : ids
+    if (scanIds.length === 0) return { trashed: 0, excluded: 0, capped: false }
+
+    let trashIds = scanIds
+    let excluded = 0
+    const protectedList = await listProtected()
+    if (protectedList.length > 0) {
+      const protectedSet = new Set(protectedList.map((p) => p.email.toLowerCase()))
+      emit?.({ phase: 'checking', fetched: 0, total: scanIds.length })
+      const meta = await getMetadata(gmail, scanIds, {
+        onProgress: (p) => emit?.({ phase: 'checking', ...p }),
+      })
+      const allowed = []
+      for (const m of meta) {
+        const { email } = parseFrom(m.headers['from'])
+        if (email && protectedSet.has(email.toLowerCase())) excluded++
+        else allowed.push(m.id)
+      }
+      // getMetadata drops IDs whose fetch failed, so `allowed` only ever
+      // contains messages whose sender we actually verified (fail-safe).
+      trashIds = allowed
+    }
+
+    if (trashIds.length === 0) return { trashed: 0, excluded, capped }
+    const res = await trashMessages(trashIds, emit)
+    return { trashed: res.trashed, excluded, capped }
   })
 }
