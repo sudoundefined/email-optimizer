@@ -41,7 +41,7 @@ Open **http://localhost:5173** and sign in with Google. See [README.md](README.m
 
 > **No database.** Gmail is the source of truth. The app only ever moves mail to **Trash** (recoverable for 30 days) — there is no permanent-delete call anywhere.
 
-The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Labels**.
+The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Labels** — plus a **Weekly digest** dialog from the top-bar clock icon. The whole app follows an **Apple Human Interface Guidelines** design language (system font, systemBlue accent, translucent toolbar, rounded cards, hairline separators).
 
 ---
 
@@ -53,14 +53,22 @@ The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Label
 
 **How to use:**
 1. Go to the **Senders** tab.
-2. Pick a date range (3 months / 6 months / 1 year / all time).
-3. Click **Scan mailbox**. Progress streams live (listing → fetching → grouping).
-4. Senders appear in a sortable table with email counts and an unsubscribe-method badge.
+2. Pick a date range: **Last month · 3 months · 6 months · 1 year · All time**.
+3. Click **Scan mailbox**. Progress streams live (listing → fetching → grouping). A **Cancel** button appears while scanning.
+4. Senders appear in a two-pane view: a left **filter pane** and a right **sender table**.
+
+**Two-pane Senders layout:**
+- **Left filter pane** — a search box, **segments** (All senders · With unsubscribe · No method · Subscriptions · Protected list, each with a live count), and **category chips** with counts from the categorizer.
+- **Right pane** — the sender table with a **sort selector** (Most emails · Name A–Z · Most recent), an active-filter chip, and a selected-count chip.
+- **Pagination** — 100 rows per page (options 50/100/200), shown only when a segment has more than one page. Select-all acts on the current page; the global selection accumulates across pages so the action tray reflects everything selected.
 
 **Notes:**
-- Scans the full matching set by default (no message cap). Set `SCAN_MAX_MESSAGES` to cap it if you want to limit Gmail API usage.
+- Scans the full matching set by default (**no message cap** — the old 5,000 limit was removed). Set `SCAN_MAX_MESSAGES` to cap it if you want to limit Gmail API usage.
+- Because there's no cap, a large "All time" scan can take a while — **Cancel** stops it promptly (the abort signal short-circuits the in-flight metadata fetch).
 - Results are cached in memory for the session; re-scan to refresh.
 - After each scan, banks/utilities/government senders are **auto-protected** (see [protect-list](#4-sender-protect-list)).
+
+**Under the hood:** `scanService.scanSenders` (cache-free core) + `runScan` (caches for the tab); cancellation via an `AbortController` per job threaded through `listAllMessageIds`/`getMetadata`; `POST /api/jobs/:id/cancel`.
 
 ---
 
@@ -98,6 +106,8 @@ The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Label
 4. Optionally tick **Also archive tagged emails** to move them out of the inbox (recoverable in All Mail).
 5. Confirm to create the labels and apply them (batched 1,000 messages per call). Without the archive toggle, `INBOX` is preserved — pure tagging.
 
+**Under the hood:** `categorizer.suggestCategory` (domain → subject → Gmail-category → Other, with confidence) → `labelService.runApplyLabels({ assignments, prefix, archive })`. `prefix` defaults to `Unsub/` for the unsubscribe-labeling flow and `''` (top-level) for this taxonomy flow; `archive` adds `removeLabelIds:['INBOX']` only when set.
+
 ---
 
 ### 3a. Subscriptions detector
@@ -109,7 +119,12 @@ The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Label
 2. Pick the **Subscriptions** segment in the left filter pane.
 3. Detected vendors appear with their cadence; the usual per-sender actions (unsubscribe, keep-latest, protect, trash) work on them via the floating tray.
 
-The same vendor list feeds the **Subscriptions** label category, so tagging and detection stay in sync.
+**Notes:**
+- Matches each sender against a shared **`RECURRING_VENDORS`** list (domain + display-name patterns) that also feeds the **Subscriptions** label category — one source of truth, so tagging and detection stay in sync.
+- **Cadence** (weekly / monthly / quarterly / annual) is estimated from the average gap between a vendor's message dates — data the scan already has. No amounts (that needs email bodies / AI — deferred).
+- Reads the warm scan cache (`getScan`), so opening the segment makes **no new Gmail calls**.
+
+**Under the hood:** `subscriptionsService.detectSubscriptions(senders)` → `GET /api/subscriptions` (404 if no scan yet, mirroring `/senders`).
 
 ---
 
@@ -229,21 +244,24 @@ Label-backed groups show exact counts; query-backed groups (attachments, large, 
 **How to use:**
 1. Go to the **Storage** tab (analysis runs on open; cached 5 minutes).
 2. Click any sender, month, year, or size band in the left pane to browse its messages.
-3. Select messages and **Move to Trash** via the floating tray.
+3. Select messages and **Move to Trash** via the floating tray. Large message lists (attachments and drill-downs) **paginate at 100 rows/page** (50/100/200), with select-all scoped to the current page.
 4. Use **Refresh** to rebuild the cache.
 
 ---
 
 ### 11. Label manager
 
-**What it does:** Manages Gmail labels — with special handling for app-created `Unsub/*` labels.
+**What it does:** A two-pane manager for every Gmail label — system, user, and app-created (both the `Unsub/*` unsubscribe labels and the top-level category labels from [feature 3](#3-auto-categorization--labels)).
 
 **How to use:**
 1. Go to the **Labels** tab.
-2. Browse system, user, and app-created labels in the left pane.
-3. For an app-created label, choose in the detail pane:
+2. Browse and **search** labels in the left pane; each shows its message/unread counts and a System / User / App badge.
+3. Click any label to open its **message drill-down** in the right pane — a paginated list of the label's recent messages. Select messages and **Move to Trash** via the floating tray.
+4. For an **app-created** label, the detail header also offers:
    - **Remove label** — deletes the label but keeps the emails.
-   - **Trash emails + delete label** — moves the label's emails to Trash and removes the label.
+   - **Trash + delete** — moves the label's emails to Trash and removes the label (typed confirmation for large sets).
+
+**Under the hood:** `labelService.getLabelMessages` → `GET /api/labels/:id/messages` (capped and floored server-side); bulk trash reuses the shared `POST /api/messages/trash` primitive.
 
 ---
 
