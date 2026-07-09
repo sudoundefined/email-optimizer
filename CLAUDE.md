@@ -1,214 +1,301 @@
-# CLAUDE.md — Email Optimizer
+# Email Unsubscriber — Architecture & Features
 
-This file gives Claude full context to pick up any session immediately. Read it before writing code.
+## Overview
 
----
-
-## Project identity
-
-- **Repo**: `email-optimizer` at `git@github.com:sudoundefined/email-optimizer.git`
-- **Purpose**: Personal Gmail cleanup tool — bulk unsubscribe, label, trash, and protect senders; browse inbox groups; reclaim storage.
-- **Stack**: npm workspaces monorepo — `client/` (React 18 + Vite + TypeScript + MUI v6) and `server/` (Node ESM + Express + Google Gmail API). No database — Gmail is the source of truth.
-- **Auth**: Google OAuth 2.0 (Testing mode → 7-day token expiry). Tokens stored at `server/data/tokens.json` (gitignored).
+Email Unsubscriber is a full-stack web application that connects to a user's Gmail account via OAuth 2.0 and provides tools to manage subscriptions, reclaim storage, organize emails with labels, and protect important senders from accidental unsubscription.
 
 ---
 
-## Running the project
+## Tech Stack
 
-```bash
-npm install                        # install all workspaces
-cp server/.env.example server/.env # fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-npm run dev                        # API :3001 + Vite :5173 via concurrently
-npm test                           # 52 server-side unit tests (node --test)
-npm run build -w client            # production build — must stay clean
-```
-
-**Dev server config**: `.claude/launch.json` defines the `client` preview config (port 5173).
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 18 + TypeScript, Vite, Material UI v9, Emotion |
+| **Backend** | Node.js + Express (ESM), Google APIs (googleapis) |
+| **Auth** | Google OAuth 2.0 with PKCE state + CSRF protection |
+| **Data** | File-based JSON persistence (tokens, labels, protected senders) |
+| **Testing** | Node.js built-in test runner (`node --test`) |
+| **Monorepo** | npm workspaces (`client/` + `server/`) |
+| **Dev** | Concurrently (parallel Vite dev server + Express API) |
 
 ---
 
-## Architecture
+## Architecture Diagram
 
 ```
-client/src/
-  App.tsx                  AppBar + Tabs (Senders / Inbox / Storage / Labels)
-  api.ts                   Typed fetch wrapper + SSE job polling
-  types.ts                 All TypeScript interfaces — single source of truth
-  theme.ts                 MUI custom theme (primary #1976d2, Roboto, disableElevation)
-  hooks/useAuth.ts         Auth state + polling
-  hooks/useJob.ts          SSE job streaming helper
-  components/
-    AccountBadge           User email + logout button in AppBar
-    ConnectScreen          OAuth sign-in card (unauthenticated state)
-    ScanControls           Date-range picker + scan button + progress
-    SenderTable            Paginated sender list with checkboxes + method chips
-    SendersTab             Orchestrator: scan → select → tray actions (unsub/label/protect/trash)
-    ConfirmDialog          Arming-delay + typed-count confirmation modal
-    LabelReview            Category review + label apply modal
-    UnsubscribePanel       SSE result stream for unsubscribe jobs
-    FilterToolbar          Quick-filter chip bar (10 Gmail query shortcuts)
-    InboxTab               Group cards + message drill-down + filter results + labels table
-    ProtectedTab           Protected sender list (manual + auto entries)
-    StorageTab             Storage dashboard: reclaimable MB, top senders/months charts, attachments table
-    LabelManager           App-created Unsub/* labels with remove/trash actions
-
-server/src/
-  index.js                 Express app + route mounting + error middleware
-  config.js                PORT, REDIRECT_URI, CLIENT_URL from .env
-  auth/
-    oauthClient.js         Google OAuth2 client, token persistence, withAuthErrorHandling()
-    tokenStore.js          Read/write server/data/tokens.json
-  gmail/
-    client.js              getGmail() — authenticated google.gmail('v1') instance
-    rateLimiter.js         limited() — p-limit concurrency + 429/5xx retry with backoff
-    messages.js            listAllMessageIds(), getMetadata() — reusable Gmail API helpers
-    mime.js                buildUnsubscribeEmail() — RFC 2047 MIME for mailto unsub
-  jobs/
-    jobManager.js          createJob(name, runner) → SSE-streamable background jobs
-  store/
-    scanCache.js           In-memory scan result (Map<email, sender> + messageIds)
-    labelRegistry.js       Persisted list of app-created label IDs (server/data/labels.json)
-  services/
-    scanService.js         runScan() — paginate Gmail, group by sender, populate scanCache
-    categorizer.js         categorizeSender() — domain/subject heuristic → category
-    headerParser.js        parseListUnsubscribe(), isOneClickPost(), unsubscribeInfo()
-    unsubscribeService.js  runUnsubscribe() — one-click POST / mailto / link surfacing
-    trashService.js        runTrashSenders() — batchModify TRASH + evict from scanCache
-    labelService.js        applySuggestions() — create Unsub/* labels + apply to messages
-    inboxService.js        listGroups(), groupMessages(), listAllLabels(), filterMessages()
-    storageService.js      getStorageStats() — fetch large emails, aggregate by sender/month
-    protectService.js      protect/unprotect senders, auto-protect heuristics
-  routes/
-    auth.js                /api/auth/* (status, login, callback, logout)
-    scan.js                POST /api/scan, GET /api/senders, POST /api/senders/trash
-    unsubscribe.js         POST /api/unsubscribe
-    labels.js              GET/POST/DELETE /api/labels
-    inbox.js               GET /api/inbox/groups, /groups/:key/messages, /labels, /filter
-    storage.js             GET /api/storage/stats, POST /api/storage/refresh
-    protect.js             GET/POST/DELETE /api/protect
-    jobs.js                GET /api/jobs/:id (SSE stream)
+┌─────────────────────────────────────────────────────────────┐
+│                         CLIENT (Vite + React)               │
+│                                                             │
+│  ConnectScreen ─→ App (Tab Router) ─┬→ SendersTab           │
+│                                     ├→ InboxTab             │
+│                                     ├→ StorageTab           │
+│                                     ├→ ProtectedTab         │
+│                                     └→ LabelManager         │
+│                                                             │
+│  Shared: ScanControls, SenderTable, FilterToolbar,          │
+│          ConfirmDialog, UnsubscribePanel, AccountBadge       │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTP (JSON REST)
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     SERVER (Express API)                     │
+│                                                             │
+│  index.js ─→ Route Handlers ─→ Service Layer ─→ Gmail API   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                   ROUTES (9 files)                   │    │
+│  │  auth · scan · inbox · storage · labels             │    │
+│  │  unsubscribe · protect · messages · jobs            │    │
+│  └──────────────────────┬──────────────────────────────┘    │
+│                         ▼                                   │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                SERVICES (10 files)                   │    │
+│  │  scanService      — Scan inbox for subscriptions    │    │
+│  │  inboxService     — Inbox group counts & messages   │    │
+│  │  storageService   — Storage analysis & drill-down   │    │
+│  │  unsubscribeService — Execute unsubscribe actions   │    │
+│  │  labelService     — Create/apply Gmail labels       │    │
+│  │  protectService   — Auto-protect important senders  │    │
+│  │  headerParser     — Parse From/Unsubscribe headers  │    │
+│  │  categorizer      — Classify senders by category    │    │
+│  │  trashService     — Move messages to trash          │    │
+│  │  messageTrashService — Batch message deletion       │    │
+│  └──────────────────────┬──────────────────────────────┘    │
+│                         ▼                                   │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              INFRASTRUCTURE LAYER                    │    │
+│  │                                                     │    │
+│  │  gmail/client.js      — Authorized Gmail client     │    │
+│  │  gmail/messages.js    — Message list & metadata     │    │
+│  │  gmail/mime.js        — MIME building (unsub email)  │    │
+│  │  gmail/rateLimiter.js — Concurrency + exp backoff   │    │
+│  │  auth/oauthClient.js  — OAuth2 flow + token mgmt   │    │
+│  │  auth/tokenStore.js   — File-based token storage    │    │
+│  │  jobs/jobManager.js   — Async job queue + progress  │    │
+│  │  store/scanCache.js   — In-memory scan results      │    │
+│  │  store/labelRegistry.js — Persisted label IDs       │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+               ┌───────────────────────┐
+               │     Gmail API v1      │
+               │  (googleapis library) │
+               └───────────────────────┘
 ```
 
 ---
 
-## Key patterns
+## Backend Architecture
 
-### Background jobs (SSE)
-All long-running operations use `createJob(name, runner)` in `jobs/jobManager.js`. The runner receives an `emit(progress)` callback. The client polls via `useJob.ts` which reads `GET /api/jobs/:id` as an SSE stream. New jobs follow this exact pattern:
+### Entry Point
+- **`server/src/index.js`** — Express app with JSON body parsing, 9 route groups mounted under `/api`, and centralized error middleware that converts `NotConnectedError` → 401.
 
-```js
-// server: create job
-import { createJob } from '../jobs/jobManager.js'
-const job = createJob('job-name', (emit) => myService.run(params, emit))
-res.json({ jobId: job.id })
+### Auth Layer (`server/src/auth/`)
 
-// service: emit progress
-emit({ phase: 'working', done: n, total: total })
-return { finalResult: true }  // becomes job.result
-```
+| File | Purpose |
+|------|---------|
+| `oauthClient.js` | OAuth2 client creation, auth URL generation with CSRF state tokens (10-min TTL), callback token exchange, automatic token refresh, `withAuthErrorHandling` wrapper that converts `invalid_grant` to 401, and revoke/logout |
+| `tokenStore.js` | File-based JSON storage for OAuth tokens at `server/data/tokens.json` |
 
-### API client (`client/src/api.ts`)
-All API calls go through `request<T>(path, init?)`. Add new endpoints here — never use `fetch()` directly in components.
+### Gmail Layer (`server/src/gmail/`)
 
-### Error handling
-- Server: `withAuthErrorHandling(async () => { ... })` wraps every Gmail call → auto-converts auth failures to `NotConnectedError` → Express middleware → 401
-- Client: `handleApiError(err)` in each tab → `onDisconnected()` on 401, `setError(msg)` otherwise
+| File | Purpose |
+|------|---------|
+| `client.js` | Returns an authorized `gmail.users` client |
+| `messages.js` | `listAllMessageIds` (paginated listing) and `getMetadata` (parallel metadata fetch with progress callbacks) |
+| `mime.js` | `parseMailto` URI parsing, `buildUnsubscribeEmail` raw MIME construction with header-injection sanitization, `base64url` encoding |
+| `rateLimiter.js` | Shared concurrency limiter (`p-limit`, 20 concurrent) with exponential backoff (500ms→32s + jitter) on 429/5xx/403-rate-limit errors, up to 5 attempts |
 
-### MUI v6 gotchas
-- All system props (`display`, `alignItems`, `gap`, etc.) must go through `sx={}` — not direct props on `Box`/`Stack`
-- Checkbox: use `aria-label` prop directly (not `inputProps`)
-- ListItemText: use `slotProps={{ primary: {...}, secondary: {...} }}` (not `primaryTypographyProps`)
-- Icons: barrel import `import { MailOutlined } from '@mui/icons-material'` — deep imports fail with bundler moduleResolution
-- Icon names end in `-ed` (e.g. `MailOutlined`, `ShieldOutlined`, `LabelOutlined`)
+### Services Layer (`server/src/services/`)
 
-### Trash vs permanent delete
-The app **never permanently deletes email**. All "delete" actions use `batchModify` with `addLabelIds: ['TRASH']`. Trash is recoverable in Gmail for 30 days.
+| Service | Key Functions | Description |
+|---------|--------------|-------------|
+| **scanService** | `runScan`, `scanView` | Lists candidate messages (promotions/updates/social/forums or containing "unsubscribe"), fetches metadata, groups by sender, determines best unsubscribe method per sender. Configurable time range (3m/6m/1y/all). Caches results in memory. |
+| **inboxService** | `listGroups`, `getGroup` | Reports live counts for 11 inbox groups (Important, Primary, Marketing, Social, Updates, Forums, Starred, Unread, With Attachments, Large >5MB, Stale Unread 6mo+). Label-backed groups use exact counts; query-backed use estimates. |
+| **storageService** | `getStorageStats`, `getDrillDownMessages` | Scans all emails >500KB, aggregates by sender (top 10), month (all), year, size band (6 bands from <500KB to >25MB), and large attachments (>5MB). 5-minute in-memory cache. Drill-down returns individual messages filtered by sender/month/year/size. |
+| **unsubscribeService** | `runUnsubscribe` | Executes unsubscribe for a sender using the best available method: **one-click POST** (RFC 8058), **mailto** (sends an email via Gmail API), or **browser link** (returns URL). Includes SSRF protection (rejects private IPs, localhost, non-HTTPS). |
+| **labelService** | `runApplyLabels`, `removeLabels` | Creates Gmail labels under configurable prefix (`Unsub/`), batch-applies them to scanned messages (1000 per batch), manages label registry. |
+| **protectService** | `autoProtectFromScan`, `protectSenders`, `isProtected` | Auto-detects senders from banks, government, utilities, insurance based on domain and subject keyword heuristics. File-persisted protected sender list. Protected senders cannot be unsubscribed. |
+| **categorizer** | `categorize` | Classifies senders into categories (Promotions, Newsletters, Social, Shopping, Finance, Travel, Other) using domain matching, Gmail category labels, and subject keywords. Returns confidence scores. |
+| **headerParser** | `parseFrom`, `unsubscribeInfo`, `parseListUnsubscribe` | Parses RFC 2047 encoded `From` headers, extracts `List-Unsubscribe` and `List-Unsubscribe-Post` headers, determines best unsubscribe method (one-click > mailto > link > none). |
+| **trashService** | `trashMessages` | Moves selected messages to Gmail Trash (recoverable for 30 days). |
+| **messageTrashService** | `trashMessagesBatch` | Batch trash with batched Gmail API calls. |
 
----
+### Job System (`server/src/jobs/`)
 
-## Data flow: scan → action
+| File | Purpose |
+|------|---------|
+| `jobManager.js` | UUID-based async job manager with EventEmitter-based progress streaming, state tracking (running/done/error), auto-pruning of finished jobs (keeps last 20) |
 
-1. `POST /api/scan` → `scanService.runScan()` → populates `scanCache` (Map keyed by lowercase email)
-2. `GET /api/senders` → reads `scanCache`, returns `Sender[]` sorted by `messageCount` desc
-3. Client selects senders → tray appears → user clicks action
-4. Action route validates senders exist in scanCache, creates a job, returns `{ jobId }`
-5. Client streams job via SSE until `state === 'done'`, reads `result`
+**Supported Jobs:**
+- `scan` — Inbox scan for subscription senders
+- `unsubscribe` — Execute unsubscribe action
+- `apply-labels` — Batch label application
+- `trash` — Batch message trashing
 
----
+### Data Store (`server/src/store/`)
 
-## Test suite
+| File | Purpose |
+|------|---------|
+| `scanCache.js` | In-memory cache for scan results (lost on server restart) |
+| `labelRegistry.js` | File-persisted JSON mapping of created label names → Gmail label IDs |
 
-52 tests in `server/src/**/*.test.js` run with `node --test`. Tests cover:
-- `headerParser.js` — RFC 2369/8058 parsing, header injection sanitization
-- `categorizer.js` — domain/subject/category heuristics
-- `inboxService.js` — GROUPS array invariants
-- `protectService.js` — domain heuristics, manual protect/unprotect, persistence
-- `storageService.js` — aggregation math (bytesToMB, aggregateBySender, aggregateByMonth, filterLargeAttachments)
-- `gmail/rateLimiter.js` — retry/backoff on 429/5xx
+### Configuration (`server/src/config.js`)
 
-**Never break the test suite.** Run `npm test` before committing.
-
----
-
-## What's shipped (as of 2026-07-08)
-
-- v1 Core: bulk unsubscribe (RFC 8058 one-click, mailto, manual link), sender scan + grouping, auto-categorization, label management, per-sender trash
-- v2 Inbox: live group counts, message drill-down, all-labels table
-- v3 Protection/filters/storage: sender protect-list with auto-heuristics, quick-filter toolbar (10 Gmail queries), storage recovery dashboard
-- UI: full Material UI v6 migration (no custom CSS, all MUI components)
+Environment-driven configuration via `.env`:
+- Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
+- Redirect URI, client URL, port
+- Data directory paths (tokens, label registry, protected senders)
+- Scan limits (`scanMaxMessages`: no cap by default; `SCAN_MAX_MESSAGES` env to limit)
+- Label prefix (`Unsub/`)
 
 ---
 
-## Active development context (2026-07-08)
+## API Routes
 
-### Planned: Message select + trash in Inbox and Storage tabs
-
-**Feature**: When a group card or filter is open in InboxTab, or when a sender row is clicked in StorageTab, the user can:
-1. Select individual messages via checkboxes in the expanded message list
-2. See a count of selected messages in a floating tray
-3. Click "Move to Trash" → trash those specific message IDs directly (not via scanCache — direct Gmail batchModify)
-
-**New backend needed**:
-- `POST /api/messages/trash` — body: `{ messageIds: string[] }` → direct batchModify, no job (small batches) OR job for large batches
-- Reuse `limited()` + batchModify pattern from `trashService.js`
-
-**New frontend needed**:
-- `InboxTab`: add checkboxes to `MessageList`, track `selectedIds: Set<string>`, floating tray with count + "Move to Trash" button, confirmation for >50 messages
-- `StorageTab`: same checkbox pattern on the attachments table + top-senders drill-down
-
-**Files to touch**:
-- `server/src/routes/inbox.js` — add POST /api/messages/trash route (or new `routes/messages.js`)
-- `server/src/services/` — add `messageTrashService.js` (thin wrapper around batchModify)
-- `client/src/api.ts` — add `trashMessages(ids: string[])`
-- `client/src/types.ts` — no changes needed
-- `client/src/components/InboxTab.tsx` — selectable MessageList, tray
-- `client/src/components/StorageTab.tsx` — selectable attachment rows, sender drill-down, tray
+| Route Group | Endpoints | Purpose |
+|------------|-----------|---------|
+| `GET /api/health` | Health check | Returns `{ ok: true }` |
+| `/api/auth` | `GET /url`, `GET /callback`, `GET /status`, `POST /logout` | OAuth flow |
+| `/api/scan` | `POST /scan`, `GET /scan` | Start scan job, get scan results |
+| `/api/inbox` | `GET /inbox/groups`, `GET /inbox/group/:key/messages` | Inbox group counts and messages |
+| `/api/storage` | `GET /storage/stats`, `GET /storage/drill`, `POST /storage/refresh` | Storage analysis |
+| `/api/labels` | `POST /labels/apply`, `DELETE /labels/:name`, `GET /labels` | Label management |
+| `/api/unsubscribe` | `POST /unsubscribe` | Execute unsubscribe |
+| `/api/protect` | `GET /protected`, `POST /protect`, `DELETE /protect` | Manage protected senders |
+| `/api/messages` | `POST /messages/trash` | Trash messages |
+| `/api/jobs` | `GET /jobs/:id` | Poll job status |
 
 ---
 
-## Environment variables
+## Frontend Architecture
+
+### Component Tree
 
 ```
-# server/.env
-GOOGLE_CLIENT_ID=...apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=...
-PORT=3001                                         # default
-REDIRECT_URI=http://localhost:3001/api/auth/callback
-CLIENT_URL=http://localhost:5173
+App.tsx (Tab navigation + auth state)
+├── ConnectScreen.tsx      — OAuth login card
+├── AccountBadge.tsx       — Connected account indicator
+├── ScanControls.tsx       — Scan launcher + stats display
+├── SendersTab.tsx         — Subscription sender management
+│   ├── FilterToolbar.tsx  — Category/method/search filters
+│   ├── SenderTable.tsx    — Sortable sender table with bulk actions
+│   ├── UnsubscribePanel.tsx — Unsubscribe action executor
+│   └── LabelReview.tsx    — Label assignment review
+├── InboxTab.tsx           — Inbox group browser with message lists
+├── StorageTab.tsx         — Left/right pane storage analyzer
+│   └── DrillPanel         — Inline detail table for filtered messages
+├── ProtectedTab.tsx       — Protected sender management
+└── LabelManager.tsx       — Manage created Unsub/* labels
 ```
 
+### Key Frontend Modules
+
+| File | Purpose |
+|------|---------|
+| `api.ts` | Typed HTTP client with `ApiError` class, methods for all API endpoints |
+| `theme.ts` | MUI theme with custom color palette, typography, component overrides, CSS keyframe animations |
+| `types.ts` | TypeScript interfaces for all API response shapes |
+| `hooks/useJob.ts` | Custom hook for polling async job progress |
+
 ---
 
-## Git conventions
+## Features Summary
 
-- Branch: `main`
-- Remote: `git@github.com:sudoundefined/email-optimizer.git`
-- Commit style: `feat:`, `fix:`, `chore:`, `docs:` prefix, present-tense body
-- Co-author: `Co-Authored-By: Claude <noreply@anthropic.com>`
-- Never commit `server/.env` or `server/data/`
+### 1. 📧 Subscription Scanner
+- Scans inbox for subscription/promotional emails across configurable time ranges
+- Groups by sender, detects best unsubscribe method per sender
+- Categorizes senders (Promotions, Newsletters, Social, Shopping, Finance, Travel)
+- Scans the full matching set (no message cap by default; `SCAN_MAX_MESSAGES` env to limit)
+- Time ranges: last month, 3 months, 6 months, 1 year, all time
+
+### 2. 🚫 Smart Unsubscribe
+- **One-Click POST** (RFC 8058) — Fully automated, server-side
+- **Mailto** — Sends unsubscribe email via Gmail API
+- **Browser Link** — Opens unsubscribe page in browser
+- SSRF protection against private/loopback addresses
+
+### 3. 🛡️ Sender Protection
+- Auto-detects banks, government, utilities, insurance (30+ protected domains)
+- Subject keyword heuristics (statements, invoices, tax documents, etc.)
+- Manual protect/unprotect with file-persisted list
+- Protected senders are blocked from unsubscribe actions
+
+### 4. 📊 Inbox Analytics
+- Live counts for 11 inbox categories (Important, Primary, Marketing, Social, etc.)
+- Query-based groups: Attachments, Large emails, Stale unread
+- Drill-down into individual messages per group
+
+### 5. 💾 Storage Analyzer
+- Scans all emails >500KB with aggregation by sender, month, year, and size band
+- Left/right master-detail pane layout
+- Dependent date filtering (Year → Month drill-down)
+- Large attachment table (>5MB) with bulk select
+- Bulk trash with confirmation dialog (30-day Gmail recovery)
+- 5-minute server-side cache for performance
+
+### 6. 🏷️ Label Management
+- Creates Gmail labels under `Unsub/*` prefix
+- Batch-applies labels to scanned sender messages (1,000 per batch)
+- Label registry persisted to JSON for cross-session tracking
+- Remove labels from Gmail or trash emails and delete label
+
+### 7. 🔐 Security
+- OAuth 2.0 with CSRF state tokens (10-minute TTL)
+- Automatic token refresh with `invalid_grant` detection
+- SSRF mitigation on unsubscribe URLs (DNS resolution, private IP blocking)
+- Header injection sanitization in MIME email construction
+- Scoped Gmail permissions (`gmail.modify` + `gmail.send`)
+
+### 8. ⚡ Performance & Reliability
+- Gmail API rate limiter with 20 concurrent connections
+- Exponential backoff (500ms → 32s + jitter) on 429/5xx errors
+- Async job queue with progress streaming for long-running operations
+- In-memory caching for scan results and storage stats
 
 ---
 
-## Permissions for Claude
+## Test Coverage
 
-Run any command without asking — build, test, install, git operations are all fine. The user has explicitly granted permission for Claude to execute commands and edit files freely in this project.
+7 test suites with 55 tests covering:
+
+| Suite | Tests | Coverage Area |
+|-------|-------|--------------|
+| `categorizer.test.js` | 7 | Domain matching, subject keywords, Gmail category fallback |
+| `headerParser.test.js` | 14 | From parsing (RFC 2047), List-Unsubscribe extraction, one-click detection |
+| `inboxService.test.js` | 4 | Group key uniqueness, label/query validation |
+| `mime.test.js` | 4 | Mailto parsing, MIME building, header injection prevention, base64url |
+| `protectService.test.js` | 7 | Domain/subject heuristics, auto-protect, protect/unprotect round-trip |
+| `rateLimiter.test.js` | 6 | Retry logic, 429/5xx handling, non-retryable errors |
+| `storageService.test.js` | 9 | Aggregation functions, size bands, byte conversion |
+
+---
+
+## Data Flow
+
+```
+User clicks "Scan" → POST /api/scan
+  → jobManager.createJob('scan', scanService.runScan)
+    → gmail.messages.list (paginated, rate-limited)
+    → gmail.messages.get (parallel, rate-limited)
+    → Group by sender, detect unsubscribe methods
+    → Cache in scanCache
+  → Client polls GET /api/jobs/:id until done
+  → Client fetches GET /api/scan for results
+
+User clicks "Unsubscribe" → POST /api/unsubscribe
+  → Verify sender is not protected
+  → Execute method: one-click POST / mailto / return link
+  → Return result to client
+
+User views "Storage" → GET /api/storage/stats
+  → Fetch all emails >500KB (paginated)
+  → Aggregate by sender, month, year, size band
+  → Cache for 5 minutes
+  → Client renders left/right pane layout
+
+User clicks month → GET /api/storage/drill?by=month&value=2025-06
+  → Filter cached messages by month
+  → Return sorted message list to right pane
+```

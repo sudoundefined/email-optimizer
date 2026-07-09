@@ -21,7 +21,9 @@ export const config = {
   labelRegistryPath: path.join(serverRoot, 'data', 'label-registry.json'),
   protectedSendersPath: path.join(serverRoot, 'data', 'protected-senders.json'),
   digestStatePath: path.join(serverRoot, 'data', 'digest-state.json'),
-  scanMaxMessages: 5000,
+  // No scan cap by default — scan the entire matching set. Set
+  // SCAN_MAX_MESSAGES to a number to cap it (e.g. to limit Gmail API usage).
+  scanMaxMessages: process.env.SCAN_MAX_MESSAGES ? Number(process.env.SCAN_MAX_MESSAGES) : Infinity,
   labelPrefix: 'Unsub/',
 }
 
