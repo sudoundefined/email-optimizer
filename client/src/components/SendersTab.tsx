@@ -2,28 +2,42 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
-import TextField from '@mui/material/TextField'
+import Grid from '@mui/material/Grid'
+import InputAdornment from '@mui/material/InputAdornment'
 import LinearProgress from '@mui/material/LinearProgress'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
+import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
-import ToggleButton from '@mui/material/ToggleButton'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { MailOutlined } from '@mui/icons-material'
+import { MailOutlined, SearchOutlined } from '@mui/icons-material'
 import { api, ApiError } from '../api'
-import type { ScanResult, Suggestion, UnsubSummary, ProtectedSender } from '../types'
+import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender } from '../types'
 import { useJob } from '../hooks/useJob'
 import ScanControls from './ScanControls'
-import SenderTable from './SenderTable'
+import SenderTable, { CATEGORY_COLORS } from './SenderTable'
 import UnsubscribePanel from './UnsubscribePanel'
 import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
 import ProtectedTab from './ProtectedTab'
+
+type Segment = 'all' | 'unsub' | 'nomethod' | 'protected'
+type SortKey = 'volume' | 'name' | 'recent'
+
+const SEGMENTS: { key: Segment; label: string; blurb: string }[] = [
+  { key: 'all', label: 'All senders', blurb: 'Everything from your scan' },
+  { key: 'unsub', label: 'With unsubscribe', blurb: 'One-click, email, or link' },
+  { key: 'nomethod', label: 'No method', blurb: 'No unsubscribe detected' },
+  { key: 'protected', label: 'Protected list', blurb: 'Shielded from bulk actions' },
+]
 
 export default function SendersTab({ onDisconnected }: { onDisconnected: () => void }) {
   const [scan, setScan] = useState<ScanResult | null>(null)
@@ -38,8 +52,13 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   const [keepN, setKeepN] = useState(3)
   const [error, setError] = useState<string | null>(null)
   const [protectedList, setProtectedList] = useState<ProtectedSender[]>([])
-  const [showProtected, setShowProtected] = useState(false)
   const [protectionWarning, setProtectionWarning] = useState<string | null>(null)
+
+  // redesign: filter/sort/search state driving the two-pane view
+  const [segment, setSegment] = useState<Segment>('all')
+  const [category, setCategory] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<SortKey>('volume')
 
   const scanJob = useJob()
   const unsubJob = useJob()
@@ -188,9 +207,9 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setError(null)
     setProtectionWarning(null)
     try {
-      const nonProtected = selectedSenders.filter(s => !protectedSet.has(s.email.toLowerCase()))
+      const nonProtected = selectedSenders.filter((s) => !protectedSet.has(s.email.toLowerCase()))
       if (nonProtected.length === 0) return
-      await api.protectSenders(nonProtected.map(s => s.email))
+      await api.protectSenders(nonProtected.map((s) => s.email))
       await loadSenders()
       setSelected(new Set())
     } catch (err) {
@@ -202,9 +221,9 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
     setError(null)
     setProtectionWarning(null)
     try {
-      const protectedSenders = selectedSenders.filter(s => protectedSet.has(s.email.toLowerCase()))
+      const protectedSenders = selectedSenders.filter((s) => protectedSet.has(s.email.toLowerCase()))
       if (protectedSenders.length === 0) return
-      await api.unprotectSenders(protectedSenders.map(s => s.email))
+      await api.unprotectSenders(protectedSenders.map((s) => s.email))
       await loadSenders()
       setSelected(new Set())
     } catch (err) {
@@ -219,7 +238,7 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   }, [suggestions])
 
   const protectedSet = useMemo(() => {
-    return new Set(protectedList.map(p => p.email.toLowerCase()))
+    return new Set(protectedList.map((p) => p.email.toLowerCase()))
   }, [protectedList])
 
   const selectedSenders = useMemo(
@@ -229,12 +248,61 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
   const selectedUnsubscribable = selectedSenders.filter((s) => s.method !== 'none').length
   const selectedEmailCount = selectedSenders.reduce((n, s) => n + s.messageCount, 0)
   const selectedProtectedCount = useMemo(() => {
-    return selectedSenders.filter(s => protectedSet.has(s.email.toLowerCase())).length
+    return selectedSenders.filter((s) => protectedSet.has(s.email.toLowerCase())).length
   }, [selectedSenders, protectedSet])
   const selectedNonProtectedCount = selectedSenders.length - selectedProtectedCount
 
   const trashProgress = trashJob.job?.progress as { trashed?: number; total?: number } | null
   const keepProgress = keepJob.job?.progress as { phase?: string; trashed?: number; total?: number; listed?: number } | null
+
+  // ── Segment counts (left pane) ─────────────────────────────────────────────
+  const segmentCounts = useMemo(() => {
+    const all = scan?.senders ?? []
+    return {
+      all: all.length,
+      unsub: all.filter((s) => s.method !== 'none').length,
+      nomethod: all.filter((s) => s.method === 'none').length,
+      protected: protectedList.length,
+    }
+  }, [scan, protectedList])
+
+  // ── Category counts (left pane) ────────────────────────────────────────────
+  const categoryCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const s of scan?.senders ?? []) {
+      const c = suggestionMap.get(s.email)?.category
+      if (c) m.set(c, (m.get(c) || 0) + 1)
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1])
+  }, [scan, suggestionMap])
+
+  // ── Filtered + sorted senders (right pane) ─────────────────────────────────
+  const visibleSenders = useMemo(() => {
+    if (!scan) return []
+    let list: Sender[] = scan.senders
+    if (segment === 'unsub') list = list.filter((s) => s.method !== 'none')
+    else if (segment === 'nomethod') list = list.filter((s) => s.method === 'none')
+    if (category) list = list.filter((s) => suggestionMap.get(s.email)?.category === category)
+    const q = search.trim().toLowerCase()
+    if (q) {
+      list = list.filter(
+        (s) =>
+          (s.name || '').toLowerCase().includes(q) ||
+          s.email.toLowerCase().includes(q) ||
+          (s.latestSubject || '').toLowerCase().includes(q)
+      )
+    }
+    const sorted = [...list]
+    if (sort === 'volume') sorted.sort((a, b) => b.messageCount - a.messageCount)
+    else if (sort === 'name') sorted.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email))
+    else if (sort === 'recent') sorted.sort((a, b) => b.latestDate - a.latestDate)
+    return sorted
+  }, [scan, segment, category, search, sort, suggestionMap])
+
+  const showProtectedView = segment === 'protected'
+  const rightTitle = SEGMENTS.find((s) => s.key === segment)?.label ?? 'Senders'
+
+  const paneHeight = 'calc(100vh - 300px)'
 
   return (
     <div>
@@ -243,17 +311,6 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       {trashDone && <Alert severity="success" sx={{ mb: 2 }}>{trashDone}</Alert>}
       {keepDone && <Alert severity="success" sx={{ mb: 2 }}>{keepDone}</Alert>}
       {protectionWarning && <Alert severity="warning" sx={{ mb: 2 }}>{protectionWarning}</Alert>}
-
-      <ToggleButtonGroup
-        value={showProtected ? 'protected' : 'all'}
-        exclusive
-        onChange={(_, val) => { if (val) setShowProtected(val === 'protected') }}
-        size="small"
-        sx={{ mb: 2, mt: 1 }}
-      >
-        <ToggleButton value="all">All Senders</ToggleButton>
-        <ToggleButton value="protected">Protected ({protectedList.length})</ToggleButton>
-      </ToggleButtonGroup>
 
       {trashJob.running && trashProgress && (
         <Box sx={{ mb: 2 }}>
@@ -280,75 +337,263 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
       )}
       {unsubSummary && <UnsubscribePanel summary={unsubSummary} />}
 
-      {!showProtected && !scan && !scanJob.running && (
+      {!scan && !scanJob.running && (
         <Box sx={{ textAlign: 'center', py: 9, color: 'text.secondary' }}>
           <MailOutlined sx={{ fontSize: 56, opacity: 0.5, mb: 2 }} />
           <Typography variant="h6" color="text.primary" gutterBottom>
             See who's filling your inbox
           </Typography>
           <Typography variant="body2" sx={{ maxWidth: 420, mx: 'auto' }}>
-            Scan your mailbox to group marketing email by sender, then unsubscribe, label, or trash
-            them in bulk.
+            Scan your mailbox to group marketing email by sender, then unsubscribe, label, protect,
+            or trash them in bulk.
           </Typography>
         </Box>
       )}
 
-      {!showProtected && scan && (
-        <SenderTable
-          senders={scan.senders}
-          selected={selected}
-          onSelectedChange={setSelected}
-          suggestions={suggestionMap}
-        />
+      {scan && (
+        <Grid container spacing={3}>
+          {/* ── LEFT PANE — filters ── */}
+          <Grid size={{ xs: 12, md: 4, lg: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Search */}
+              <Card sx={{ borderRadius: 0, animation: 'fadeInUp 0.5s ease-out 0.05s both' }}>
+                <CardContent sx={{ p: '12px !important' }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    placeholder="Search senders…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Segments */}
+              <Card sx={{
+                borderRadius: 0, overflow: 'hidden',
+                animation: 'fadeInUp 0.5s ease-out 0.1s both',
+                transition: 'box-shadow 0.3s ease, transform 0.2s ease',
+                '&:hover': { boxShadow: '0 8px 24px rgba(139, 92, 246, 0.12)', transform: 'translateY(-2px)' },
+              }}>
+                <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
+                  <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                    🗂 Segments
+                  </Typography>
+                </Box>
+                <CardContent sx={{ p: '8px !important' }}>
+                  {SEGMENTS.map((seg) => {
+                    const active = segment === seg.key
+                    const count = segmentCounts[seg.key]
+                    return (
+                      <Box
+                        key={seg.key}
+                        onClick={() => { setSegment(seg.key); if (seg.key === 'protected') setCategory(null) }}
+                        sx={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          px: 1, py: 1, mb: 0.5, borderRadius: 1, cursor: 'pointer',
+                          bgcolor: active ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                          borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
+                          '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                        }}
+                      >
+                        <Box sx={{ overflow: 'hidden' }}>
+                          <Typography variant="body2" noWrap sx={{ fontWeight: 600, color: active ? 'var(--color-accent)' : 'text.primary' }}>
+                            {seg.label}
+                          </Typography>
+                          <Typography variant="caption" noWrap sx={{ color: active ? 'var(--color-accent)' : 'text.secondary' }}>
+                            {seg.blurb}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700, ml: 1, flexShrink: 0, color: active ? 'var(--color-accent)' : 'text.primary' }}>
+                          {count.toLocaleString()}
+                        </Typography>
+                      </Box>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+
+              {/* Categories */}
+              {!showProtectedView && categoryCounts.length > 0 && (
+                <Card sx={{
+                  borderRadius: 0, overflow: 'hidden',
+                  animation: 'fadeInUp 0.5s ease-out 0.15s both',
+                  transition: 'box-shadow 0.3s ease, transform 0.2s ease',
+                  '&:hover': { boxShadow: '0 8px 24px rgba(14, 165, 233, 0.12)', transform: 'translateY(-2px)' },
+                }}>
+                  <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
+                    <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                      🏷 Categories
+                    </Typography>
+                  </Box>
+                  <CardContent sx={{ p: '8px !important' }}>
+                    <Box
+                      onClick={() => setCategory(null)}
+                      sx={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        px: 1, py: 0.75, mb: 0.5, borderRadius: 1, cursor: 'pointer',
+                        bgcolor: category === null ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                        '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.12)' },
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: category === null ? 'var(--color-accent)' : 'text.primary' }}>
+                        All categories
+                      </Typography>
+                    </Box>
+                    {categoryCounts.map(([cat, count]) => {
+                      const active = category === cat
+                      const color = CATEGORY_COLORS[cat] ?? '#94a3b8'
+                      return (
+                        <Box
+                          key={cat}
+                          onClick={() => setCategory(active ? null : cat)}
+                          sx={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            px: 1, py: 0.75, mb: 0.25, borderRadius: 1, cursor: 'pointer',
+                            bgcolor: active ? `${color}14` : 'transparent',
+                            borderLeft: active ? `2px solid ${color}` : '2px solid transparent',
+                            '&:hover': { bgcolor: `${color}14` },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                            <Typography variant="body2" sx={{ color: active ? color : 'text.primary' }}>{cat}</Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: active ? color : 'text.secondary', fontWeight: 600 }}>
+                            {count.toLocaleString()}
+                          </Typography>
+                        </Box>
+                      )
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+            </Box>
+          </Grid>
+
+          {/* ── RIGHT PANE — content ── */}
+          <Grid size={{ xs: 12, md: 8, lg: 9 }}>
+            {showProtectedView ? (
+              <Card
+                variant="outlined"
+                sx={{
+                  border: '1px solid rgba(30, 41, 59, 0.1)', borderRadius: 0,
+                  display: 'flex', flexDirection: 'column', height: paneHeight, minHeight: 400,
+                  animation: 'fadeInUp 0.4s ease-out', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
+                }}
+              >
+                <Box sx={{ px: 3, py: 2, borderBottom: '1px solid rgba(30, 41, 59, 0.06)', background: 'var(--color-dominant-light)' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Protected list</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Senders shielded from bulk unsubscribe and trash. Banks, utilities, and government are auto-protected.
+                  </Typography>
+                </Box>
+                <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>
+                  <ProtectedTab onDisconnected={onDisconnected} />
+                </Box>
+              </Card>
+            ) : (
+              <Card
+                variant="outlined"
+                sx={{
+                  border: '1px solid rgba(30, 41, 59, 0.1)', borderRadius: 0,
+                  display: 'flex', flexDirection: 'column', height: paneHeight, minHeight: 400,
+                  animation: 'fadeInUp 0.4s ease-out', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
+                }}
+              >
+                <Box sx={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2,
+                  px: 3, py: 2, borderBottom: '1px solid rgba(30, 41, 59, 0.06)', background: 'var(--color-dominant-light)',
+                }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }} noWrap>{rightTitle}</Typography>
+                      <Chip label={`${visibleSenders.length.toLocaleString()}`} size="small" variant="outlined" />
+                      {category && (
+                        <Chip
+                          label={category}
+                          size="small"
+                          onDelete={() => setCategory(null)}
+                          sx={{ background: `${CATEGORY_COLORS[category] ?? '#94a3b8'}18`, color: CATEGORY_COLORS[category] ?? '#64748b' }}
+                        />
+                      )}
+                      {selected.size > 0 && (
+                        <Chip label={`${selected.size} selected`} size="small" color="primary" onDelete={() => setSelected(new Set())} />
+                      )}
+                    </Stack>
+                  </Box>
+                  <Select
+                    size="small"
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as SortKey)}
+                    sx={{ minWidth: 150, flexShrink: 0 }}
+                  >
+                    <MenuItem value="volume">Sort: Most emails</MenuItem>
+                    <MenuItem value="name">Sort: Name (A–Z)</MenuItem>
+                    <MenuItem value="recent">Sort: Most recent</MenuItem>
+                  </Select>
+                </Box>
+                <SenderTable
+                  senders={visibleSenders}
+                  selected={selected}
+                  onSelectedChange={setSelected}
+                  suggestions={suggestionMap}
+                  protectedSet={protectedSet}
+                />
+              </Card>
+            )}
+          </Grid>
+        </Grid>
       )}
 
-      {showProtected && <ProtectedTab onDisconnected={onDisconnected} />}
-
-      {!showProtected && selected.size > 0 && (
+      {/* ── Floating action tray ── */}
+      {!showProtectedView && selected.size > 0 && (
         <Paper
-          elevation={8}
+          elevation={0}
           sx={{
-            position: 'fixed',
-            left: '50%',
-            bottom: 22,
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            bgcolor: 'grey.900',
-            color: 'common.white',
-            borderRadius: 3,
-            px: 2.5,
-            py: 1.5,
-            zIndex: 50,
-            maxWidth: 'min(92vw, 860px)',
-            flexWrap: 'wrap',
+            position: 'fixed', left: '50%', bottom: 22, transform: 'translateX(-50%)',
+            display: 'flex', alignItems: 'center', gap: 2,
+            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+            color: 'common.white', borderRadius: 0, px: 2.5, py: 1.5, zIndex: 50,
+            maxWidth: 'min(94vw, 900px)', flexWrap: 'wrap',
+            boxShadow: '0 8px 32px rgba(99,102,241,0.45)', border: '1px solid rgba(255,255,255,0.10)',
+            animation: 'fadeInUp 0.3s ease-out',
           }}
           role="toolbar"
           aria-label="Actions for selected senders"
         >
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <Chip label={selected.size} color="primary" size="small" />
-            <Typography variant="body2" sx={{ color: 'grey.400' }}>
+            <Box sx={{
+              px: 1.25, py: 0.25, borderRadius: '4px',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', fontWeight: 800, fontSize: '0.875rem', color: '#fff',
+            }}>
+              {selected.size}
+            </Box>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
               senders · <strong style={{ color: '#fff' }}>{selectedEmailCount.toLocaleString()}</strong> emails
-              {selectedUnsubscribable < selected.size &&
-                ` · ${selectedUnsubscribable} with unsubscribe support`}
+              {selectedUnsubscribable < selected.size && ` · ${selectedUnsubscribable} unsub-able`}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <Button
-              variant="contained"
-              size="small"
+              variant="contained" size="small"
               disabled={selectedUnsubscribable === 0 || unsubJob.running || trashJob.running}
               onClick={runUnsubscribe}
             >
               Unsubscribe
             </Button>
             <Button
-              variant="contained"
-              size="small"
-              color="inherit"
-              sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
+              variant="contained" size="small" color="inherit"
+              sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
               disabled={unsubJob.running || trashJob.running}
               onClick={() => setShowLabelReview(true)}
             >
@@ -356,10 +601,8 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             </Button>
             {selectedNonProtectedCount > 0 && (
               <Button
-                variant="contained"
-                size="small"
-                color="inherit"
-                sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
+                variant="contained" size="small" color="inherit"
+                sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
                 disabled={unsubJob.running || trashJob.running}
                 onClick={runProtect}
               >
@@ -368,10 +611,8 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             )}
             {selectedProtectedCount > 0 && (
               <Button
-                variant="contained"
-                size="small"
-                color="inherit"
-                sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
+                variant="contained" size="small" color="inherit"
+                sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
                 disabled={unsubJob.running || trashJob.running}
                 onClick={runUnprotect}
               >
@@ -380,10 +621,8 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
             )}
             {selectedNonProtectedCount === 1 && (
               <Button
-                variant="contained"
-                size="small"
-                color="inherit"
-                sx={{ bgcolor: 'grey.700', '&:hover': { bgcolor: 'grey.600' } }}
+                variant="contained" size="small" color="inherit"
+                sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
                 disabled={unsubJob.running || trashJob.running || keepJob.running}
                 onClick={() => setShowKeepDialog(true)}
               >
@@ -391,18 +630,16 @@ export default function SendersTab({ onDisconnected }: { onDisconnected: () => v
               </Button>
             )}
             <Button
-              variant="outlined"
-              size="small"
-              color="error"
+              variant="contained" size="small"
+              sx={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)', '&:hover': { background: 'linear-gradient(135deg,#dc2626,#b91c1c)' } }}
               disabled={unsubJob.running || trashJob.running}
               onClick={() => setConfirmTrash(true)}
             >
               Move to Trash
             </Button>
             <Button
-              variant="text"
-              size="small"
-              sx={{ color: 'grey.500' }}
+              variant="text" size="small"
+              sx={{ color: 'rgba(255,255,255,0.5)', '&:hover': { color: '#fff', background: 'rgba(255,255,255,0.1)' } }}
               onClick={() => setSelected(new Set())}
             >
               Clear
