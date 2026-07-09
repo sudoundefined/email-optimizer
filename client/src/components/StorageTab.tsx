@@ -490,13 +490,13 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
         <CardContent sx={{ position: 'relative', zIndex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <Box>
-              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.1em' }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.8)', letterSpacing: '0.1em' }}>
                 Reclaimable storage
               </Typography>
               <Typography variant="h2" sx={{ fontWeight: 700, color: '#fff' }}>
                 {stats.totalMB.toLocaleString()} MB
               </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5 }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5 }}>
                 across {stats.messageCount.toLocaleString()} large emails
               </Typography>
             </Box>
@@ -523,10 +523,10 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
               overflow: 'hidden',
               animation: 'fadeInUp 0.5s ease-out 0.1s both',
               transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 8px 24px rgba(0, 122, 255, 0.12)', transform: 'translateY(-2px)' },
+              '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
             }}>
-              <Box sx={{ background: 'var(--card-date)', px: 2, py: 1.25 }}>
-                <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+              <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
+                <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
                   📅 Storage by date
                 </Typography>
               </Box>
@@ -605,10 +605,10 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
               overflow: 'hidden',
               animation: 'fadeInUp 0.5s ease-out 0.2s both',
               transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 8px 24px rgba(88, 86, 214, 0.12)', transform: 'translateY(-2px)' },
+              '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
             }}>
-              <Box sx={{ background: 'var(--card-senders)', px: 2, py: 1.25 }}>
-                <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+              <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
+                <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
                   👤 Top Senders
                 </Typography>
               </Box>
@@ -653,10 +653,10 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
               overflow: 'hidden',
               animation: 'fadeInUp 0.5s ease-out 0.3s both',
               transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 8px 24px rgba(255, 149, 0, 0.12)', transform: 'translateY(-2px)' },
+              '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
             }}>
-              <Box sx={{ background: 'var(--card-size)', px: 2, py: 1.25 }}>
-                <Typography variant="overline" sx={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+              <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
+                <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
                   📦 By Size
                 </Typography>
               </Box>
@@ -844,22 +844,22 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 2,
-            background: 'var(--color-dominant)',
-            color: 'common.white',
+            background: 'rgba(255,255,255,0.80)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+            color: '#1C1C1E',
             borderRadius: '14px',
             px: 2.5,
             py: 1.25,
             zIndex: 50,
             width: 'min(560px, 92vw)',
-            boxShadow: '0 12px 40px rgba(60, 60, 67, 0.45)',
-            border: '1px solid rgba(60, 60, 67, 0.15)',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.16)',
+            border: '1px solid rgba(60,60,67,0.16)',
           }}
           role="toolbar"
           aria-label="Actions for selected messages"
         >
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1 }}>
             <Chip label={selectedIds.size} color="primary" size="small" />
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.65)' }}>
+            <Typography variant="body2" sx={{ color: 'rgba(60,60,67,0.7)' }}>
               messages selected
             </Typography>
           </Stack>
@@ -870,17 +870,13 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
               color="error"
               disabled={trashJob.running}
               onClick={() => setConfirmTrash(true)}
-              sx={{
-                background: 'var(--color-accent)',
-                '&:hover': { background: 'var(--color-dominant)' },
-              }}
             >
               Move to Trash
             </Button>
             <Button
               variant="text"
               size="small"
-              sx={{ color: 'rgba(255,255,255,0.5)' }}
+              sx={{ color: 'rgba(60,60,67,0.6)' }}
               onClick={() => setSelectedIds(new Set())}
             >
               Clear
