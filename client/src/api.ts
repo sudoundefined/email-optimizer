@@ -1,6 +1,7 @@
 import type {
   AuthStatus,
   ScanResult,
+  Subscription,
   Suggestion,
   AppLabel,
   JobSnapshot,
@@ -51,6 +52,7 @@ export const api = {
   startScan: (range: string) =>
     request<{ jobId: string }>('/api/scan', { method: 'POST', body: JSON.stringify({ range }) }),
   senders: () => request<ScanResult>('/api/senders'),
+  subscriptions: () => request<Subscription[]>('/api/subscriptions'),
   startUnsubscribe: (senderEmails: string[]) =>
     request<{ jobId: string | null; excluded: number }>('/api/unsubscribe', {
       method: 'POST',

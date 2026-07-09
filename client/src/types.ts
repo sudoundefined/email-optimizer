@@ -10,6 +10,17 @@ export interface Sender {
   method: UnsubMethod
 }
 
+export interface Subscription {
+  vendor: string
+  email: string
+  name: string
+  domain: string
+  messageCount: number
+  cadence: 'weekly' | 'monthly' | 'quarterly' | 'annual' | 'unknown'
+  lastSeen: number
+  method: UnsubMethod
+}
+
 export interface ScanResult {
   scannedAt: string
   range: string

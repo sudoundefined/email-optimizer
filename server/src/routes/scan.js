@@ -5,6 +5,7 @@ import { runTrashSenders } from '../services/trashService.js'
 import { runKeepLatest, isValidSenderEmail } from '../services/retentionService.js'
 import { getScan, requireScan } from '../store/scanCache.js'
 import { runAutoProtect, filterProtected, isProtected } from '../services/protectService.js'
+import { detectSubscriptions } from '../services/subscriptionsService.js'
 
 const router = Router()
 
@@ -31,6 +32,12 @@ router.get('/senders', (req, res) => {
   const scan = getScan()
   if (!scan) return res.status(404).json({ error: 'no_scan' })
   res.json(scanView(scan))
+})
+
+router.get('/subscriptions', (req, res) => {
+  const scan = getScan()
+  if (!scan) return res.status(404).json({ error: 'no_scan' })
+  res.json(detectSubscriptions(scan.senders))
 })
 
 router.post('/senders/trash', async (req, res, next) => {

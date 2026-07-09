@@ -64,6 +64,7 @@ export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMe
           messageIds: [],
           latestSubject: '',
           latestDate: 0,
+          firstDate: 0,
           subjects: [],
           categoryLabelCounts: {},
           unsubscribe: { method: 'none' },
@@ -80,6 +81,9 @@ export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMe
         s.latestDate = msg.internalDate
         s.latestSubject = msg.headers['subject'] || ''
         if (name && !s.name) s.name = name
+      }
+      if (msg.internalDate && (s.firstDate === 0 || msg.internalDate < s.firstDate)) {
+        s.firstDate = msg.internalDate
       }
       for (const label of msg.labelIds) {
         if (label.startsWith('CATEGORY_')) {
