@@ -57,20 +57,19 @@ Before writing custom UI markup, you must reuse the primitives and existing comp
 ### Core Component Inventory (Chakra UI / TSX)
 Always import and reuse these component files:
 
-| Component | Purpose / Usage | Relative Import Path (from `client/src/components` or siblings) |
+| Component | Purpose / Usage | Relative Import Path (from `client/src/components`) |
 | :--- | :--- | :--- |
-| `AccountBadge` | Renders user email, initials, avatar, and logout | `import AccountBadge from '../components/AccountBadge'` |
+| `LandingPage` | Full-page SaaS marketing hero, benefits showcase, and Google OAuth login screen | `import LandingPage from './LandingPage'` |
+| `UserProfileModal` | Account profile, default preferences editor (`3m`, `5000` cap, `Unsub/`), and activity audit log modal | `import UserProfileModal from './UserProfileModal'` |
+| `AccountBadge` | Renders user avatar, email, profile modal trigger, and logout | `import AccountBadge from './AccountBadge'` |
 | `ConfirmDialog` | Standard confirmation dialog (supports arming delay & typed confirm) | `import ConfirmDialog from './ConfirmDialog'` |
-| `ConnectScreen` | Full-page OAuth landing and login screen | `import ConnectScreen from './ConnectScreen'` |
+| `ConnectScreen` | Legacy OAuth login card screen | `import ConnectScreen from './ConnectScreen'` |
 | `EmailLoader` | Reusable animated envelope concept loader for async operations | `import EmailLoader from './EmailLoader'` |
 | `FilterToolbar` | Preset query chip toolbar for email filtering | `import FilterToolbar from './FilterToolbar'` |
-| `InboxTab` | Comprehensive list of inbox emails with batch operations | `import InboxTab from './InboxTab'` |
 | `LabelManager` | System for updating, creating, and applying labels | `import LabelManager from './LabelManager'` |
 | `LabelReview` | Inline label inspector and creator | `import LabelReview from './LabelReview'` |
 | `ProtectedTab` | Manager for whitelisted/protected senders | `import ProtectedTab from './ProtectedTab'` |
 | `ScanControls` | Scanning trigger buttons with status messages | `import ScanControls from './ScanControls'` |
 | `SenderTable` | Table of email senders with selection, volume stats, and action history | `import SenderTable from './SenderTable'` |
-| `SendersTab` | Top-level layout for the Senders analytics workspace | `import SendersTab from './SendersTab'` |
 | `StorageTab` | Storage analyzer indicating large attachments and clean-up options | `import StorageTab from './StorageTab'` |
 | `UnsubscribePanel` | Shows progress and summary of active batch unsubscribe operations | `import UnsubscribePanel from './UnsubscribePanel'` |
-| `DrillPanel` | A side pane drawer that shows specific item details | `import DrillPanel from './DrillPanel'` |

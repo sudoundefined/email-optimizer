@@ -28,6 +28,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
+    credentials: 'include',
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
   })

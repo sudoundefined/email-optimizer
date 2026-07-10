@@ -31,6 +31,12 @@ export interface ScanResult {
 export interface AuthStatus {
   connected: boolean
   email?: string
+  user?: {
+    id: string
+    email: string
+    displayName?: string
+    avatarUrl?: string
+  }
 }
 
 export interface JobSnapshot {

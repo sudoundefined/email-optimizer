@@ -2,7 +2,7 @@
 
 ## Overview
 
-EmailDiet is a full-stack web application that connects to a user's Gmail account via OAuth 2.0 and provides tools to manage subscriptions, reclaim storage, organize emails with labels, and protect important senders from accidental unsubscription.
+EmailDiet is a full-stack **multi-user SaaS application** that connects to users' Gmail accounts via OAuth 2.0 and provides powerful tools to manage subscriptions, reclaim storage, organize emails with labels, and protect important senders from accidental unsubscription. Every user account is strictly isolated using SQLite foreign keys (`user_id`), HTTP-only JWT cookies, and AES-256-GCM token encryption at rest.
 
 ---
 
@@ -11,77 +11,64 @@ EmailDiet is a full-stack web application that connects to a user's Gmail accoun
 | Layer | Technology |
 |-------|-----------|
 | **Frontend** | React 18 + TypeScript, Vite, Chakra UI v2, Framer Motion |
-| **Backend** | Node.js + Express (ESM), Google APIs (googleapis) |
-| **Auth** | Google OAuth 2.0 with PKCE state + CSRF protection |
-| **Data** | File-based JSON persistence (tokens, labels, protected senders) |
-| **Testing** | Node.js built-in test runner (`node --test`) |
+| **Backend** | Node.js + Express (ESM), Google APIs (`googleapis`) |
+| **Auth & Sessions** | Google OAuth 2.0 with HTTP-only signed JWT session cookies (`auth_token`) |
+| **Security** | AES-256-GCM token encryption at rest (NIST SP 800-38D 12-byte IVs), per-user API rate limiting |
+| **Data & Storage** | SQLite (`better-sqlite3`) in Write-Ahead Log (`WAL`) concurrency mode |
+| **Testing** | Node.js built-in test runner (`node --test`), 105/105 unit tests passing |
 | **Monorepo** | npm workspaces (`client/` + `server/`) |
-| **Dev** | Concurrently (parallel Vite dev server + Express API) |
 
 ---
 
 ## Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         CLIENT (Vite + React)               │
-│                                                             │
-│  ConnectScreen ─→ App (Tab Router) ─┬→ SendersTab           │
-│                                     ├→ InboxTab             │
-│                                     ├→ StorageTab           │
-│                                     ├→ ProtectedTab         │
-│                                     └→ LabelManager         │
-│                                                             │
-│  Shared: ScanControls, SenderTable, FilterToolbar,          │
-│          ConfirmDialog, UnsubscribePanel, AccountBadge       │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ HTTP (JSON REST)
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     SERVER (Express API)                     │
-│                                                             │
-│  index.js ─→ Route Handlers ─→ Service Layer ─→ Gmail API   │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                   ROUTES (9 files)                   │    │
-│  │  auth · scan · inbox · storage · labels             │    │
-│  │  unsubscribe · protect · messages · jobs            │    │
-│  └──────────────────────┬──────────────────────────────┘    │
-│                         ▼                                   │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                SERVICES (10 files)                   │    │
-│  │  scanService      — Scan inbox for subscriptions    │    │
-│  │  inboxService     — Inbox group counts & messages   │    │
-│  │  storageService   — Storage analysis & drill-down   │    │
-│  │  unsubscribeService — Execute unsubscribe actions   │    │
-│  │  labelService     — Create/apply Gmail labels       │    │
-│  │  protectService   — Auto-protect important senders  │    │
-│  │  headerParser     — Parse From/Unsubscribe headers  │    │
-│  │  categorizer      — Classify senders by category    │    │
-│  │  trashService     — Move messages to trash          │    │
-│  │  messageTrashService — Batch message deletion       │    │
-│  └──────────────────────┬──────────────────────────────┘    │
-│                         ▼                                   │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              INFRASTRUCTURE LAYER                    │    │
-│  │                                                     │    │
-│  │  gmail/client.js      — Authorized Gmail client     │    │
-│  │  gmail/messages.js    — Message list & metadata     │    │
-│  │  gmail/mime.js        — MIME building (unsub email)  │    │
-│  │  gmail/rateLimiter.js — Concurrency + exp backoff   │    │
-│  │  auth/oauthClient.js  — OAuth2 flow + token mgmt   │    │
-│  │  auth/tokenStore.js   — File-based token storage    │    │
-│  │  jobs/jobManager.js   — Async job queue + progress  │    │
-│  │  store/scanCache.js   — In-memory scan results      │    │
-│  │  store/labelRegistry.js — Persisted label IDs       │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-               ┌───────────────────────┐
-               │     Gmail API v1      │
-               │  (googleapis library) │
-               └───────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        CLIENT (Vite + React 18)                        │
+│                                                                        │
+│  LandingPage (Unauthed) ─→ App (Tab Router) ─┬→ MailboxTab             │
+│                                              ├→ StorageTab             │
+│                                              ├→ LabelManager           │
+│                                              └→ AccountPage            │
+│                                                                        │
+│  Shared: ScanControls, SenderTable, FilterToolbar, AccountBadge        │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTP REST + credentials: 'include'
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                        SERVER (Express API)                            │
+│                                                                        │
+│  index.js ─→ CORS + CookieParser + RateLimiter ─→ authMiddleware       │
+│                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                        ROUTES (11 files)                         │  │
+│  │  auth · user · scan · inbox · storage · labels · unsubscribe     │  │
+│  │  protect · messages · jobs · digest                              │  │
+│  └────────────────────────────────┬─────────────────────────────────┘  │
+│                                   ▼                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                      SERVICES (Scoped by userId)                 │  │
+│  │  scanService      — Multi-user scan & categorization             │  │
+│  │  unsubscribeService — RFC 8058 one-click & mailto actions        │  │
+│  │  retentionService — Keep-latest-N email retention logic          │  │
+│  │  storageService   — Multi-dimensional storage drill-downs        │  │
+│  │  protectService   — Domain/subject sender protect-list           │  │
+│  └────────────────────────────────┬─────────────────────────────────┘  │
+│                                   ▼                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                    DATA & INFRASTRUCTURE LAYER                   │  │
+│  │  db.js & crypto.js — SQLite WAL database + AES-256-GCM NIST IVs  │  │
+│  │  jwt.js & authMiddleware.js — Signed session verification        │  │
+│  │  jobManager.js & scheduler.js — User-scoped async background jobs│  │
+│  └────────────────────────────────┬─────────────────────────────────┘  │
+└───────────────────────────────────┼────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+       ┌─────────────────────────┐    ┌──────────────────────────┐
+       │      Gmail API v1       │    │     SQLite Database      │
+       │  (googleapis library)   │    │  (emaildiet.db WAL mode) │
+       └─────────────────────────┘    └──────────────────────────┘
 ```
 
 ---
@@ -300,4 +287,20 @@ User views "Storage" → GET /api/storage/stats
 User clicks month → GET /api/storage/drill?by=month&value=2025-06
   → Filter cached messages by month
   → Return sorted message list to right pane
+```
+
+---
+
+## Developer & CLI Utility Commands
+
+```bash
+# Development servers
+npm run dev               # Start API server (--watch) and Vite dev server
+
+# Testing & Verification
+npm test -w server        # Run full backend unit test suite (105 tests)
+npm run build -w client   # Production TypeScript check + Vite bundle build
+
+# Database inspection tool
+npm run db:inspect -w server # Inspect SQLite database tables, row counts, and sample records
 ```

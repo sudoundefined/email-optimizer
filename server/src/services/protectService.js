@@ -1,9 +1,4 @@
-import fs from 'node:fs/promises'
-import { config } from '../config.js'
-
-let overridePath = null
-function filePath() { return overridePath || config.protectedSendersPath }
-export function _setPathForTest(p) { overridePath = p }
+import { getDb } from '../db/db.js'
 
 export const PROTECTED_DOMAINS = [
   'chase.com', 'wellsfargo.com', 'bankofamerica.com', 'citi.com', 'capitalone.com',
@@ -36,91 +31,94 @@ export function matchesSubjectHeuristic(subjects) {
 
 /**
  * Analyze scan results and return senders that should be auto-protected.
- * Returns [{email, reason: 'auto:domain'|'auto:subject'}]
+ * Returns [{email, domain, reason: 'auto:domain'|'auto:subject'}]
  */
 export function autoProtectFromScan(senders) {
   const results = []
   for (const [, sender] of senders) {
     if (matchesDomainHeuristic(sender.domain)) {
-      results.push({ email: sender.email, reason: 'auto:domain' })
+      results.push({ email: sender.email, domain: sender.domain, reason: 'auto:domain' })
     } else if (matchesSubjectHeuristic(sender.subjects)) {
-      results.push({ email: sender.email, reason: 'auto:subject' })
+      results.push({ email: sender.email, domain: sender.domain, reason: 'auto:subject' })
     }
   }
   return results
 }
 
-async function readFile() {
-  try {
-    const raw = await fs.readFile(filePath(), 'utf8')
-    return JSON.parse(raw)
-  } catch {
-    return { protected: [] }
-  }
+export function listProtected(userId) {
+  const db = getDb()
+  return db.prepare(`
+    SELECT email, domain, source as reason, added_at as addedAt
+    FROM protected_senders
+    WHERE user_id = ?
+    ORDER BY added_at DESC
+  `).all(userId)
 }
 
-async function writeFile(data) {
-  const dir = filePath().replace(/[/\\][^/\\]+$/, '')
-  await fs.mkdir(dir, { recursive: true })
-  const tmp = filePath() + '.tmp'
-  await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8')
-  await fs.rename(tmp, filePath())
-}
-
-export async function listProtected() {
-  const data = await readFile()
-  return data.protected || []
-}
-
-export async function protectSenders(emails) {
-  const data = await readFile()
-  const existing = new Set((data.protected || []).map(p => p.email.toLowerCase()))
-  const now = new Date().toISOString()
-  for (const email of emails) {
-    const lower = email.toLowerCase()
-    if (!existing.has(lower)) {
-      data.protected.push({ email: lower, reason: 'manual', addedAt: now })
-      existing.add(lower)
+export function protectSenders(userId, emails) {
+  const db = getDb()
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO protected_senders (user_id, email, domain, source, added_at)
+    VALUES (?, ?, ?, 'manual', datetime('now'))
+  `)
+  const transaction = db.transaction((emailsList) => {
+    for (const email of emailsList) {
+      const lower = email.toLowerCase()
+      const domain = lower.split('@')[1] || ''
+      insert.run(userId, lower, domain)
     }
-  }
-  await writeFile(data)
-  return data.protected
+  })
+  transaction(emails)
+  return listProtected(userId)
 }
 
-export async function unprotectSenders(emails) {
-  const data = await readFile()
-  const toRemove = new Set(emails.map(e => e.toLowerCase()))
-  data.protected = (data.protected || []).filter(p => !toRemove.has(p.email.toLowerCase()))
-  await writeFile(data)
-  return data.protected
+export function unprotectSenders(userId, emails) {
+  const db = getDb()
+  const del = db.prepare(`
+    DELETE FROM protected_senders
+    WHERE user_id = ? AND LOWER(email) = ?
+  `)
+  const transaction = db.transaction((emailsList) => {
+    for (const email of emailsList) {
+      del.run(userId, email.toLowerCase())
+    }
+  })
+  transaction(emails)
+  return listProtected(userId)
 }
 
-export async function isProtected(email) {
-  const list = await listProtected()
-  const lower = email.toLowerCase()
-  return list.some(p => p.email.toLowerCase() === lower)
+export function isProtected(userId, email) {
+  const db = getDb()
+  const row = db.prepare(`
+    SELECT 1 FROM protected_senders
+    WHERE user_id = ? AND LOWER(email) = ?
+  `).get(userId, email.toLowerCase())
+  return Boolean(row)
 }
 
 /**
  * Run auto-protect after a scan, merging new auto-detections
- * into the persisted list (won't duplicate existing entries).
+ * into SQLite (won't duplicate existing entries).
  */
-export async function runAutoProtect(senders) {
+export function runAutoProtect(userId, senders) {
   const detected = autoProtectFromScan(senders)
   if (detected.length === 0) return []
-  const data = await readFile()
-  const existing = new Set((data.protected || []).map(p => p.email.toLowerCase()))
-  const now = new Date().toISOString()
+  const db = getDb()
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO protected_senders (user_id, email, domain, source, added_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+  `)
   const added = []
-  for (const d of detected) {
-    const lower = d.email.toLowerCase()
-    if (!existing.has(lower)) {
-      data.protected.push({ email: lower, reason: d.reason, addedAt: now })
-      existing.add(lower)
-      added.push(d)
+  const transaction = db.transaction(() => {
+    for (const d of detected) {
+      const lower = d.email.toLowerCase()
+      const result = insert.run(userId, lower, d.domain || '', d.reason)
+      if (result.changes > 0) {
+        added.push(d)
+      }
     }
-  }
-  if (added.length > 0) await writeFile(data)
+  })
+  transaction()
   return added
 }
 
@@ -128,8 +126,8 @@ export async function runAutoProtect(senders) {
  * Filter out protected senders from an email list.
  * Returns {allowed: string[], excluded: string[]}
  */
-export async function filterProtected(senderEmails) {
-  const list = await listProtected()
+export function filterProtected(userId, senderEmails) {
+  const list = listProtected(userId)
   const protectedSet = new Set(list.map(p => p.email.toLowerCase()))
   const allowed = []
   const excluded = []

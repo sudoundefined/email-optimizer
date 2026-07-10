@@ -1,7 +1,7 @@
 # EmailDiet — Feature Guide & Roadmap
 
 **Last updated:** 2026-07-10
-**Status:** All core tiers (v1–v4) shipped · 66/66 tests passing · clean production build
+**Status:** Multi-User SaaS Production Release · 105/105 tests passing · clean production build
 
 This document is the single reference for **what the app does**, **how to use each feature**, and **what's still pending**. For architecture internals see [DESIGN.md](DESIGN.md); for setup see [README.md](README.md).
 
@@ -9,8 +9,10 @@ This document is the single reference for **what the app does**, **how to use ea
 
 ## Table of contents
 
-1. [Getting started](#getting-started)
+1. [Getting started & Multi-User SaaS Architecture](#getting-started--multi-user-saas-architecture)
 2. [Shipped features (detailed)](#shipped-features)
+   - [SaaS Landing Page & Authentication](#0-saas-landing-page--authentication)
+   - [User Profile, Preferences & Audit Log](#0a-user-profile-preferences--audit-log)
    - [Sender scanning](#1-sender-scanning)
    - [Smart unsubscribe](#2-smart-unsubscribe)
    - [Auto-categorization & labels](#3-auto-categorization--labels)
@@ -24,28 +26,47 @@ This document is the single reference for **what the app does**, **how to use ea
    - [Storage recovery dashboard](#10-storage-recovery-dashboard)
    - [Label manager](#11-label-manager)
    - [Weekly digest (scheduled)](#12-weekly-digest-scheduled)
-3. [Safety model](#safety-model)
-4. [Pending / TODO](#pending--todo)
+3. [Safety & Security model](#safety--security-model)
+4. [Pending / Roadmap](#pending--roadmap)
 
 ---
 
-## Getting started
+## Getting started & Multi-User SaaS Architecture
 
 ```bash
 npm install
-cp server/.env.example server/.env   # fill in GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET
+cp server/.env.example server/.env   # fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, TOKEN_ENCRYPTION_KEY
 npm run dev                          # API on :3001, app on :5173
 ```
 
-Open **http://localhost:5173** and sign in with Google. See [README.md](README.md) for the one-time Google Cloud OAuth setup.
+Open **http://localhost:5173** and connect your Google account securely.
 
-> **No database.** Gmail is the source of truth. The app only ever moves mail to **Trash** (recoverable for 30 days) — there is no permanent-delete call anywhere.
+> **Multi-User Tenant Isolation & Safety:** EmailDiet runs on a multi-user SQLite database (`emaildiet.db`) configured in `WAL` concurrency mode. Every user account is strictly isolated by foreign keys (`user_id`). Your Google OAuth tokens are encrypted at rest with **AES-256-GCM** (NIST SP 800-38D 12-byte IVs). The app only ever moves mail to **Gmail Trash** (recoverable for 30 days) — there is no permanent-delete call anywhere.
 
-The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Labels** — plus a **Weekly digest** dialog from the top-bar clock icon. The whole app follows an **Apple Human Interface Guidelines** design language (system font, systemBlue accent, translucent toolbar, rounded cards, hairline separators, and sleek custom concept loaders).
+The UI features a **SaaS Landing Page** for unauthenticated users, an interactive **User Profile & Preferences Modal**, and four core operational tabs: **Senders**, **Inbox**, **Storage**, **Labels** — plus a **Weekly digest** schedule dialog. The UI supports full **Dark and Light modes** with curated Botanical Forest and Espresso themes.
 
 ---
 
 ## Shipped features
+
+### 0. SaaS Landing Page & Authentication
+
+**What it does:** Displays a premium, responsive SaaS landing page to visitors before they sign in. Highlights key benefits, live trust signals, zero-permanent-deletion safety guarantees, and a one-click Google OAuth connection button.
+
+**Security features:**
+- Uses official Google OAuth 2.0 with minimal required Gmail scopes.
+- Protects against CSRF via 16-byte random OAuth state checking.
+- Sets HTTP-only, `SameSite=Lax` signed JWT cookies (`auth_token`), preventing client-side token theft via XSS.
+
+### 0a. Account & Logs Page (Dedicated Page)
+
+**What it does:** Clicking **Account & Logs** in the navigation or clicking your top-right Account Badge opens the full-page **Account & Logs Page** (`AccountPage.tsx`), providing comprehensive control over your account identity, scanning preferences, and immutable activity audit trail.
+
+**Capabilities:**
+- **Profile Card:** Inspect your Google OAuth connection identity, review AES-256-GCM encryption status, and sign out / revoke credentials.
+- **Preferences Card:** Customize your default scan time range (`1m`, `3m`, `6m`, `1y`), max messages scan cap (`SCAN_MAX_MESSAGES`, default 5000), and Gmail label prefix (`Unsub/`).
+- **Activity Audit Log:** Review a paginated, scrollable history of key actions (`scan`, `unsubscribe`, `trash`, `label`, `login`) with localized timestamps (`Jul 10, 2026 at 8:15 PM`), relative time indicators, action filter chips, search bar, and structured details tags.
+- **Database CLI Inspector:** Inspect all database tables directly from the command line using `npm run db:inspect -w server`.
 
 ### 1. Sender scanning
 

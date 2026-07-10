@@ -1,64 +1,66 @@
-import fs from 'node:fs/promises'
-import { config } from '../config.js'
+import { getDb } from '../db/db.js'
 
 /**
- * Persistent state for the scheduled weekly digest.
- *
- * Shape:
- * {
- *   settings: { enabled, dayOfWeek (0-6, Sun=0), hour (0-23), recipient (''=account) },
- *   baseline: { knownSenders: string[] (lowercased emails already reported) },
- *   lastRunAt: string|null (ISO),
- *   history: [{ at, newSenders, sent, recipient, error? }]  (most recent first, capped)
- * }
+ * Persistent state for the scheduled weekly digest, per user.
+ * Now backed by SQLite (preferences + digest_baseline tables).
  */
 
-let overridePath = null
-export function _setPathForTest(p) { overridePath = p }
-function filePath() { return overridePath || config.digestStatePath }
-
 const HISTORY_MAX = 20
+
+// In-memory history cache per user (audit log can supplement this)
+const historyCache = new Map()
 
 export const DEFAULT_SETTINGS = {
   enabled: false,
   dayOfWeek: 1, // Monday
-  hour: 8,
+  hour: 9,
   recipient: '', // '' means "the connected account's own address"
 }
 
-function emptyState() {
-  return { settings: { ...DEFAULT_SETTINGS }, baseline: { knownSenders: [] }, lastRunAt: null, history: [] }
-}
+export function getSettings(userId) {
+  const db = getDb()
+  const row = db.prepare(`
+    SELECT digest_enabled as enabled, digest_day as dayOfWeek, digest_hour as hour, digest_recipient as recipient
+    FROM preferences WHERE user_id = ?
+  `).get(userId)
 
-async function read() {
-  try {
-    const raw = JSON.parse(await fs.readFile(filePath(), 'utf8'))
-    // merge onto defaults so missing keys are backfilled
-    return {
-      settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },
-      baseline: { knownSenders: raw.baseline?.knownSenders || [] },
-      lastRunAt: raw.lastRunAt || null,
-      history: Array.isArray(raw.history) ? raw.history : [],
-    }
-  } catch {
-    return emptyState()
+  if (!row) return { ...DEFAULT_SETTINGS }
+
+  return {
+    enabled: Boolean(row.enabled),
+    dayOfWeek: row.dayOfWeek ?? DEFAULT_SETTINGS.dayOfWeek,
+    hour: row.hour ?? DEFAULT_SETTINGS.hour,
+    recipient: row.recipient || '',
   }
 }
 
-async function write(state) {
-  const dir = filePath().replace(/[/\\][^/\\]+$/, '')
-  await fs.mkdir(dir, { recursive: true })
-  const tmp = filePath() + '.tmp'
-  await fs.writeFile(tmp, JSON.stringify(state, null, 2), 'utf8')
-  await fs.rename(tmp, filePath())
+export function getState(userId) {
+  const settings = getSettings(userId)
+  const baseline = getBaseline(userId)
+  const lastRunAt = getLastRunAt(userId)
+  const history = getHistory(userId)
+  return { settings, baseline, lastRunAt, history }
 }
 
-export async function getState() {
-  return read()
+function getBaseline(userId) {
+  const db = getDb()
+  const row = db.prepare('SELECT senders FROM digest_baseline WHERE user_id = ?').get(userId)
+  if (!row || !row.senders) return { knownSenders: [] }
+  try {
+    return { knownSenders: JSON.parse(row.senders) }
+  } catch {
+    return { knownSenders: [] }
+  }
 }
 
-export async function getSettings() {
-  return (await read()).settings
+function getLastRunAt(userId) {
+  const db = getDb()
+  const row = db.prepare('SELECT last_run_at FROM digest_baseline WHERE user_id = ?').get(userId)
+  return row?.last_run_at || null
+}
+
+function getHistory(userId) {
+  return historyCache.get(userId) || []
 }
 
 /** Validate + normalize a partial settings patch. Throws on bad input. */
@@ -86,32 +88,53 @@ export function normalizeSettings(patch) {
   return { enabled, dayOfWeek, hour, recipient }
 }
 
-export async function saveSettings(patch) {
-  const state = await read()
-  state.settings = normalizeSettings({ ...state.settings, ...patch })
-  await write(state)
-  return state.settings
+export function saveSettings(userId, patch) {
+  const current = getSettings(userId)
+  const merged = normalizeSettings({ ...current, ...patch })
+
+  const db = getDb()
+  db.prepare(`
+    UPDATE preferences SET
+      digest_enabled = ?, digest_day = ?, digest_hour = ?, digest_recipient = ?
+    WHERE user_id = ?
+  `).run(merged.enabled ? 1 : 0, merged.dayOfWeek, merged.hour, merged.recipient, userId)
+
+  return merged
 }
 
-export async function getKnownSenders() {
-  return (await read()).baseline.knownSenders
+export function getKnownSenders(userId) {
+  return getBaseline(userId).knownSenders
 }
 
 /**
  * Record a completed digest run: merge the reported senders into the baseline,
- * stamp lastRunAt, and prepend a history entry. `at` is passed in (ISO string)
- * so callers control the clock (testability / no Date.now in stores).
+ * stamp lastRunAt, and prepend a history entry.
  */
-export async function recordRun({ at, reportedEmails = [], sent, recipient, error = null }) {
-  const state = await read()
-  const known = new Set(state.baseline.knownSenders.map((e) => e.toLowerCase()))
+export function recordRun(userId, { at, reportedEmails = [], sent, recipient, error = null }) {
+  const db = getDb()
+
+  // Update baseline
+  const current = getBaseline(userId)
+  const known = new Set(current.knownSenders.map((e) => e.toLowerCase()))
   for (const e of reportedEmails) known.add(String(e).toLowerCase())
-  state.baseline.knownSenders = [...known]
-  state.lastRunAt = at
-  state.history = [
+  const senders = JSON.stringify([...known])
+
+  db.prepare(`
+    INSERT INTO digest_baseline (user_id, senders, last_run_at, updated_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(user_id) DO UPDATE SET
+      senders = excluded.senders,
+      last_run_at = excluded.last_run_at,
+      updated_at = datetime('now')
+  `).run(userId, senders, at)
+
+  // Update in-memory history
+  const history = getHistory(userId)
+  const updated = [
     { at, newSenders: reportedEmails.length, sent: Boolean(sent), recipient: recipient || null, error },
-    ...state.history,
+    ...history,
   ].slice(0, HISTORY_MAX)
-  await write(state)
-  return state
+  historyCache.set(userId, updated)
+
+  return getState(userId)
 }

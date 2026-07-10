@@ -16,10 +16,10 @@ function chunk(arr, size) {
  * Trash (recoverable for 30 days — never a permanent delete), then
  * drop those senders from the scan cache so the UI reflects reality.
  */
-export async function runTrashSenders({ senderEmails }, emit) {
+export async function runTrashSenders(userId, { senderEmails }, emit) {
   return withAuthErrorHandling(async () => {
-    const scan = requireScan()
-    const gmail = await getGmail()
+    const scan = requireScan(userId)
+    const gmail = await getGmail(userId)
 
     const senders = senderEmails
       .map((e) => scan.senders.get(String(e).toLowerCase()))
@@ -47,5 +47,5 @@ export async function runTrashSenders({ senderEmails }, emit) {
     scan.messageCount = Math.max(0, scan.messageCount - ids.length)
 
     return { trashed: ids.length, senders: senders.length }
-  })
+  }, userId)
 }

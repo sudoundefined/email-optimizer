@@ -8,7 +8,7 @@ const router = Router()
 
 router.get('/labels/suggestions', (req, res, next) => {
   try {
-    const scan = requireScan()
+    const scan = requireScan(req.userId)
     const suggestions = [...scan.senders.values()].map((s) => ({
       senderEmail: s.email,
       messageCount: s.messageCount,
@@ -22,16 +22,15 @@ router.get('/labels/suggestions', (req, res, next) => {
 
 router.post('/labels/apply', (req, res, next) => {
   try {
-    requireScan()
+    const userId = req.userId
+    requireScan(userId)
     const { assignments, archive, topLevel } = req.body || {}
     if (!Array.isArray(assignments) || assignments.length === 0) {
       return res.status(400).json({ error: 'assignments must be a non-empty array' })
     }
-    // topLevel:true → bare organizational labels (Work, Banking…); otherwise the
-    // default Unsub/ prefix used by the unsubscribe-labeling flow.
     const opts = { assignments, archive: Boolean(archive) }
     if (topLevel) opts.prefix = ''
-    const job = createJob('apply-labels', (emit) => runApplyLabels(opts, emit))
+    const job = createJob(userId, 'apply-labels', (emit) => runApplyLabels(userId, opts, emit))
     res.json({ jobId: job.id })
   } catch (err) {
     next(err)
@@ -40,7 +39,7 @@ router.post('/labels/apply', (req, res, next) => {
 
 router.get('/labels', async (req, res, next) => {
   try {
-    res.json(await listAppLabels())
+    res.json(await listAppLabels(req.userId))
   } catch (err) {
     next(err)
   }
@@ -48,13 +47,14 @@ router.get('/labels', async (req, res, next) => {
 
 router.delete('/labels/:id', async (req, res, next) => {
   try {
+    const userId = req.userId
     const { mode } = req.query
     if (mode === 'labelOnly') {
-      await deleteLabelOnly(req.params.id)
+      await deleteLabelOnly(userId, req.params.id)
       return res.json({ ok: true })
     }
     if (mode === 'trashEmails') {
-      const job = createJob('trash-label', (emit) => runTrashLabel({ labelId: req.params.id }, emit))
+      const job = createJob(userId, 'trash-label', (emit) => runTrashLabel(userId, { labelId: req.params.id }, emit))
       return res.json({ jobId: job.id })
     }
     res.status(400).json({ error: 'mode must be labelOnly or trashEmails' })
@@ -66,7 +66,7 @@ router.delete('/labels/:id', async (req, res, next) => {
 router.get('/labels/:id/messages', async (req, res, next) => {
   try {
     const max = Math.max(1, Math.min(Number(req.query.max) || 25, 100))
-    res.json(await getLabelMessages(req.params.id, max))
+    res.json(await getLabelMessages(req.userId, req.params.id, max))
   } catch (err) {
     next(err)
   }

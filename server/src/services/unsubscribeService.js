@@ -115,10 +115,10 @@ export async function unsubscribeSender(gmail, sender) {
 }
 
 /** Job runner: unsubscribe from the given sender emails with concurrency 4. */
-export async function runUnsubscribe({ senderEmails }, emit) {
+export async function runUnsubscribe(userId, { senderEmails }, emit) {
   return withAuthErrorHandling(async () => {
-    const scan = requireScan()
-    const gmail = await getGmail()
+    const scan = requireScan(userId)
+    const gmail = await getGmail(userId)
 
     const senders = senderEmails
       .map((e) => scan.senders.get(String(e).toLowerCase()))
@@ -155,5 +155,5 @@ export async function runUnsubscribe({ senderEmails }, emit) {
       results,
     }
     return summary
-  })
+  }, userId)
 }

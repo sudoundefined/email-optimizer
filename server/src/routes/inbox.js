@@ -10,7 +10,7 @@ router.get('/inbox/filters', (req, res) => {
 
 router.get('/inbox/groups', async (req, res, next) => {
   try {
-    res.json(await listGroups())
+    res.json(await listGroups(req.userId))
   } catch (err) {
     next(err)
   }
@@ -19,7 +19,7 @@ router.get('/inbox/groups', async (req, res, next) => {
 router.get('/inbox/groups/:key/messages', async (req, res, next) => {
   try {
     const max = Math.min(Number(req.query.max) || 25, 100)
-    res.json(await groupMessages(req.params.key, max))
+    res.json(await groupMessages(req.userId, req.params.key, max))
   } catch (err) {
     next(err)
   }
@@ -27,7 +27,7 @@ router.get('/inbox/groups/:key/messages', async (req, res, next) => {
 
 router.get('/inbox/labels', async (req, res, next) => {
   try {
-    res.json(await listAllLabels())
+    res.json(await listAllLabels(req.userId))
   } catch (err) {
     next(err)
   }
@@ -40,7 +40,7 @@ router.get('/inbox/filter', async (req, res, next) => {
       return res.status(400).json({ error: 'q query parameter is required' })
     }
     const max = Math.min(Number(req.query.max) || 25, 100)
-    res.json(await filterMessages(q, max))
+    res.json(await filterMessages(req.userId, q, max))
   } catch (err) {
     next(err)
   }
@@ -52,7 +52,8 @@ router.post('/inbox/filter/:key/trash', (req, res, next) => {
     if (!FILTERS[key]) {
       return res.status(400).json({ error: `Unknown filter "${key}"` })
     }
-    const job = createJob('filter-trash', (emit) => trashByFilterKey(key, emit))
+    const userId = req.userId
+    const job = createJob(userId, 'filter-trash', (emit) => trashByFilterKey(userId, key, emit))
     res.json({ jobId: job.id })
   } catch (err) {
     next(err)

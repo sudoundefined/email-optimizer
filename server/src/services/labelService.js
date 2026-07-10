@@ -14,10 +14,10 @@ function chunk(arr, size) {
   return out
 }
 
-async function ensureLabel(gmail, name, existingByName) {
+async function ensureLabel(userId, gmail, name, existingByName) {
   const found = existingByName.get(name.toLowerCase())
   if (found) {
-    await registerLabel({ id: found.id, name: found.name })
+    registerLabel(userId, { id: found.id, name: found.name })
     return found.id
   }
   const res = await limited(() =>
@@ -30,7 +30,7 @@ async function ensureLabel(gmail, name, existingByName) {
       },
     })
   )
-  await registerLabel({ id: res.data.id, name: res.data.name })
+  registerLabel(userId, { id: res.data.id, name: res.data.name })
   return res.data.id
 }
 
@@ -43,10 +43,10 @@ async function ensureLabel(gmail, name, existingByName) {
  * archive: when true, also remove INBOX (moves tagged mail out of the inbox).
  *   Default false = pure tag, inbox untouched (recoverable — never deletes).
  */
-export async function runApplyLabels({ assignments, prefix = config.labelPrefix, archive = false }, emit) {
+export async function runApplyLabels(userId, { assignments, prefix = config.labelPrefix, archive = false }, emit) {
   return withAuthErrorHandling(async () => {
-    const scan = requireScan()
-    const gmail = await getGmail()
+    const scan = requireScan(userId)
+    const gmail = await getGmail(userId)
 
     const labelsRes = await limited(() => gmail.users.labels.list({ userId: 'me' }))
     const existingByName = new Map(
@@ -70,7 +70,7 @@ export async function runApplyLabels({ assignments, prefix = config.labelPrefix,
     const applied = []
 
     for (const [fullName, ids] of idsByLabel) {
-      const labelId = await ensureLabel(gmail, fullName, existingByName)
+      const labelId = await ensureLabel(userId, gmail, fullName, existingByName)
       const requestBody = { addLabelIds: [labelId] }
       if (archive) requestBody.removeLabelIds = ['INBOX']
       for (const ids1000 of chunk([...new Set(ids)], BATCH_MODIFY_MAX)) {
@@ -87,14 +87,14 @@ export async function runApplyLabels({ assignments, prefix = config.labelPrefix,
     }
 
     return { applied, totalMessages, archived: archive }
-  })
+  }, userId)
 }
 
 /** Lists app-created labels with live counts; prunes registry entries deleted externally. */
-export async function listAppLabels() {
+export async function listAppLabels(userId) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
-    const registered = await listRegistered()
+    const gmail = await getGmail(userId)
+    const registered = listRegistered(userId)
     const out = []
     for (const entry of registered) {
       try {
@@ -107,27 +107,27 @@ export async function listAppLabels() {
         })
       } catch (err) {
         if (err?.code === 404 || err?.response?.status === 404) {
-          await unregisterLabel(entry.id)
+          unregisterLabel(userId, entry.id)
         } else {
           throw err
         }
       }
     }
     return out
-  })
+  }, userId)
 }
 
 /** Deletes only the label; Gmail removes it from all messages, emails are kept. */
-export async function deleteLabelOnly(labelId) {
+export async function deleteLabelOnly(userId, labelId) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     try {
       await limited(() => gmail.users.labels.delete({ userId: 'me', id: labelId }))
     } catch (err) {
       if (err?.code !== 404 && err?.response?.status !== 404) throw err
     }
-    await unregisterLabel(labelId)
-  })
+    unregisterLabel(userId, labelId)
+  }, userId)
 }
 
 /**
@@ -135,9 +135,9 @@ export async function deleteLabelOnly(labelId) {
  * delete the label. Uses batchModify with the TRASH system label —
  * recoverable for 30 days; never permanent delete.
  */
-export async function runTrashLabel({ labelId }, emit) {
+export async function runTrashLabel(userId, { labelId }, emit) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
 
     const allIds = []
     let pageToken
@@ -172,15 +172,15 @@ export async function runTrashLabel({ labelId }, emit) {
       emit({ phase: 'trashing', trashed, total: allIds.length })
     }
 
-    await deleteLabelOnly(labelId)
+    await deleteLabelOnly(userId, labelId)
     return { trashed: allIds.length }
-  })
+  }, userId)
 }
 
 /** Fetches recent messages for a specific label ID */
-export async function getLabelMessages(labelId, max = 25) {
+export async function getLabelMessages(userId, labelId, max = 25) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     const res = await limited(() =>
       gmail.users.messages.list({ userId: 'me', labelIds: [labelId], maxResults: max })
     )
@@ -195,5 +195,5 @@ export async function getLabelMessages(labelId, max = 25) {
         subject: m.headers['subject'] || '',
         date: m.internalDate,
       }))
-  })
+  }, userId)
 }

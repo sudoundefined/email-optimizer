@@ -27,9 +27,9 @@ export function buildQuery(range) {
  * WITHOUT caching it — callers decide whether to persist (runScan does;
  * the digest runner does not, so it never clobbers the Senders-tab scan).
  */
-export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMessages }, emit, signal) {
+export async function scanSenders(userId, { range = '6m', maxMessages = config.scanMaxMessages }, emit, signal) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     const throwIfAborted = () => {
       if (signal?.aborted) throw new Error('cancelled')
     }
@@ -109,15 +109,15 @@ export async function scanSenders({ range = '6m', maxMessages = config.scanMaxMe
       messageCount: messages.length,
       senders,
     }
-  })
+  }, userId)
 }
 
 /**
  * Scan job runner: run scanSenders and cache the result for the Senders tab.
  */
-export async function runScan(opts, emit, signal) {
-  const result = await scanSenders(opts, emit, signal)
-  setScan(result)
+export async function runScan(userId, opts, emit, signal) {
+  const result = await scanSenders(userId, opts, emit, signal)
+  setScan(userId, result)
   return { senders: result.senders.size, messages: result.messageCount }
 }
 
