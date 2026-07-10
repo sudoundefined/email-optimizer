@@ -6,7 +6,7 @@
 
 ## Overview
 
-This spec covers three independent but complementary features for the Gmail email unsubscriber app:
+This spec covers three independent but complementary features for the Gmail EmailDiet app:
 
 1. **Sender protect-list (A)** — prevents recurring clutter from trusted senders (banks, utilities, receipts)
 2. **Quick-filter toolbar (B)** — one-click views into inbox segments for faster triage

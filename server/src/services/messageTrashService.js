@@ -41,3 +41,40 @@ export async function trashMessages(messageIds, emit) {
     return { trashed: ids.length }
   })
 }
+
+/**
+ * Permanently delete all messages currently in the Trash.
+ */
+export async function emptyTrash(emit) {
+  return withAuthErrorHandling(async () => {
+    const gmail = await getGmail()
+    let deleted = 0
+    let pageToken = undefined
+
+    do {
+      const res = await limited(() =>
+        gmail.users.messages.list({
+          userId: 'me',
+          q: 'in:trash',
+          maxResults: BATCH_MAX,
+          pageToken,
+        })
+      )
+      const msgs = res.data.messages || []
+      if (msgs.length > 0) {
+        const ids = msgs.map((m) => m.id)
+        await limited(() =>
+          gmail.users.messages.batchDelete({
+            userId: 'me',
+            requestBody: { ids },
+          })
+        )
+        deleted += ids.length
+        if (emit) emit({ phase: 'emptying', deleted })
+      }
+      pageToken = res.data.nextPageToken
+    } while (pageToken)
+
+    return { deleted }
+  })
+}

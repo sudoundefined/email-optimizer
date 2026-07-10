@@ -1,20 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
-import DialogActions from '@mui/material/DialogActions'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
-import CircularProgress from '@mui/material/CircularProgress'
-import Divider from '@mui/material/Divider'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import MenuItem from '@mui/material/MenuItem'
-import Stack from '@mui/material/Stack'
-import Switch from '@mui/material/Switch'
-import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
+import {
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Alert, AlertIcon, Box, Switch, FormControl, FormLabel,
+  Select, Input, Divider, HStack, Tag, Spinner, Text, Flex
+} from '@chakra-ui/react'
 import { api, ApiError } from '../api'
 import type { DigestState, DigestRunResult } from '../types'
 import { useJob } from '../hooks/useJob'
@@ -128,136 +117,151 @@ export default function DigestSettingsDialog({
   const running = job.running || Boolean(state?.running)
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Weekly digest</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Get a weekly email listing new marketing senders that started emailing you, each with an
-          unsubscribe link. The digest is sent from your own Gmail to{' '}
-          {state?.settings.recipient || accountEmail || 'your account'}.
-        </Typography>
+    <Modal isOpen={open} onClose={onClose} size="md" scrollBehavior="inside">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Weekly digest</ModalHeader>
+        <ModalBody>
+          <Text fontSize="sm" color="gray.600" mb={4}>
+            Get a weekly email listing new marketing senders that started emailing you, each with an
+            unsubscribe link. The digest is sent from your own Gmail to{' '}
+            <Text as="strong">{state?.settings.recipient || accountEmail || 'your account'}</Text>.
+          </Text>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
+          {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
+          {notice && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{notice}</Alert>}
 
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Scheduled runs require the app to be running and a valid Google sign-in. In Testing-mode
-          OAuth, sign-in expires about every 7 days — production verification removes that limit.
-        </Alert>
+          <Alert status="info" mb={4} borderRadius="md" alignItems="flex-start">
+            <AlertIcon mt={1} />
+            <Text fontSize="sm">
+              Scheduled runs require the app to be running and a valid Google sign-in. In Testing-mode
+              OAuth, sign-in expires about every 7 days — production verification removes that limit.
+            </Text>
+          </Alert>
 
-        {!state ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : (
-          <>
-            <FormControlLabel
-              control={
+          {!state ? (
+            <Flex justify="center" py={6}>
+              <Spinner color="blue.500" />
+            </Flex>
+          ) : (
+            <>
+              <FormControl display="flex" alignItems="center" mb={4}>
                 <Switch
-                  checked={state.settings.enabled}
+                  id="enable-digest"
+                  colorScheme="blue"
+                  isChecked={state.settings.enabled}
                   onChange={(e) => patch({ enabled: e.target.checked })}
                 />
-              }
-              label="Enable weekly digest"
-            />
+                <FormLabel htmlFor="enable-digest" mb={0} ml={3} fontWeight={500}>
+                  Enable weekly digest
+                </FormLabel>
+              </FormControl>
 
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-              <TextField
-                select
-                size="small"
-                label="Day"
-                value={state.settings.dayOfWeek}
-                onChange={(e) => patch({ dayOfWeek: Number(e.target.value) })}
-                sx={{ minWidth: 140 }}
-                disabled={!state.settings.enabled}
-              >
-                {DAYS.map((d, i) => (
-                  <MenuItem key={i} value={i}>{d}</MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="Hour"
-                value={state.settings.hour}
-                onChange={(e) => patch({ hour: Number(e.target.value) })}
-                sx={{ minWidth: 110 }}
-                disabled={!state.settings.enabled}
-              >
-                {Array.from({ length: 24 }, (_, h) => (
-                  <MenuItem key={h} value={h}>{String(h).padStart(2, '0')}:00</MenuItem>
-                ))}
-              </TextField>
-            </Stack>
-
-            <TextField
-              size="small"
-              label="Recipient (blank = your account)"
-              placeholder={accountEmail}
-              value={state.settings.recipient}
-              onChange={(e) => patch({ recipient: e.target.value })}
-              fullWidth
-              sx={{ mt: 2 }}
-            />
-
-            <Box sx={{ mt: 1.5 }}>
-              <Button variant="contained" size="small" onClick={save} disabled={saving}>
-                {saving ? 'Saving…' : 'Save settings'}
-              </Button>
-            </Box>
-
-            <Divider sx={{ my: 2 }} />
-
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Button variant="outlined" size="small" onClick={runPreview} disabled={running}>
-                {running ? 'Working…' : 'Preview'}
-              </Button>
-              <Button variant="outlined" size="small" onClick={sendNow} disabled={running}>
-                Send now
-              </Button>
-              {running && <CircularProgress size={18} />}
-            </Stack>
-
-            {preview && (
-              <Alert severity={preview.seeding ? 'info' : 'success'} sx={{ mt: 2 }}>
-                {preview.seeding
-                  ? `First run will seed a baseline from ${preview.totalScanned.toLocaleString()} scanned messages. No email is sent on the first run.`
-                  : preview.newSenders.length === 0
-                  ? 'No new marketing senders since the last run.'
-                  : `${preview.newSenders.length} new sender${preview.newSenders.length === 1 ? '' : 's'} would be included:`}
-                {!preview.seeding && preview.newSenders.length > 0 && (
-                  <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {preview.newSenders.slice(0, 12).map((s) => (
-                      <Chip key={s.email} size="small" label={`${s.name} (${s.messageCount})`} />
+              <HStack spacing={4} mb={4}>
+                <FormControl w="140px">
+                  <FormLabel fontSize="sm" color="gray.600">Day</FormLabel>
+                  <Select
+                    size="sm"
+                    value={state.settings.dayOfWeek}
+                    onChange={(e) => patch({ dayOfWeek: Number(e.target.value) })}
+                    isDisabled={!state.settings.enabled}
+                  >
+                    {DAYS.map((d, i) => (
+                      <option key={i} value={i}>{d}</option>
                     ))}
-                    {preview.newSenders.length > 12 && (
-                      <Chip size="small" variant="outlined" label={`+${preview.newSenders.length - 12} more`} />
-                    )}
+                  </Select>
+                </FormControl>
+                <FormControl w="110px">
+                  <FormLabel fontSize="sm" color="gray.600">Hour</FormLabel>
+                  <Select
+                    size="sm"
+                    value={state.settings.hour}
+                    onChange={(e) => patch({ hour: Number(e.target.value) })}
+                    isDisabled={!state.settings.enabled}
+                  >
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                    ))}
+                  </Select>
+                </FormControl>
+              </HStack>
+
+              <FormControl mb={4}>
+                <FormLabel fontSize="sm" color="gray.600">Recipient (blank = your account)</FormLabel>
+                <Input
+                  size="sm"
+                  placeholder={accountEmail}
+                  value={state.settings.recipient}
+                  onChange={(e) => patch({ recipient: e.target.value })}
+                />
+              </FormControl>
+
+              <Button size="sm" colorScheme="blue" onClick={save} isLoading={saving} mb={4}>
+                Save settings
+              </Button>
+
+              <Divider my={4} />
+
+              <HStack spacing={3} mb={4}>
+                <Button size="sm" variant="outline" onClick={runPreview} isDisabled={running}>
+                  {running ? 'Working…' : 'Preview'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={sendNow} isDisabled={running}>
+                  Send now
+                </Button>
+                {running && <Spinner size="sm" color="blue.500" />}
+              </HStack>
+
+              {preview && (
+                <Alert status={preview.seeding ? 'info' : 'success'} variant="subtle" flexDirection="column" alignItems="flex-start" borderRadius="md" mb={4}>
+                  <Flex align="center" mb={2}>
+                    <AlertIcon />
+                    <Text fontSize="sm" fontWeight={600}>
+                      {preview.seeding
+                        ? `First run will seed a baseline from ${preview.totalScanned.toLocaleString()} scanned messages. No email is sent on the first run.`
+                        : preview.newSenders.length === 0
+                        ? 'No new marketing senders since the last run.'
+                        : `${preview.newSenders.length} new sender${preview.newSenders.length === 1 ? '' : 's'} would be included:`}
+                    </Text>
+                  </Flex>
+                  {!preview.seeding && preview.newSenders.length > 0 && (
+                    <Flex wrap="wrap" gap={2} mt={2}>
+                      {preview.newSenders.slice(0, 12).map((s) => (
+                        <Tag key={s.email} size="sm" colorScheme="blue" variant="solid">
+                          {s.name} ({s.messageCount})
+                        </Tag>
+                      ))}
+                      {preview.newSenders.length > 12 && (
+                        <Tag size="sm" variant="outline">
+                          +{preview.newSenders.length - 12} more
+                        </Tag>
+                      )}
+                    </Flex>
+                  )}
+                </Alert>
+              )}
+
+              <Box>
+                <Text fontSize="xs" color="gray.500" mb={1}>
+                  Last run: {fmtDate(state.lastRunAt)} · baseline tracks {state.knownSenderCount.toLocaleString()} senders
+                </Text>
+                {state.history.length > 0 && (
+                  <Box>
+                    {state.history.slice(0, 5).map((h, i) => (
+                      <Text key={i} fontSize="xs" color="gray.500">
+                        {fmtDate(h.at)} — {h.error ? `error: ${h.error}` : h.sent ? `sent (${h.newSenders} new)` : `${h.newSenders} new, not sent`}
+                      </Text>
+                    ))}
                   </Box>
                 )}
-              </Alert>
-            )}
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                Last run: {fmtDate(state.lastRunAt)} · baseline tracks {state.knownSenderCount.toLocaleString()} senders
-              </Typography>
-              {state.history.length > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  {state.history.slice(0, 5).map((h, i) => (
-                    <Typography key={i} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      {fmtDate(h.at)} — {h.error ? `error: ${h.error}` : h.sent ? `sent (${h.newSenders} new)` : `${h.newSenders} new, not sent`}
-                    </Typography>
-                  ))}
-                </Box>
-              )}
-            </Box>
-          </>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-    </Dialog>
+              </Box>
+            </>
+          )}
+        </ModalBody>
+        <ModalFooter bg="gray.50" borderBottomRadius="md">
+          <Button onClick={onClose} variant="ghost">Close</Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   )
 }

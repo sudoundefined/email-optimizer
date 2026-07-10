@@ -25,5 +25,7 @@ export function useAuth() {
     setStatus({ connected: false })
   }, [])
 
-  return { status, loading, refresh, logout, markDisconnected: () => setStatus({ connected: false }) }
+  const markDisconnected = useCallback(() => setStatus({ connected: false }), [])
+
+  return { status, loading, refresh, logout, markDisconnected }
 }

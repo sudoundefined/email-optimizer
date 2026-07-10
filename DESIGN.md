@@ -18,7 +18,7 @@ This document defines the styling and UI development constraints for every scree
 
 ## 2. Color System
 
-Colors are Apple system colors, exposed as MUI palette entries and CSS variables.
+Colors are Apple system colors, exposed as Chakra UI semantic tokens and CSS variables.
 
 ### System palette
 ```css
@@ -37,7 +37,7 @@ Full system set: blue `#007AFF`, indigo `#5856D6`, green `#34C759`, orange `#FF9
 ## 3. Spacing, Layout, and Shapes
 
 ### Spacing Rhythm
-Align margins, paddings, gaps to an **8px grid** (8/16/24/32/48/64). MUI `spacing` units (0.5 = 4px) are fine for finer control.
+Align margins, paddings, gaps to an **8px grid** (8/16/24/32/48/64). Chakra UI `spacing` units (1 = 4px) are fine for finer control.
 
 ### Layout & Shapes (Apple materials)
 *   **Cards and Containers**: Crisp white (`#ffffff`) surfaces on the `#F2F2F7` grouped background.
@@ -46,6 +46,7 @@ Align margins, paddings, gaps to an **8px grid** (8/16/24/32/48/64). MUI `spacin
 *   **Materials / translucency**: The top toolbar is a frosted material — `rgba(255,255,255,0.72)` with `backdrop-filter: saturate(180%) blur(20px)`. Floating action trays use a dark material — `rgba(28,28,30,0.92)` with backdrop blur, white text, solid Apple-colored buttons (systemBlue primary, systemRed destructive).
 *   **Separators**: Hairline borders at `rgba(60,60,67,0.10–0.18)` instead of heavy dividers.
 *   **Two-Pane Master-Detail Pattern**: For data-heavy tabs (Senders, Inbox, Storage, Labels), a full-width two-pane Grid — left pane navigates/filters, right pane shows lists/tables.
+*   **Table Aesthetics**: Data tables use Sentence Case headers with `brand.50` backgrounds, and a subtle 1px border. Selected rows show a solid left-edge highlight border (`inset 3px`) without altering the background color. All tables implement standard pagination.
 
 ---
 
@@ -53,7 +54,7 @@ Align margins, paddings, gaps to an **8px grid** (8/16/24/32/48/64). MUI `spacin
 
 Before writing custom UI markup, you must reuse the primitives and existing components from the workspace.
 
-### Core Component Inventory (MUI / TSX)
+### Core Component Inventory (Chakra UI / TSX)
 Always import and reuse these component files:
 
 | Component | Purpose / Usage | Relative Import Path (from `client/src/components` or siblings) |
@@ -61,6 +62,7 @@ Always import and reuse these component files:
 | `AccountBadge` | Renders user email, initials, avatar, and logout | `import AccountBadge from '../components/AccountBadge'` |
 | `ConfirmDialog` | Standard confirmation dialog (supports arming delay & typed confirm) | `import ConfirmDialog from './ConfirmDialog'` |
 | `ConnectScreen` | Full-page OAuth landing and login screen | `import ConnectScreen from './ConnectScreen'` |
+| `EmailLoader` | Reusable animated envelope concept loader for async operations | `import EmailLoader from './EmailLoader'` |
 | `FilterToolbar` | Preset query chip toolbar for email filtering | `import FilterToolbar from './FilterToolbar'` |
 | `InboxTab` | Comprehensive list of inbox emails with batch operations | `import InboxTab from './InboxTab'` |
 | `LabelManager` | System for updating, creating, and applying labels | `import LabelManager from './LabelManager'` |

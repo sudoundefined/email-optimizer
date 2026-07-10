@@ -1,6 +1,6 @@
-# Email Optimizer — Feature Guide & Roadmap
+# EmailDiet — Feature Guide & Roadmap
 
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-10
 **Status:** All core tiers (v1–v4) shipped · 66/66 tests passing · clean production build
 
 This document is the single reference for **what the app does**, **how to use each feature**, and **what's still pending**. For architecture internals see [DESIGN.md](DESIGN.md); for setup see [README.md](README.md).
@@ -41,7 +41,7 @@ Open **http://localhost:5173** and sign in with Google. See [README.md](README.m
 
 > **No database.** Gmail is the source of truth. The app only ever moves mail to **Trash** (recoverable for 30 days) — there is no permanent-delete call anywhere.
 
-The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Labels** — plus a **Weekly digest** dialog from the top-bar clock icon. The whole app follows an **Apple Human Interface Guidelines** design language (system font, systemBlue accent, translucent toolbar, rounded cards, hairline separators).
+The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Labels** — plus a **Weekly digest** dialog from the top-bar clock icon. The whole app follows an **Apple Human Interface Guidelines** design language (system font, systemBlue accent, translucent toolbar, rounded cards, hairline separators, and sleek custom concept loaders).
 
 ---
 
@@ -54,7 +54,7 @@ The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Label
 **How to use:**
 1. Go to the **Senders** tab.
 2. Pick a date range: **Last month · 3 months · 6 months · 1 year · All time**.
-3. Click **Scan mailbox**. Progress streams live (listing → fetching → grouping). A **Cancel** button appears while scanning.
+3. The app will **Auto-Scan** your mailbox whenever you change the date range (or click **Scan mailbox**). Progress streams live (listing → fetching → grouping). A **Cancel** button appears while scanning, and cancelling reverts to the last successful range.
 4. Senders appear in a two-pane view: a left **filter pane** and a right **sender table**.
 
 **Two-pane Senders layout:**
@@ -97,7 +97,7 @@ The UI is organized into four tabs: **Senders**, **Inbox**, **Storage**, **Label
 
 **What it does:** Classifies senders into categories and creates top-level Gmail labels. By default it **tags in place** — mail stays in your inbox — with an opt-in to also archive.
 
-**Categories (12):** Work, Banking, Shopping, Travel, Medical, Tax, Bills, Subscriptions, Newsletters, Social, Promotions, Personal (heuristic — domain matching, subject keywords, Gmail category labels). Falls back to *Other* when there's no signal.
+**Categories (18):** Work, Banking, Shopping, Travel, Medical, Tax, Bills, Subscriptions, Newsletters, Social, Promotions, Personal, Education, Entertainment, Food & Dining, Real Estate, Health & Fitness, Investing (heuristic — domain matching, subject keywords, Gmail category labels). Falls back to *Other* when there's no signal.
 
 **How to use:**
 1. Select senders on the **Senders** tab.
@@ -235,10 +235,10 @@ Label-backed groups show exact counts; query-backed groups (attachments, large, 
 **What it does:** Finds and helps you clear the emails eating your Gmail storage quota.
 
 **Views:**
-- **Reclaimable storage** — total MB and count of emails larger than 500 KB.
+- **Reclaimable storage** — total MB and count of emails larger than 250 KB.
 - **Storage by date** — drill down by year → month.
 - **Top senders** — the 10 heaviest senders by total size.
-- **By size band** — <500 KB, 500 KB–1 MB, 1–5 MB, 5–10 MB, 10–25 MB, >25 MB.
+- **By size band** — <250 KB, 250 KB–500 KB, 500 KB–1 MB, 1–5 MB, 5–10 MB, 10–25 MB, >25 MB.
 - **Largest attachments (>5 MB)** — default table view.
 
 **How to use:**
@@ -255,8 +255,8 @@ Label-backed groups show exact counts; query-backed groups (attachments, large, 
 
 **How to use:**
 1. Go to the **Labels** tab.
-2. Browse and **search** labels in the left pane; each shows its message/unread counts and a System / User / App badge.
-3. Click any label to open its **message drill-down** in the right pane — a paginated list of the label's recent messages. Select messages and **Move to Trash** via the floating tray.
+2. Browse and **search** labels in the left pane; they are neatly organized into collapsible accordions (System, User, App). Each shows its message/unread counts and a badge.
+3. Click any label to open its **message drill-down** in the right pane — a paginated list of the label's recent messages. Select messages and **Move to Trash** via the floating tray. Active labels get a vibrant background selection.
 4. For an **app-created** label, the detail header also offers:
    - **Remove label** — deletes the label but keeps the emails.
    - **Trash + delete** — moves the label's emails to Trash and removes the label (typed confirmation for large sets).
@@ -315,8 +315,9 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 ### 🚀 Now (no AI, high value)
 
 - [x] **Scheduled re-scan + weekly digest email** — *shipped 2026-07-09* (see [feature 12](#12-weekly-digest-scheduled)). Fully built; scheduled runs are reliable **once production OAuth is verified** (assets + guide in [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md)).
-- [x] **Expanded label taxonomy + tag-only / archive** — *shipped* (see [feature 3](#3-auto-categorization--labels)). 12 top-level categories; tags in place by default, opt-in archive.
+- [x] **Expanded label taxonomy + tag-only / archive** — *shipped* (see [feature 3](#3-auto-categorization--labels)). 18 top-level categories; tags in place by default, opt-in archive.
 - [x] **Subscriptions detector** — *shipped* (see [feature 3a](#3a-subscriptions-detector)). Heuristic, cache-only recurring-service detection with cadence.
+- [x] **UI Polish & Universal Pagination** — *shipped*. Applied premium typography, consistent loaders, pagination across all tables, and active state highlights without row background shifts.
 
 ### 🔄 Next (rules & automation)
 
@@ -347,11 +348,10 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 
 ### 🧹 Housekeeping / tech debt
 
-- [x] **Doc version drift** — *done*: README now says Material UI v9 (matches installed `@mui/material@9.2.0`).
-- [x] **Bundle size** — *done*: `vite` `manualChunks` splits react/mui/app; no chunk exceeds the 500 KB warning.
+- [x] **Bundle size** — *done*: `vite` `manualChunks` splits react/chakra/app; no chunk exceeds the 500 KB warning.
 - [x] **Single source of truth for filters** — *done*: server `FILTER_DEFS` is authoritative; the client fetches via `GET /api/inbox/filters` (no duplicated list).
 - [ ] **Incremental scan / local index** — for power users (100k+ emails), scan only new mail since last run; cache sender metadata in SQLite.
 
 ---
 
-*This app began as a Gmail bulk-unsubscriber and is evolving into a full email optimizer. Priority is shaped by what users actually ask for.*
+*This app began as a Gmail bulk-unsubscriber and is evolving into a full email optimizer (EmailDiet). Priority is shaped by what users actually ask for.*

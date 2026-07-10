@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add three independent features to the email optimizer: sender protect-list (prevent accidental cleanup of important senders), quick-filter toolbar (one-click inbox segment views), and storage recovery dashboard (analytics-driven large/old email cleanup).
+**Goal:** Add three independent features to the EmailDiet: sender protect-list (prevent accidental cleanup of important senders), quick-filter toolbar (one-click inbox segment views), and storage recovery dashboard (analytics-driven large/old email cleanup).
 
 **Architecture:** Each feature is additive — no existing routes or components change behavior. Protect-list adds a JSON file store + service + routes + UI integration. Quick-filter adds a backend route for custom Gmail queries + a toolbar component in InboxTab. Storage recovery adds a service that aggregates Gmail message sizes + routes + a new Storage tab with dashboard cards and drill-down.
 

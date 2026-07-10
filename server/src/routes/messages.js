@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { trashMessages } from '../services/messageTrashService.js'
+import { trashMessages, emptyTrash } from '../services/messageTrashService.js'
 import { createJob } from '../jobs/jobManager.js'
 
 const router = Router()
@@ -25,6 +25,19 @@ router.post('/messages/trash', async (req, res, next) => {
 
     // large batch — run as job so client can stream progress
     const job = createJob('trash-messages', (emit) => trashMessages(ids, emit))
+    res.json({ jobId: job.id })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * DELETE /api/messages/trash
+ * Permanently delete all messages currently in the Trash.
+ */
+router.delete('/messages/trash', async (req, res, next) => {
+  try {
+    const job = createJob('empty-trash', (emit) => emptyTrash(emit))
     res.json({ jobId: job.id })
   } catch (err) {
     next(err)

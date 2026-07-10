@@ -1,6 +1,4 @@
-import Chip from '@mui/material/Chip'
-import Stack from '@mui/material/Stack'
-import Button from '@mui/material/Button'
+import { HStack, Tag, Button } from '@chakra-ui/react'
 import type { Filter } from '../types'
 
 interface Props {
@@ -11,22 +9,28 @@ interface Props {
 
 export default function FilterToolbar({ filters, activeKey, onSelect }: Props) {
   return (
-    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 2, gap: 0.5 }}>
-      {filters.map((f) => (
-        <Chip
-          key={f.key}
-          label={f.label}
-          clickable
-          variant={activeKey === f.key ? 'filled' : 'outlined'}
-          color={activeKey === f.key ? 'primary' : 'default'}
-          onClick={() => onSelect(activeKey === f.key ? null : f)}
-        />
-      ))}
+    <HStack wrap="wrap" mb={4} spacing={2}>
+      {filters.map((f) => {
+        const isActive = activeKey === f.key
+        return (
+          <Tag
+            key={f.key}
+            size="md"
+            borderRadius="full"
+            variant={isActive ? 'solid' : 'outline'}
+            colorScheme={isActive ? 'blue' : 'gray'}
+            cursor="pointer"
+            onClick={() => onSelect(isActive ? null : f)}
+          >
+            {f.label}
+          </Tag>
+        )
+      })}
       {activeKey && (
-        <Button size="small" variant="text" onClick={() => onSelect(null)}>
+        <Button size="sm" variant="ghost" onClick={() => onSelect(null)}>
           Clear filter
         </Button>
       )}
-    </Stack>
+    </HStack>
   )
 }

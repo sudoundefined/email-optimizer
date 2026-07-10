@@ -1,6 +1,6 @@
-# Email Optimizer Roadmap
+# EmailDiet Roadmap
 
-This app started as a Gmail bulk-unsubscriber. The roadmap below charts its evolution into a full **email optimizer** — an AI-powered tool that cleans up inbox clutter, automates organization, and speeds up communication.
+This app started as a Gmail bulk-unsubscriber. The roadmap below charts its evolution into a full **EmailDiet** — an AI-powered tool that cleans up inbox clutter, automates organization, and speeds up communication.
 
 Each tier builds on the previous one. Features are grouped by theme and ordered roughly by value/effort ratio. Benchmarks: **Clean Email** (bulk cleaning), **SaneBox** (priority triage), **Spark** & **Shortwave** (AI drafting).
 
@@ -23,7 +23,7 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 ### Protection, filters & storage (v3)
 - **Sender protect-list** — auto-protect banks/utilities/government (domain + subject heuristics) plus manual protect/unprotect; protected senders are excluded from bulk unsubscribe and trash
 - **Quick-filter toolbar** — one-click inbox segments (never opened, unread marketing/social, old newsletters, large >5 MB, old attachments, old promotions/forums)
-- **Storage recovery dashboard** — reclaimable storage total (>500 KB emails), drill-down by date, top senders and size bands, and a largest attachments table
+- **Storage recovery dashboard** — reclaimable storage total (>250 KB emails), drill-down by date, top senders and size bands, and a largest attachments table
 - **Labels master-detail** — comprehensive manager for system, user, and app-created labels with removal and bulk-trash capabilities
 
 ### Retention & sweepers (v4)

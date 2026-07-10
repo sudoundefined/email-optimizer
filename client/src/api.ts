@@ -108,6 +108,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ messageIds }),
     }),
+  emptyTrash: () =>
+    request<{ jobId: string }>('/api/messages/trash', {
+      method: 'DELETE',
+    }),
   digest: () => request<DigestState>('/api/digest'),
   saveDigestSettings: (settings: Partial<DigestSettings>) =>
     request<{ settings: DigestSettings }>('/api/digest/settings', {

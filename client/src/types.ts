@@ -176,6 +176,12 @@ export const CATEGORIES = [
   'Newsletters',
   'Social',
   'Promotions',
+  'Education',
+  'Entertainment',
+  'Food & Dining',
+  'Real Estate',
+  'Health & Fitness',
+  'Investing',
   'Personal',
   'Other',
 ]

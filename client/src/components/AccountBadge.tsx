@@ -1,8 +1,4 @@
-import Avatar from '@mui/material/Avatar'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Tooltip from '@mui/material/Tooltip'
-import Typography from '@mui/material/Typography'
+import { Avatar, Button, Tooltip, Text, Flex } from '@chakra-ui/react'
 
 function initials(email: string) {
   const name = email.split('@')[0]
@@ -20,42 +16,37 @@ export default function AccountBadge({ email, onLogout }: { email: string; onLog
   const bg = avatarColor(email)
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
-      <Tooltip title={email} placement="bottom">
+    <Flex align="center" gap={3} ml="auto">
+      <Tooltip label={email} placement="bottom">
         <Avatar
-          sx={{
-            width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700,
-            backgroundColor: bg,
-            border: '1px solid rgba(0,0,0,0.06)',
-            cursor: 'default',
-          }}
-        >
-          {initials(email)}
-        </Avatar>
+          size="sm"
+          bg={bg}
+          color="white"
+          name={email}
+          getInitials={() => initials(email)}
+          cursor="default"
+        />
       </Tooltip>
-      <Typography
-        variant="body2"
-        sx={{ color: 'rgba(60,60,67,0.6)', fontWeight: 500, display: { xs: 'none', lg: 'block' }, maxWidth: 160 }}
-        noWrap
+      <Text
+        color="gray.600"
+        fontWeight={500}
+        display={{ base: 'none', lg: 'block' }}
+        maxW="160px"
+        isTruncated
+        fontSize="sm"
       >
         {email}
-      </Typography>
+      </Text>
       <Button
-        size="small"
+        size="sm"
+        variant="outline"
         onClick={onLogout}
-        sx={{
-          color: 'rgba(60,60,67,0.75)',
-          fontWeight: 600,
-          fontSize: '0.75rem',
-          borderColor: 'rgba(60,60,67,0.22)',
-          border: '1px solid',
-          borderRadius: '8px',
-          px: 1.5, py: 0.5,
-          '&:hover': { color: '#007AFF', borderColor: 'rgba(0,122,255,0.4)', background: 'rgba(0,122,255,0.08)' },
-        }}
+        color="gray.600"
+        borderColor="gray.300"
+        _hover={{ color: 'blue.500', borderColor: 'blue.400', bg: 'blue.50' }}
       >
         Sign out
       </Button>
-    </Box>
+    </Flex>
   )
 }

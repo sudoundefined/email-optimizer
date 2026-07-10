@@ -1,16 +1,9 @@
-import { useState } from 'react'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
-import LinearProgress from '@mui/material/LinearProgress'
-import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
-import Typography from '@mui/material/Typography'
-import { SearchOutlined as ScanIcon, PeopleOutlined as PeopleIcon, MailOutlined as MailIcon } from '@mui/icons-material'
-import type { JobSnapshot, ScanResult } from '../types'
+import { useState, useEffect } from 'react'
+import {
+  Button, Select, HStack, Flex, Card, CardBody, Text
+} from '@chakra-ui/react'
+import { SearchIcon } from '@chakra-ui/icons'
+import type { ScanResult } from '../types'
 
 const RANGES = [
   { value: '1m',  label: 'Last month' },
@@ -20,134 +13,95 @@ const RANGES = [
   { value: 'all', label: 'All time' },
 ]
 
-const STAT_CARDS = [
-  {
-    key: 'senders',
-    icon: <PeopleIcon sx={{ fontSize: 18 }} />,
-    label: 'senders',
-    color: 'var(--color-accent)',
-    bg: 'var(--color-accent)',
-    getValue: (s: ScanResult) => s.senders.length,
-  },
-  {
-    key: 'emails',
-    icon: <MailIcon sx={{ fontSize: 18 }} />,
-    label: 'emails scanned',
-    color: 'var(--color-accent)',
-    bg: 'var(--color-accent)',
-    getValue: (s: ScanResult) => s.messageCount,
-  },
-]
-
 export default function ScanControls({
-  onScan, onCancel, job, running, scan,
+  onScan, onCancel, running, scan,
 }: {
   onScan: (range: string) => void
   onCancel?: () => void
-  job: JobSnapshot | null
   running: boolean
   scan: ScanResult | null
 }) {
-  const [range, setRange] = useState('6m')
-  const progress = job?.progress as { phase?: string; listed?: number; fetched?: number; total?: number } | null
+  const [range, setRange] = useState(scan?.range || RANGES[2].value)
+
+  // Revert back to the last successful scan range if a scan is cancelled or completes
+  useEffect(() => {
+    if (!running && scan?.range) {
+      setRange(scan.range)
+    }
+  }, [running, scan?.range])
 
   return (
-    <Card
-      sx={{
-        mb: 3,
-        background: 'var(--color-dominant-light)',
-        overflow: 'visible',
-      }}
-    >
-      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, flexWrap: 'wrap' }}>
-          {/* Range picker */}
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Scan range</InputLabel>
+    <Card mb={6} bg="brand.100" overflow="visible" boxShadow="none" border="none">
+      <CardBody p={{ base: 4, sm: 6 }}>
+        <Flex align="center" gap={4} wrap="wrap">
+          <HStack spacing={4} flex={1}>
             <Select
+              w="180px"
+              size="md"
               value={range}
-              label="Scan range"
-              onChange={(e) => setRange(e.target.value)}
-              disabled={running}
+              onChange={(e) => {
+                const newRange = e.target.value;
+                setRange(newRange);
+                onScan(newRange);
+              }}
+              isDisabled={running}
+              bg="white"
+              borderColor="brand.300"
+              _hover={{ borderColor: 'brand.400' }}
             >
               {RANGES.map((r) => (
-                <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
+                <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </Select>
-          </FormControl>
 
-          {/* Scan button */}
-          <Button
-            variant="contained"
-            startIcon={<ScanIcon />}
-            onClick={() => onScan(range)}
-            disabled={running}
-            sx={{
-              background: running
-                ? undefined
-                : 'var(--color-accent)',
-              px: 2.5,
-            }}
-          >
-            {running ? 'Scanning…' : 'Scan mailbox'}
-          </Button>
-
-          {/* Cancel button — only while a scan is running */}
-          {running && onCancel && (
             <Button
-              variant="outlined"
-              color="error"
-              onClick={onCancel}
-              sx={{ px: 2 }}
+              colorScheme="blue"
+              leftIcon={<SearchIcon />}
+              onClick={() => onScan(range)}
+              isDisabled={running}
+              px={6}
             >
-              Cancel
+              {running ? 'Scanning…' : 'Scan mailbox'}
             </Button>
-          )}
 
-          {/* Stat pills — only when scan loaded and not running */}
+            {running && onCancel && (
+              <Button
+                variant="outline"
+                colorScheme="red"
+                onClick={onCancel}
+                px={6}
+              >
+                Cancel
+              </Button>
+            )}
+          </HStack>
+
           {!running && scan && (
-            <Box sx={{ display: 'flex', gap: 1.5, ml: 'auto', flexWrap: 'wrap', alignItems: 'center' }}>
-              {STAT_CARDS.map((s) => (
-                <Box
-                  key={s.key}
-                  sx={{
-                    display: 'flex', alignItems: 'center', gap: 1.25,
-                    background: s.bg,
-                    borderRadius: '10px',
-                    px: 1.75, py: 0.875,
-                  }}
-                >
-                  <Box sx={{ color: 'rgba(255,255,255,0.85)', display: 'flex' }}>{s.icon}</Box>
-                  <Box>
-                    <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem', lineHeight: 1 }}>
-                      {s.getValue(scan).toLocaleString()}
-                    </Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.67rem', fontWeight: 600, lineHeight: 1 }}>
-                      {s.label}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-              <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+            <HStack spacing={4} ml="auto" wrap="wrap" align="center">
+              <HStack bg="blue.500" borderRadius="xl" px={3} py={2} spacing={2}>
+                <Text color="white" fontWeight={700} fontSize="md" lineHeight={1}>
+                  {scan.senders.length.toLocaleString()}
+                </Text>
+                <Text color="blue.100" fontSize="xs" fontWeight={600} lineHeight={1}>
+                  senders
+                </Text>
+              </HStack>
+              <HStack bg="blue.500" borderRadius="xl" px={3} py={2} spacing={2}>
+                <Text color="white" fontWeight={700} fontSize="md" lineHeight={1}>
+                  {scan.messageCount.toLocaleString()}
+                </Text>
+                <Text color="blue.100" fontSize="xs" fontWeight={600} lineHeight={1}>
+                  emails scanned
+                </Text>
+              </HStack>
+              
+              <Text fontSize="xs" color="brand.700" alignSelf="center">
                 scanned {new Date(scan.scannedAt).toLocaleString()}
-              </Typography>
-            </Box>
+              </Text>
+            </HStack>
           )}
-        </Box>
-
-        {/* Progress */}
-        {running && (
-          <Box sx={{ mt: 2.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-              {progress?.phase === 'listing'  && `🔍 Finding messages… ${progress.listed ?? 0} found`}
-              {progress?.phase === 'fetching' && `📬 Reading headers… ${progress.fetched ?? 0} / ${progress.total ?? '?'}`}
-              {progress?.phase === 'grouping' && '📊 Grouping senders…'}
-              {!progress?.phase              && '⏳ Starting scan…'}
-            </Typography>
-            <LinearProgress sx={{ mt: 1 }} />
-          </Box>
-        )}
-      </CardContent>
+        </Flex>
+      </CardBody>
     </Card>
   )
 }

@@ -1,18 +1,8 @@
 import { useMemo, useState } from 'react'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
-import DialogActions from '@mui/material/DialogActions'
-import Checkbox from '@mui/material/Checkbox'
-import FormControl from '@mui/material/FormControl'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import LinearProgress from '@mui/material/LinearProgress'
-import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
-import Typography from '@mui/material/Typography'
+import {
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Checkbox, Select, Text, Box, Flex, Alert, AlertIcon, Progress
+} from '@chakra-ui/react'
 import { api, ApiError } from '../api'
 import type { Sender, Suggestion } from '../types'
 import { CATEGORIES } from '../types'
@@ -30,8 +20,7 @@ export default function LabelReview({
   onDisconnected: () => void
 }) {
   const [assignments, setAssignments] = useState<Map<string, string>>(
-    () =>
-      new Map(senders.map((s) => [s.email, suggestions.get(s.email)?.category || 'Other']))
+    () => new Map(senders.map((s) => [s.email, suggestions.get(s.email)?.category || 'Other']))
   )
   const [error, setError] = useState<string | null>(null)
   const [doneMessage, setDoneMessage] = useState<string | null>(null)
@@ -76,91 +65,95 @@ export default function LabelReview({
     | null
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Review labels</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Each category becomes a Gmail label applied to every scanned email from the sender.
-          By default this <strong>tags in place</strong> — nothing leaves your inbox. Review the
-          grouping below, then create the labels.
-        </Typography>
+    <Modal isOpen onClose={onClose} size="xl" scrollBehavior="inside">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Review labels</ModalHeader>
+        <ModalBody>
+          <Text fontSize="sm" color="gray.600" mb={4}>
+            Each category becomes a Gmail label applied to every scanned email from the sender.
+            By default this <Text as="strong">tags in place</Text> — nothing leaves your inbox. Review the
+            grouping below, then create the labels.
+          </Text>
 
-        {[...byCategory.entries()].map(([category, group]) => (
-          <Box key={category} sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              {category}{' '}
-              <Typography component="span" variant="body2" color="text.secondary">
-                ({group.length} senders)
-              </Typography>
-            </Typography>
-            {group.map((s) => (
-              <Box key={s.email} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
-                  {s.name || s.email}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {s.messageCount} emails
-                </Typography>
-                <FormControl size="small" sx={{ minWidth: 120 }}>
+          {[...byCategory.entries()].map(([category, group]) => (
+            <Box key={category} mb={4}>
+              <Text fontWeight="bold" fontSize="sm" mb={2}>
+                {category}{' '}
+                <Text as="span" fontWeight="normal" color="gray.500">
+                  ({group.length} senders)
+                </Text>
+              </Text>
+              {group.map((s) => (
+                <Flex key={s.email} align="center" gap={3} py={1}>
+                  <Text fontSize="sm" fontWeight={600} flex={1} isTruncated>
+                    {s.name || s.email}
+                  </Text>
+                  <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">
+                    {s.messageCount} emails
+                  </Text>
                   <Select
+                    size="sm"
+                    w="120px"
                     value={assignments.get(s.email)}
                     onChange={(e) => setCategory(s.email, e.target.value)}
-                    disabled={applyJob.running}
-                    size="small"
+                    isDisabled={applyJob.running}
                   >
                     {CATEGORIES.map((c) => (
-                      <MenuItem key={c} value={c}>
-                        {c}
-                      </MenuItem>
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </Select>
-                </FormControl>
-              </Box>
-            ))}
-          </Box>
-        ))}
+                </Flex>
+              ))}
+            </Box>
+          ))}
 
-        {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
-        {applyJob.running && progress && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              Labeling {progress.labeled ?? 0} / {progress.total ?? '?'}
-              {progress.currentLabel ? ` (${progress.currentLabel})` : ''}
-            </Typography>
-            <LinearProgress sx={{ mt: 0.5 }} />
-          </Box>
-        )}
-        {doneMessage && <Alert severity="success" sx={{ mt: 1 }}>Labels applied — {doneMessage}</Alert>}
-      </DialogContent>
-      <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-        {!doneMessage ? (
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={archive}
-                onChange={(e) => setArchive(e.target.checked)}
-                disabled={applyJob.running}
-              />
-            }
-            label={
-              <Typography variant="body2" color="text.secondary">
-                Also archive tagged emails (move out of inbox)
-              </Typography>
-            }
-          />
-        ) : <span />}
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={onClose} disabled={applyJob.running}>
-            {doneMessage ? 'Close' : 'Cancel'}
-          </Button>
-          {!doneMessage && (
-            <Button variant="contained" onClick={apply} disabled={applyJob.running}>
-              {applyJob.running ? 'Applying…' : archive ? 'Create labels, tag & archive' : 'Create labels & tag'}
-            </Button>
+          {error && (
+            <Alert status="error" mt={3} borderRadius="md">
+              <AlertIcon />
+              {error}
+            </Alert>
           )}
-        </Box>
-      </DialogActions>
-    </Dialog>
+          {applyJob.running && progress && (
+            <Box mt={3}>
+              <Text fontSize="xs" color="gray.500">
+                Labeling {progress.labeled ?? 0} / {progress.total ?? '?'}
+                {progress.currentLabel ? ` (${progress.currentLabel})` : ''}
+              </Text>
+              <Progress size="sm" isIndeterminate={!progress.total} value={progress.total && progress.labeled ? (progress.labeled / progress.total) * 100 : undefined} colorScheme="blue" mt={1} borderRadius="md" />
+            </Box>
+          )}
+          {doneMessage && (
+            <Alert status="success" mt={3} borderRadius="md">
+              <AlertIcon />
+              Labels applied — {doneMessage}
+            </Alert>
+          )}
+        </ModalBody>
+        <ModalFooter justifyContent="space-between" bg="gray.50" borderBottomRadius="md">
+          {!doneMessage ? (
+            <Checkbox
+              size="sm"
+              isChecked={archive}
+              onChange={(e) => setArchive(e.target.checked)}
+              isDisabled={applyJob.running}
+              colorScheme="blue"
+            >
+              Also archive tagged emails (move out of inbox)
+            </Checkbox>
+          ) : <Box />}
+          <Flex gap={2}>
+            <Button onClick={onClose} isDisabled={applyJob.running} variant="ghost">
+              {doneMessage ? 'Close' : 'Cancel'}
+            </Button>
+            {!doneMessage && (
+              <Button colorScheme="blue" onClick={apply} isLoading={applyJob.running}>
+                {applyJob.running ? 'Applying…' : archive ? 'Create labels, tag & archive' : 'Create labels & tag'}
+              </Button>
+            )}
+          </Flex>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   )
 }

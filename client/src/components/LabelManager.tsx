@@ -1,37 +1,25 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Checkbox from '@mui/material/Checkbox'
-import Chip from '@mui/material/Chip'
-import CircularProgress from '@mui/material/CircularProgress'
-import Grid from '@mui/material/Grid'
-import Paper from '@mui/material/Paper'
-import Stack from '@mui/material/Stack'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import Tooltip from '@mui/material/Tooltip'
-import Typography from '@mui/material/Typography'
-import TextField from '@mui/material/TextField'
-import InputAdornment from '@mui/material/InputAdornment'
-import List from '@mui/material/List'
-import ListItemButton from '@mui/material/ListItemButton'
-import LinearProgress from '@mui/material/LinearProgress'
 import {
-  LabelOutlined,
-  DeleteOutlined,
-  ClearOutlined,
-  SearchOutlined,
-} from '@mui/icons-material'
+  Alert, AlertIcon, Box, Button, Card, CardBody, Checkbox, Tag, IconButton,
+  Grid, GridItem, Flex, Text, Table, Thead, Tbody,
+  Tr, Th, Td, TableContainer, Tooltip, Icon, HStack, VStack, InputGroup, InputLeftElement, Input, Progress, Select,
+  Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon
+} from '@chakra-ui/react'
+import EmailLoader from './EmailLoader'
+import { SearchIcon, DeleteIcon, CloseIcon, ArrowBackIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons'
+// Placeholder polygon. Let's use a standard tag icon.
+const TagIcon = (props: any) => (
+  <Icon viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+  </Icon>
+)
+
 import { api, ApiError } from '../api'
+import { clientCache } from '../cache'
 import type { GmailLabel, GroupMessage } from '../types'
 import { useJob } from '../hooks/useJob'
+import { useAutoClearAlert } from '../hooks/useAutoClearAlert'
 import ConfirmDialog from './ConfirmDialog'
 
 function prettyLabelName(l: GmailLabel): string {
@@ -48,23 +36,45 @@ function parseFromHeader(from: string): string {
   return (m && m[1].trim()) || from
 }
 
-export default function LabelManager({ onDisconnected }: { onDisconnected: () => void }) {
+export default function LabelManager({ 
+  onDisconnected, 
+  onCacheInfo 
+}: { 
+  onDisconnected: () => void
+  onCacheInfo?: (info: { timestamp: number | null; secondsUntilRefresh: number; onRefresh: () => void; stats?: { totalMB: number; messageCount: number } }) => void
+}) {
   const [labels, setLabels] = useState<GmailLabel[] | null>(null)
   const [selectedLabel, setSelectedLabel] = useState<GmailLabel | null>(null)
   const [messages, setMessages] = useState<GroupMessage[] | null>(null)
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<'name' | 'total' | 'unread'>('name')
   
-  // message selection within selected label
   const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set())
   const [confirmTrashMsgs, setConfirmTrashMsgs] = useState(false)
+  const [confirmEmptyTrash, setConfirmEmptyTrash] = useState(false)
   const [trashMsgsDone, setTrashMsgsDone] = useState<string | null>(null)
 
   const [error, setError] = useState<string | null>(null)
   const [confirmLabelAction, setConfirmLabelAction] = useState<{ label: GmailLabel; mode: 'labelOnly' | 'trashEmails' } | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(50)
+
+  const paginate = messages ? messages.length > rowsPerPage : false
+  const pageCount = messages ? Math.ceil(messages.length / rowsPerPage) : 0
+  const safePage = Math.min(page, Math.max(0, pageCount - 1))
+  const start = safePage * rowsPerPage
+  const pageRows = paginate && messages ? messages.slice(start, start + rowsPerPage) : (messages ?? [])
+  
+  useAutoClearAlert(error, setError)
+  useAutoClearAlert(trashMsgsDone, setTrashMsgsDone)
+
   const trashJob = useJob()
+
+  const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null)
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState<number>(300)
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -74,16 +84,101 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
     [onDisconnected]
   )
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setError(null)
+    }
     try {
       const all = await api.allLabels()
-      setLabels(all)
+      if (isSilent) {
+        // Compare with current labels
+        const currentLabelsStr = labels ? JSON.stringify(labels) : ''
+        const newLabelsStr = JSON.stringify(all)
+        if (currentLabelsStr !== newLabelsStr) {
+          setLabels(all)
+          // If selectedLabel changed, refresh its messages
+          if (selectedLabel) {
+            const freshSelected = all.find(l => l.id === selectedLabel.id)
+            if (freshSelected) {
+              setSelectedLabel(freshSelected)
+            } else {
+              setSelectedLabel(null)
+            }
+          }
+        }
+      } else {
+        setLabels(all)
+      }
+      clientCache.setLabels(all)
+      setCacheTimestamp(Date.now())
+      setSecondsUntilRefresh(300)
+    } catch (err) {
+      if (!isSilent) {
+        handleApiError(err)
+      } else {
+        console.error("Background labels load failed", err)
+      }
+    }
+  }, [handleApiError, labels, selectedLabel])
+
+  // Initial load checking client cache
+  useEffect(() => {
+    const cached = clientCache.getLabels()
+    if (cached) {
+      setLabels(cached.data)
+      setCacheTimestamp(cached.timestamp)
+      const remaining = Math.max(0, 300000 - (Date.now() - cached.timestamp))
+      setSecondsUntilRefresh(Math.ceil(remaining / 1000))
+    } else {
+      load(false)
+    }
+  }, []) // run once on mount
+
+  // Background refresh checking loop
+  useEffect(() => {
+    if (!cacheTimestamp) return
+    let isFetching = false
+    const interval = setInterval(async () => {
+      const elapsed = Date.now() - cacheTimestamp
+      const remaining = Math.max(0, 300000 - elapsed)
+      const secs = Math.ceil(remaining / 1000)
+      setSecondsUntilRefresh(secs)
+
+      if (remaining === 0 && !isFetching) {
+        isFetching = true
+        try {
+          await load(true)
+        } catch (err) {
+          console.error("Background labels refresh failed", err)
+          setCacheTimestamp(Date.now())
+        } finally {
+          isFetching = false
+        }
+      }
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [cacheTimestamp, load])
+
+  const refresh = async () => {
+    setError(null)
+    setLabels(null)
+    clientCache.clearLabels()
+    try {
+      await load(false)
     } catch (err) {
       handleApiError(err)
     }
-  }, [handleApiError])
+  }
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (onCacheInfo) {
+      onCacheInfo({
+        timestamp: cacheTimestamp,
+        secondsUntilRefresh,
+        onRefresh: refresh
+      })
+    }
+  }, [cacheTimestamp, secondsUntilRefresh, onCacheInfo])
 
   const loadMessages = useCallback(async (label: GmailLabel) => {
     setMessagesLoading(true)
@@ -108,7 +203,6 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
     }
   }, [selectedLabel, loadMessages])
 
-  // execute deleting app-created labels
   const executeLabelAction = async () => {
     if (!confirmLabelAction) return
     const { label, mode } = confirmLabelAction
@@ -136,7 +230,6 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
     }
   }
 
-  // bulk trash individual messages selected in the right pane
   const executeTrashMessages = async () => {
     setConfirmTrashMsgs(false)
     setError(null)
@@ -164,12 +257,59 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
     }
   }
 
+  const executeEmptyTrash = async () => {
+    setConfirmEmptyTrash(false)
+    setError(null)
+    setTrashMsgsDone(null)
+    setBusyId('TRASH')
+    try {
+      const response = await api.emptyTrash()
+      if (response.jobId) {
+        const snapshot = await trashJob.start(() => Promise.resolve({ jobId: response.jobId }))
+        if (snapshot.state === 'error') {
+          setError(snapshot.error || 'Empty Trash failed')
+          return
+        }
+      }
+      setTrashMsgsDone(`Trash has been emptied.`)
+      if (selectedLabel) {
+        loadMessages(selectedLabel)
+      }
+      await load()
+    } catch (err) {
+      handleApiError(err)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const filteredLabels = useMemo(() => {
     if (!labels) return []
     const q = search.toLowerCase().trim()
-    if (!q) return labels
-    return labels.filter((l) => l.name.toLowerCase().includes(q))
-  }, [labels, search])
+    let filtered = labels
+    // Hide system labels EXCEPT trash
+    filtered = filtered.filter(l => l.type !== 'system' || l.id === 'TRASH')
+    
+    if (q) {
+      filtered = filtered.filter((l) => l.name.toLowerCase().includes(q))
+    }
+
+    filtered.sort((a, b) => {
+      if (sort === 'total') return b.messagesTotal - a.messagesTotal
+      if (sort === 'unread') return b.messagesUnread - a.messagesUnread
+      return a.name.localeCompare(b.name)
+    })
+
+    return filtered
+  }, [labels, search, sort])
+
+  const groupedLabels = useMemo(() => {
+    return {
+      app: filteredLabels.filter(l => l.appCreated),
+      user: filteredLabels.filter(l => !l.appCreated && l.type !== 'system'),
+      system: filteredLabels.filter(l => l.type === 'system')
+    }
+  }, [filteredLabels])
 
   const toggleMessage = (id: string) => {
     setSelectedMsgIds((prev) => {
@@ -198,412 +338,445 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
     | { phase?: string; collected?: number; trashed?: number; total?: number }
     | null
 
+  const renderLabelItem = (l: GmailLabel) => {
+    const isSelected = selectedLabel?.id === l.id
+    const badgeColor = l.appCreated ? 'brand.500' : l.type === 'system' ? 'gray.400' : 'purple.500'
+
+    return (
+      <Flex
+        key={l.id}
+        onClick={() => setSelectedLabel(l)}
+        align="center"
+        justify="space-between"
+        px={4} py={3} mb={2}
+        borderRadius="xl"
+        cursor="pointer"
+        bg={isSelected ? 'brand.500' : 'bg.glass'}
+        color={isSelected ? 'white' : 'text.primary'}
+        boxShadow={isSelected ? '0 4px 14px rgba(67, 110, 111, 0.25)' : 'none'}
+        transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+        _hover={{ bg: isSelected ? 'brand.600' : 'bg.hover', transform: 'translateX(4px)' }}
+      >
+        <HStack spacing={3} overflow="hidden">
+          <Box w="8px" h="8px" borderRadius="full" bg={isSelected ? 'white' : badgeColor} flexShrink={0} />
+          <Box overflow="hidden">
+            <Text fontSize="sm" fontWeight={isSelected ? 800 : 600} isTruncated>
+              {prettyLabelName(l)}
+            </Text>
+            <Text fontSize="xs" color={isSelected ? 'whiteAlpha.800' : 'neutral.500'} isTruncated>
+              {l.messagesTotal.toLocaleString()} emails
+            </Text>
+          </Box>
+        </HStack>
+        {l.messagesUnread > 0 && (
+          <Tag size="sm" borderRadius="full" colorScheme={isSelected ? 'whiteAlpha' : 'red'} variant="subtle" fontWeight="bold">
+            {l.messagesUnread}
+          </Tag>
+        )}
+      </Flex>
+    )
+  }
+
   if (labels === null && !error) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary' }}>
-        <CircularProgress size={24} sx={{ color: '#FF9500' }} />
-        <Typography variant="body2">Loading labels…</Typography>
-      </Box>
+      <Flex align="center" justify="center" p={8}>
+        <EmailLoader size="sm" message="Loading labels…" />
+      </Flex>
     )
   }
 
   return (
-    <div>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {trashMsgsDone && <Alert severity="success" sx={{ mb: 2 }}>{trashMsgsDone}</Alert>}
+    <Flex direction="column" h="100%" minH={0}>
+      {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
+      {trashMsgsDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashMsgsDone}</Alert>}
       {trashJob.running && progress && (
-        <Box sx={{ mb: 2, p: 2, borderRadius: 2, background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        <Box mb={4} p={4} borderRadius="md" bg="orange.50" border="1px solid" borderColor="orange.200">
+          <Text fontSize="xs" color="gray.600" fontWeight={600}>
             {progress.phase === 'collecting' && `🔍 Collecting emails… ${progress.collected ?? 0}`}
             {progress.phase === 'trashing' && `🗑️ Moving to Trash… ${progress.trashed ?? 0} / ${progress.total ?? '?'}`}
-          </Typography>
-          <LinearProgress sx={{ mt: 1 }} />
+          </Text>
+          <Progress size="xs" isIndeterminate mt={2} colorScheme="orange" />
         </Box>
       )}
 
-      <Grid container spacing={3}>
+      <Grid templateColumns={{ base: '1fr', md: 'repeat(12, 1fr)' }} gap={6} flex={1} minH={0}>
         {/* LEFT PANE — Labels list */}
-        <Grid size={{ xs: 12, md: 4.5, lg: 3.5 }}>
-          <Card
-            sx={{
-              borderRadius: '14px',
-              overflow: 'hidden',
-              animation: 'fadeInUp 0.5s ease-out',
-            }}
-          >
-            {/* Header strip */}
-            <Box
-              sx={{
-                px: 2, py: 1.5,
-                background: '#fff',
-                borderBottom: '1px solid rgba(60,60,67,0.12)',
-                display: 'flex', alignItems: 'center', gap: 1.5,
-              }}
-            >
-              <LabelOutlined sx={{ color: '#FF9500', fontSize: 18 }} />
-              <Typography variant="subtitle2" sx={{ color: '#1C1C1E', fontWeight: 600 }}>
-                Gmail Labels
-              </Typography>
+        <GridItem colSpan={{ base: 12, md: 4, lg: 4 }} minH={0} overflowY={{ md: 'auto' }} pr={{ md: 2 }} display={{ base: selectedLabel ? 'none' : 'block', md: 'block' }}>
+          <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
+            <Flex align="center" justify="space-between" px={4} py={3} bg="transparent" borderBottom="1px" borderColor="border.glass">
+              <HStack spacing={3}>
+                <TagIcon color="brand.600" boxSize={5} />
+                <Text fontSize="sm" fontWeight={600} color="brand.900">Gmail Labels</Text>
+              </HStack>
               {labels && (
-                <Chip
-                  label={labels.length}
-                  size="small"
-                  sx={{ ml: 'auto', background: 'rgba(60,60,67,0.08)', color: 'rgba(60,60,67,0.7)', fontWeight: 600, height: 20 }}
-                />
+                <Tag size="sm" borderRadius="full" bg="bg.accent" color="text.primary" fontWeight={600}>
+                  {labels.length}
+                </Tag>
               )}
-            </Box>
+            </Flex>
 
-            <CardContent sx={{ p: 2 }}>
-              <TextField
-                placeholder="Search labels..."
-                size="small"
-                fullWidth
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                sx={{ mb: 2 }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchOutlined sx={{ color: 'text.secondary', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  }
-                }}
-              />
+            <CardBody p={4}>
+              <HStack mb={4} spacing={2}>
+                <InputGroup size="sm">
+                  <InputLeftElement pointerEvents="none">
+                    <SearchIcon color="gray.400" />
+                  </InputLeftElement>
+                  <Input
+                    placeholder="Search labels..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    borderRadius="md"
+                  />
+                </InputGroup>
+                <Select size="sm" w="110px" borderRadius="md" value={sort} onChange={(e) => setSort(e.target.value as any)}>
+                  <option value="name">Name</option>
+                  <option value="total">Size</option>
+                  <option value="unread">Unread</option>
+                </Select>
+              </HStack>
 
               {filteredLabels.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                <Text fontSize="sm" color="gray.500" py={4} textAlign="center">
                   No labels found.
-                </Typography>
+                </Text>
               ) : (
-                <List
-                  dense
-                  disablePadding
-                  sx={{
-                    maxHeight: 'calc(100vh - 280px)',
-                    minHeight: 400,
-                    overflowY: 'auto',
-                    pr: 0.5,
-                  }}
-                >
-                  {filteredLabels.map((l) => {
-                    const isSelected = selectedLabel?.id === l.id
-                    return (
-                      <ListItemButton
-                        key={l.id}
-                        selected={isSelected}
-                        onClick={() => setSelectedLabel(l)}
-                        sx={{
-                          borderRadius: '24px',
-                          mb: 1,
-                          py: 1,
-                          px: 2.5,
-                          border: isSelected ? '1px solid #FF9500' : '1px solid rgba(60, 60, 67, 0.08)',
-                          bgcolor: isSelected ? 'rgba(255, 149, 0, 0.08)' : 'transparent',
-                          '&.Mui-selected': {
-                            bgcolor: 'rgba(255, 149, 0, 0.08)',
-                            '&:hover': { bgcolor: 'rgba(255, 149, 0, 0.12)' },
-                          },
-                          '&:hover': { bgcolor: 'rgba(60, 60, 67, 0.04)' },
-                        }}
-                      >
-                        <Stack spacing={1} sx={{ width: '100%' }}>
-                          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: isSelected ? 700 : 500,
-                                color: isSelected ? '#FF9500' : 'text.primary',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                maxWidth: '200px',
-                              }}
-                            >
-                              {prettyLabelName(l)}
-                            </Typography>
-                            {l.appCreated ? (
-                              <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', background: 'linear-gradient(135deg,#34C759,#34C759)', fontSize: '0.65rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>App</Box>
-                            ) : l.type === 'system' ? (
-                              <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', border: '1px solid rgba(0,0,0,0.12)', fontSize: '0.65rem', fontWeight: 500, color: 'text.secondary', lineHeight: 1 }}>Sys</Box>
-                            ) : (
-                              <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', background: '#007AFF', fontSize: '0.65rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>User</Box>
-                            )}
-                          </Stack>
-                          <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {l.messagesTotal.toLocaleString()} emails
-                            </Typography>
-                            {l.messagesUnread > 0 && (
-                              <Chip
-                                label={`${l.messagesUnread} unread`}
-                                size="small"
-                                sx={{
-                                  height: 16,
-                                  fontSize: '0.65rem',
-                                  fontWeight: 700,
-                                  background: 'rgba(239, 68, 68, 0.1)',
-                                  color: '#FF3B30',
-                                  border: 'none',
-                                }}
-                              />
-                            )}
-                          </Stack>
-                        </Stack>
-                      </ListItemButton>
-                    )
-                  })}
-                </List>
+                <Box pr={1}>
+                  <Accordion defaultIndex={[0, 1, 2]} allowMultiple border="none">
+                    {groupedLabels.system.length > 0 && (
+                      <AccordionItem border="none" mb={4}>
+                        <AccordionButton _hover={{ bg: 'blackAlpha.50' }} borderRadius="md" px={3} py={2} mb={2}>
+                          <Box flex="1" textAlign="left">
+                            <Text fontSize="xs" fontWeight="bold" color="neutral.500" textTransform="uppercase" letterSpacing="wider">System</Text>
+                          </Box>
+                          <AccordionIcon color="neutral.500" />
+                        </AccordionButton>
+                        <AccordionPanel pb={4} px={0}>
+                          {groupedLabels.system.map(renderLabelItem)}
+                        </AccordionPanel>
+                      </AccordionItem>
+                    )}
+                    {groupedLabels.app.length > 0 && (
+                      <AccordionItem border="none" mb={4}>
+                        <AccordionButton _hover={{ bg: 'blackAlpha.50' }} borderRadius="md" px={3} py={2} mb={2}>
+                          <Box flex="1" textAlign="left">
+                            <Text fontSize="xs" fontWeight="bold" color="neutral.500" textTransform="uppercase" letterSpacing="wider">App-Created</Text>
+                          </Box>
+                          <AccordionIcon color="neutral.500" />
+                        </AccordionButton>
+                        <AccordionPanel pb={4} px={0}>
+                          {groupedLabels.app.map(renderLabelItem)}
+                        </AccordionPanel>
+                      </AccordionItem>
+                    )}
+                    {groupedLabels.user.length > 0 && (
+                      <AccordionItem border="none" mb={4}>
+                        <AccordionButton _hover={{ bg: 'blackAlpha.50' }} borderRadius="md" px={3} py={2} mb={2}>
+                          <Box flex="1" textAlign="left">
+                            <Text fontSize="xs" fontWeight="bold" color="neutral.500" textTransform="uppercase" letterSpacing="wider">User Labels</Text>
+                          </Box>
+                          <AccordionIcon color="neutral.500" />
+                        </AccordionButton>
+                        <AccordionPanel pb={4} px={0}>
+                          {groupedLabels.user.map(renderLabelItem)}
+                        </AccordionPanel>
+                      </AccordionItem>
+                    )}
+                  </Accordion>
+                </Box>
               )}
-            </CardContent>
+            </CardBody>
           </Card>
-        </Grid>
+        </GridItem>
 
         {/* RIGHT PANE — Detail content */}
-        <Grid size={{ xs: 12, md: 7.5, lg: 8.5 }}>
+        <GridItem colSpan={{ base: 12, md: 8, lg: 8 }} minH={0} display={{ base: selectedLabel ? 'block' : 'none', md: 'block' }}>
+          <Box position="relative" h="100%">
           {selectedLabel ? (
-            <Card
-              variant="outlined"
-              sx={{
-                border: '1px solid rgba(60, 60, 67, 0.1)',
-                borderRadius: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                height: 'calc(100vh - 200px)',
-                minHeight: 400,
-                animation: 'fadeInUp 0.4s ease-out',
-                background: 'rgba(255,255,255,0.85)',
-                backdropFilter: 'blur(12px)',
-              }}
+            <Card 
+              variant="outline" 
+              borderRadius="xl" 
+              h="100%" 
+              display="flex" 
+              flexDir="column" 
+              bg="bg.card" 
+              backdropFilter="blur(12px)"
+              pb={selectedMsgIds.size > 0 ? "80px" : "0px"}
+              transition="padding-bottom 0.2s"
             >
-              {/* Header section inside Right Card */}
-              <Box sx={{ p: 3, borderBottom: '1px solid rgba(60, 60, 67, 0.06)' }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <Box bgGradient="linear(to-br, brand.600, brand.800)" color="white" px={6} py={6} position="relative" overflow="hidden" borderTopRadius="xl">
+                <Box position="absolute" top="-20px" right="-20px" opacity={0.1}>
+                  <TagIcon boxSize="150px" />
+                </Box>
+                <Flex position="relative" zIndex={1} align="flex-start" justify="space-between" direction={{ base: 'column', sm: 'row' }} gap={4}>
                   <Box>
-                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    <HStack spacing={3} align="center" mb={2}>
+                      <IconButton
+                        aria-label="Back to labels"
+                        icon={<ArrowBackIcon boxSize={5} />}
+                        size="sm"
+                        variant="ghost"
+                        color="white"
+                        _hover={{ bg: 'whiteAlpha.200' }}
+                        onClick={() => setSelectedLabel(null)}
+                      />
+                      <Text fontSize="2xl" fontWeight={800}>
                         {prettyLabelName(selectedLabel)}
-                      </Typography>
+                      </Text>
                       {selectedLabel.appCreated ? (
-                        <Chip label="App-Created" size="small" color="success" sx={{ fontWeight: 700, height: 20, fontSize: '0.7rem' }} />
+                        <Tag size="sm" bg="whiteAlpha.300" color="white" fontWeight={700} border="1px solid" borderColor="whiteAlpha.400">App-Created</Tag>
                       ) : selectedLabel.type === 'system' ? (
-                        <Chip label="System Label" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                        <Tag size="sm" bg="whiteAlpha.300" color="white" fontWeight={700} border="1px solid" borderColor="whiteAlpha.400">System Label</Tag>
                       ) : (
-                        <Chip label="User Label" size="small" color="primary" sx={{ fontWeight: 700, height: 20, fontSize: '0.7rem' }} />
+                        <Tag size="sm" bg="whiteAlpha.300" color="white" fontWeight={700} border="1px solid" borderColor="whiteAlpha.400">User Label</Tag>
                       )}
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      Browse messages tagged with this label.
-                    </Typography>
+                    </HStack>
+                    <Text fontSize="sm" color="whiteAlpha.800">
+                      {selectedLabel.messagesTotal.toLocaleString()} total emails {selectedLabel.messagesUnread > 0 && `• ${selectedLabel.messagesUnread.toLocaleString()} unread`}
+                    </Text>
                   </Box>
 
-                  {/* Actions for App Created Labels */}
+                  {/* Actions */}
+                  {selectedLabel.id === 'TRASH' && (
+                    <Button
+                      size="sm"
+                      leftIcon={<DeleteIcon boxSize={3} />}
+                      isDisabled={busyId === selectedLabel.id}
+                      onClick={() => setConfirmEmptyTrash(true)}
+                      colorScheme="red"
+                      bg="red.500"
+                      _hover={{ bg: 'red.600' }}
+                    >
+                      Empty Trash
+                    </Button>
+                  )}
                   {selectedLabel.appCreated && (
-                    <Stack direction="row" spacing={1}>
+                    <HStack spacing={2}>
                       <Button
-                        size="small"
-                        startIcon={<ClearOutlined />}
-                        disabled={busyId === selectedLabel.id}
+                        size="sm"
+                        leftIcon={<CloseIcon boxSize={3} />}
+                        isDisabled={busyId === selectedLabel.id}
                         onClick={() => setConfirmLabelAction({ label: selectedLabel, mode: 'labelOnly' })}
-                        sx={{
-                          fontSize: '0.72rem',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(60,60,67,0.16)',
-                          color: 'var(--color-dominant)',
-                          '&:hover': { background: 'var(--color-dominant-light)' },
-                        }}
+                        variant="outline"
+                        color="white"
+                        borderColor="whiteAlpha.400"
+                        _hover={{ bg: 'whiteAlpha.200' }}
                       >
                         Remove Label
                       </Button>
                       <Button
-                        size="small"
-                        startIcon={<DeleteOutlined />}
-                        disabled={busyId === selectedLabel.id}
+                        size="sm"
+                        leftIcon={<DeleteIcon boxSize={3} />}
+                        isDisabled={busyId === selectedLabel.id}
                         onClick={() => setConfirmLabelAction({ label: selectedLabel, mode: 'trashEmails' })}
-                        sx={{
-                          fontSize: '0.72rem',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(239,68,68,0.25)',
-                          color: '#FF3B30',
-                          '&:hover': { background: 'rgba(239,68,68,0.07)' },
-                        }}
+                        colorScheme="red"
+                        bg="red.500"
+                        _hover={{ bg: 'red.600' }}
                       >
                         Trash + Delete
                       </Button>
-                    </Stack>
+                    </HStack>
                   )}
-                </Stack>
+                </Flex>
               </Box>
 
               {/* Message List area */}
               {messagesLoading ? (
-                <Box sx={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', py: 6, flexDirection: 'column', gap: 2 }}>
-                  <CircularProgress size={28} sx={{ color: '#FF9500' }} />
-                  <Typography variant="body2" color="text.secondary">Fetching label messages...</Typography>
-                </Box>
+                <Flex flex={1} align="center" justify="center" direction="column" py={12}>
+                  <EmailLoader size="md" message="Fetching label messages..." />
+                </Flex>
               ) : messages && messages.length === 0 ? (
-                <Box sx={{ p: 4, textAlign: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">No messages found in this label.</Typography>
+                <Box p={8} textAlign="center">
+                  <Text fontSize="sm" color="gray.500">No messages found in this label.</Text>
                 </Box>
               ) : messages ? (
-                <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell padding="checkbox">
+                <TableContainer flex={1} overflowY="auto">
+                  <Table size="sm" variant="simple" style={{ tableLayout: 'fixed' }}>
+                    <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+                      <Tr>
+                        <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
                           <Checkbox
-                            size="small"
-                            checked={allSelected || false}
-                            indeterminate={selectedMsgIds.size > 0 && !allSelected}
+                            isChecked={allSelected || false}
+                            isIndeterminate={selectedMsgIds.size > 0 && !allSelected}
                             onChange={toggleAllMessages}
-                            aria-label="Select all messages"
+                            colorScheme="blue"
                           />
-                        </TableCell>
-                        <TableCell>From</TableCell>
-                        <TableCell>Subject</TableCell>
-                        <TableCell align="right">Date</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {messages.map((m) => (
-                        <TableRow
+                        </Th>
+                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        </Th>
+                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        </Th>
+                        <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        </Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {pageRows.map((m) => (
+                        <Tr
                           key={m.id}
-                          hover
-                          selected={selectedMsgIds.has(m.id)}
+                          bg="transparent"
+                          _hover={{ bg: 'gray.50' }}
                           onClick={() => toggleMessage(m.id)}
-                          sx={{ cursor: 'pointer' }}
+                          cursor="pointer"
+                          borderBottom="1px solid"
+                          borderColor="gray.100"
+                          boxShadow={selectedMsgIds.has(m.id) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
                         >
-                          <TableCell padding="checkbox">
+                          <Td px={4}>
                             <Checkbox
-                              size="small"
-                              checked={selectedMsgIds.has(m.id)}
+                              isChecked={selectedMsgIds.has(m.id)}
                               onChange={() => toggleMessage(m.id)}
                               onClick={(e) => e.stopPropagation()}
-                              aria-label={`Select ${m.subject || '(no subject)'}`}
+                              colorScheme="brand"
                             />
-                          </TableCell>
-                          <TableCell sx={{ maxWidth: 180 }}>
-                            <Tooltip title={m.from} placement="top-start">
-                              <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                          </Td>
+                          <Td maxW="180px">
+                            <Tooltip label={m.from} placement="top-start" hasArrow maxW="400px" whiteSpace="normal">
+                              <Text fontSize="sm" fontWeight={600} color="brand.900" isTruncated>
                                 {parseFromHeader(m.from)}
-                              </Typography>
+                              </Text>
                             </Tooltip>
-                          </TableCell>
-                          <TableCell sx={{ maxWidth: 280 }}>
-                            <Typography variant="body2" color="text.secondary" noWrap>
+                          </Td>
+                          <Td maxW="280px">
+                            <Text fontSize="sm" color="gray.500" isTruncated>
                               {m.subject || '(no subject)'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            <Typography variant="caption" color="text.secondary">
+                            </Text>
+                          </Td>
+                          <Td isNumeric whiteSpace="nowrap">
+                            <Text fontSize="xs" color="gray.500">
                               {new Date(m.date).toLocaleDateString(undefined, {
                                 month: 'short', day: 'numeric', year: 'numeric',
                               })}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
+                            </Text>
+                          </Td>
+                        </Tr>
                       ))}
-                    </TableBody>
+                    </Tbody>
                   </Table>
+                  {paginate && (
+                    <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="gray.200" bg="gray.50">
+                      <HStack spacing={4}>
+                        <HStack>
+                          <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+                          <Select size="sm" w="80px" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0) }}>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                            <option value={200}>200</option>
+                          </Select>
+                        </HStack>
+                        <Text fontSize="sm" color="gray.600">
+                          {start + 1}-{Math.min(start + rowsPerPage, messages?.length || 0)} of {messages?.length || 0}
+                        </Text>
+                        <HStack spacing={1}>
+                          <IconButton aria-label="Previous" icon={<ChevronLeftIcon />} size="sm" variant="ghost" isDisabled={safePage === 0} onClick={() => setPage(p => p - 1)} />
+                          <IconButton aria-label="Next" icon={<ChevronRightIcon />} size="sm" variant="ghost" isDisabled={safePage >= pageCount - 1} onClick={() => setPage(p => p + 1)} />
+                        </HStack>
+                      </HStack>
+                    </Flex>
+                  )}
                 </TableContainer>
               ) : null}
             </Card>
           ) : (
-            <Box
-              sx={{
-                textAlign: 'center', py: 10,
-                background: 'linear-gradient(135deg, rgba(255,149,0,0.03) 0%, transparent 100%)',
-                borderRadius: '14px', border: '1px dashed rgba(255,149,0,0.2)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                height: 'calc(100vh - 200px)', minHeight: 400,
-              }}
-            >
-              <Box
-                sx={{
-                  width: 72, height: 72, borderRadius: '20px', mb: 2,
-                  background: 'linear-gradient(135deg, #FF9500 0%, #FFB340 100%)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 8px 24px rgba(255,149,0,0.2)',
-                }}
-              >
-                <LabelOutlined sx={{ color: '#fff', fontSize: 36 }} />
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>Select a Label</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 380, mx: 'auto', px: 2 }}>
-                Pick a label from the left sidebar to view its tagged emails, clean up messages, or manage custom unsubscribe labels.
-              </Typography>
-            </Box>
+            <Card variant="outline" borderRadius="xl" h="100%" display="flex" flexDir="column" bg="bg.card" backdropFilter="blur(12px)" p={{ base: 4, md: 8 }} overflowY="auto">
+              <Text fontSize="2xl" fontWeight={800} color="text.primary" mb={6}>Label Insights</Text>
+              
+              <Grid templateColumns={{ base: '1fr', sm: 'repeat(3, 1fr)' }} gap={6} mb={10}>
+                {/* Hero Stat Card 1 */}
+                <Box position="relative" p={6} borderRadius="2xl" bgGradient="linear(to-br, blue.500, blue.700)" color="white" overflow="hidden" boxShadow="0 10px 30px -10px rgba(49, 130, 206, 0.5)">
+                  <Icon as={TagIcon} position="absolute" right="-10%" bottom="-20%" boxSize={32} opacity={0.1} transform="rotate(-15deg)" />
+                  <Text fontSize="sm" fontWeight={600} opacity={0.8} mb={1}>Total Labels</Text>
+                  <Text fontSize="4xl" fontWeight={800} lineHeight="1">{labels?.length || 0}</Text>
+                </Box>
+                {/* Hero Stat Card 2 */}
+                <Box position="relative" p={6} borderRadius="2xl" bgGradient="linear(to-br, brand.400, brand.600)" color="white" overflow="hidden" boxShadow="0 10px 30px -10px rgba(67, 110, 111, 0.5)">
+                  <Icon as={TagIcon} position="absolute" right="-10%" bottom="-20%" boxSize={32} opacity={0.1} transform="rotate(-15deg)" />
+                  <Text fontSize="sm" fontWeight={600} opacity={0.8} mb={1}>App-Created</Text>
+                  <Text fontSize="4xl" fontWeight={800} lineHeight="1">{groupedLabels.app.length}</Text>
+                </Box>
+                {/* Hero Stat Card 3 */}
+                <Box position="relative" p={6} borderRadius="2xl" bgGradient="linear(to-br, purple.400, purple.600)" color="white" overflow="hidden" boxShadow="0 10px 30px -10px rgba(128, 90, 213, 0.5)">
+                  <Icon as={TagIcon} position="absolute" right="-10%" bottom="-20%" boxSize={32} opacity={0.1} transform="rotate(-15deg)" />
+                  <Text fontSize="sm" fontWeight={600} opacity={0.8} mb={1}>User Labels</Text>
+                  <Text fontSize="4xl" fontWeight={800} lineHeight="1">{groupedLabels.user.length}</Text>
+                </Box>
+              </Grid>
+
+              <Text fontSize="lg" fontWeight={700} color="text.primary" mb={4}>Largest Labels</Text>
+                <Grid templateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }} gap={5}>
+                  {(() => {
+                    const sorted = [...(labels || [])].sort((a, b) => b.messagesTotal - a.messagesTotal)
+                    const maxTotal = sorted[0]?.messagesTotal || 1
+                    return sorted.slice(0, 6).map(l => (
+                      <Card key={l.id} variant="outline" borderRadius="xl" overflow="hidden" cursor="pointer" transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)" _hover={{ boxShadow: '0 12px 24px -10px rgba(0,0,0,0.1)', borderColor: 'brand.400', transform: 'translateY(-4px)' }} onClick={() => setSelectedLabel(l)}>
+                        <Flex align="center" justify="space-between" p={4} bg="bg.glass" borderBottom="1px solid" borderColor="blackAlpha.50">
+                          <HStack spacing={4} overflow="hidden">
+                            <Flex w="40px" h="40px" borderRadius="xl" bg="brand.50" align="center" justify="center" flexShrink={0}>
+                              <TagIcon color="brand.500" boxSize={5} />
+                            </Flex>
+                            <Box overflow="hidden">
+                              <Text fontSize="md" fontWeight={700} color="text.primary" isTruncated>{prettyLabelName(l)}</Text>
+                              <Text fontSize="xs" fontWeight={600} color="neutral.500">{l.type === 'system' ? 'System' : l.appCreated ? 'App-Created' : 'User Label'}</Text>
+                            </Box>
+                          </HStack>
+                          <VStack align="flex-end" spacing={0} ml={2} flexShrink={0}>
+                            <Text fontSize="md" fontWeight={800} color="brand.700">{l.messagesTotal.toLocaleString()}</Text>
+                            <Text fontSize="xs" color="neutral.500" fontWeight={500}>emails</Text>
+                          </VStack>
+                        </Flex>
+                        <Box h="4px" w="100%" bg="gray.100">
+                          <Box h="100%" bg="brand.400" w={`${Math.max(2, (l.messagesTotal / maxTotal) * 100)}%`} borderRadius="full" />
+                        </Box>
+                      </Card>
+                    ))
+                  })()}
+                </Grid>
+            </Card>
           )}
-        </Grid>
+
+          {/* Floating trash tray for selected messages */}
+          {selectedMsgIds.size > 0 && (
+            <Flex
+              position="absolute" left={6} right={6} bottom={6} mx="auto"
+              align="center" justify="space-between" gap={4}
+              bg="bg.tray" color="text.inverse"
+              borderRadius="full" pl={4} pr={3} py={3} zIndex={50}
+              boxShadow="0 18px 50px rgba(0,0,0, 0.4)" border="1px solid" borderColor="whiteAlpha.200"
+            >
+              <HStack spacing={3} flex={1}>
+                <Flex px={2} py={1} borderRadius="md" bg="brand.500" fontWeight={800} fontSize="sm" color="white" boxShadow="0 2px 8px rgba(67, 110, 111, 0.4)">
+                  {selectedMsgIds.size}
+                </Flex>
+                <Text fontSize="sm" color="whiteAlpha.800">messages selected</Text>
+              </HStack>
+              <HStack spacing={2}>
+                <Button
+                  size="sm" borderRadius="full" px={4} colorScheme="red"
+                  isDisabled={trashJob.running}
+                  onClick={() => setConfirmTrashMsgs(true)}
+                >
+                  Move to Trash
+                </Button>
+                <Button size="sm" borderRadius="full" px={4} variant="ghost" color="whiteAlpha.800" _hover={{ color: 'white', bg: 'whiteAlpha.300' }} onClick={() => setSelectedMsgIds(new Set())}>
+                  Clear
+                </Button>
+              </HStack>
+            </Flex>
+          )}
+          </Box>
+        </GridItem>
       </Grid>
 
-      {/* Floating trash tray for selected messages */}
-      {selectedMsgIds.size > 0 && (
-        <Paper
-          elevation={0}
-          sx={{
-            position: 'fixed',
-            left: '50%',
-            bottom: 24,
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 2,
-            background: 'rgba(255,255,255,0.80)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-            color: '#1C1C1E',
-            borderRadius: '14px',
-            px: 2.5,
-            py: 1.25,
-            zIndex: 50,
-            width: 'min(560px, 92vw)',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.16)',
-            border: '1px solid rgba(60,60,67,0.16)',
-            animation: 'fadeInUp 0.3s ease-out',
-          }}
-          role="toolbar"
-          aria-label="Actions for selected messages"
-        >
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1 }}>
-            <Box
-              sx={{
-                px: 1.25, py: 0.25, borderRadius: '8px',
-                background: '#007AFF',
-                fontWeight: 800, fontSize: '0.875rem', color: '#fff',
-                boxShadow: '0 2px 8px rgba(0,122,255,0.4)',
-              }}
-            >
-              {selectedMsgIds.size}
-            </Box>
-            <Typography variant="body2" sx={{ color: 'rgba(60,60,67,0.7)' }}>
-              messages selected
-            </Typography>
-          </Stack>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              size="small"
-              disabled={trashJob.running}
-              onClick={() => setConfirmTrashMsgs(true)}
-              sx={{
-                background: '#FF3B30',
-                boxShadow: '0 2px 8px rgba(239,68,68,0.4)',
-                '&:hover': { background: '#E0352B' },
-              }}
-            >
-              Move to Trash
-            </Button>
-            <Button
-              variant="text"
-              size="small"
-              sx={{ color: 'rgba(60,60,67,0.6)', '&:hover': { color: 'rgba(60,60,67,0.7)' } }}
-              onClick={() => setSelectedMsgIds(new Set())}
-            >
-              Clear
-            </Button>
-          </Stack>
-        </Paper>
+      {confirmEmptyTrash && (
+        <ConfirmDialog
+          title="Empty Trash?"
+          message="This will permanently delete ALL messages currently in the Trash. This action cannot be undone."
+          danger
+          onCancel={() => setConfirmEmptyTrash(false)}
+          onConfirm={executeEmptyTrash}
+        />
       )}
 
       {confirmLabelAction && (
@@ -635,6 +808,6 @@ export default function LabelManager({ onDisconnected }: { onDisconnected: () =>
           onConfirm={executeTrashMessages}
         />
       )}
-    </div>
+    </Flex>
   )
 }

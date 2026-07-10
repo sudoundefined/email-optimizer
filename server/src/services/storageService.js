@@ -7,12 +7,13 @@ export function bytesToMB(bytes) {
 }
 
 export const SIZE_BANDS = [
-  { key: 'lt500k',   label: '< 500 KB',      minBytes: 0,          maxBytes: 512_000 },
-  { key: '500k-1m',  label: '500 KB – 1 MB', minBytes: 512_000,    maxBytes: 1_048_576 },
-  { key: '1m-5m',    label: '1 – 5 MB',      minBytes: 1_048_576,  maxBytes: 5_242_880 },
-  { key: '5m-10m',   label: '5 – 10 MB',     minBytes: 5_242_880,  maxBytes: 10_485_760 },
-  { key: '10m-25m',  label: '10 – 25 MB',    minBytes: 10_485_760, maxBytes: 26_214_400 },
-  { key: 'gt25m',    label: '> 25 MB',        minBytes: 26_214_400, maxBytes: Infinity },
+  { key: '0-200k', label: '0 – 200 KB', minBytes: 0, maxBytes: 204_800 },
+  { key: '200k-500k', label: '200 KB – 500 KB', minBytes: 204_800, maxBytes: 512_000 },
+  { key: '500k-1m', label: '500 KB – 1 MB', minBytes: 512_000, maxBytes: 1_048_576 },
+  { key: '1m-5m', label: '1 – 5 MB', minBytes: 1_048_576, maxBytes: 5_242_880 },
+  { key: '5m-10m', label: '5 – 10 MB', minBytes: 5_242_880, maxBytes: 10_485_760 },
+  { key: '10m-25m', label: '10 – 25 MB', minBytes: 10_485_760, maxBytes: 26_214_400 },
+  { key: 'gt25m', label: '> 25 MB', minBytes: 26_214_400, maxBytes: Infinity },
 ]
 
 export function aggregateBySender(messages, limit = 10) {
@@ -110,7 +111,7 @@ async function fetchLargeMessages(gmail, emit) {
     const res = await limited(() =>
       gmail.users.messages.list({
         userId: 'me',
-        q: 'larger:500K -in:trash -in:spam',
+        q: 'larger:250K -in:trash -in:spam',
         maxResults: 500,
         pageToken,
       })

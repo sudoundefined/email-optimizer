@@ -62,6 +62,7 @@ describe('storageService aggregation', () => {
 
   it('aggregateBySizeBand places messages in correct bands', () => {
     const messages = [
+      { sizeEstimate: 100_000,    from: 'z@z.com', hasAttachment: false, date: 0, id: '0', subject: '' },
       { sizeEstimate: 400_000,    from: 'a@a.com', hasAttachment: false, date: 0, id: '1', subject: '' },
       { sizeEstimate: 600_000,    from: 'b@b.com', hasAttachment: false, date: 0, id: '2', subject: '' },
       { sizeEstimate: 3_000_000,  from: 'c@c.com', hasAttachment: false, date: 0, id: '3', subject: '' },
@@ -70,7 +71,8 @@ describe('storageService aggregation', () => {
       { sizeEstimate: 30_000_000, from: 'f@f.com', hasAttachment: false, date: 0, id: '6', subject: '' },
     ]
     const result = aggregateBySizeBand(messages)
-    assert.strictEqual(result.find(r => r.key === 'lt500k').messageCount,  1)
+    assert.strictEqual(result.find(r => r.key === '0-200k').messageCount,  1)
+    assert.strictEqual(result.find(r => r.key === '200k-500k').messageCount,  1)
     assert.strictEqual(result.find(r => r.key === '500k-1m').messageCount, 1)
     assert.strictEqual(result.find(r => r.key === '1m-5m').messageCount,   1)
     assert.strictEqual(result.find(r => r.key === '5m-10m').messageCount,  1)

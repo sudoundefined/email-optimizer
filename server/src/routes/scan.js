@@ -30,13 +30,13 @@ router.post('/scan', (req, res) => {
 
 router.get('/senders', (req, res) => {
   const scan = getScan()
-  if (!scan) return res.status(404).json({ error: 'no_scan' })
+  if (!scan) return res.status(404).json({ error: 'no_scan', message: 'No scan data found. Please run a new scan.' })
   res.json(scanView(scan))
 })
 
 router.get('/subscriptions', (req, res) => {
   const scan = getScan()
-  if (!scan) return res.status(404).json({ error: 'no_scan' })
+  if (!scan) return res.status(404).json({ error: 'no_scan', message: 'No scan data found. Please run a new scan.' })
   res.json(detectSubscriptions(scan.senders))
 })
 

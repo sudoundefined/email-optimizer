@@ -1,15 +1,23 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { ThemeProvider } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
-import theme from './theme'
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
+import { botanicalTheme, espressoTheme } from './theme/themes'
+import { AppThemeProvider, useAppTheme } from './theme/ThemeContext'
 import App from './App'
+
+function ChakraWrapper({ children }: { children: React.ReactNode }) {
+  const { theme } = useAppTheme()
+  const activeTheme = theme === 'botanical' ? botanicalTheme : espressoTheme
+  return <ChakraProvider theme={activeTheme}>{children}</ChakraProvider>
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <App />
-    </ThemeProvider>
+    <ColorModeScript initialColorMode={botanicalTheme.config.initialColorMode} />
+    <AppThemeProvider>
+      <ChakraWrapper>
+        <App />
+      </ChakraWrapper>
+    </AppThemeProvider>
   </React.StrictMode>
 )

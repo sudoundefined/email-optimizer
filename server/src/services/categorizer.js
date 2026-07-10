@@ -15,6 +15,12 @@ export const CATEGORIES = [
   'Newsletters',
   'Social',
   'Promotions',
+  'Education',
+  'Entertainment',
+  'Food & Dining',
+  'Real Estate',
+  'Health & Fitness',
+  'Investing',
   'Personal',
   'Other',
 ]
@@ -67,6 +73,12 @@ export const DOMAIN_RULES = [
   ['Work', ['linkedin.com', 'greenhouse.io', 'lever.co', 'workday.com', 'myworkday.com', 'indeed.com', 'glassdoor.com', 'ashbyhq.com'], ['recruit']],
   ['Social', ['facebookmail.com', 'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'pinterest.com', 'nextdoor.com', 'reddit.com', 'redditmail.com', 'tiktok.com', 'discord.com', 'meetup.com', 'quora.com'], []],
   ['Newsletters', ['substack.com', 'beehiiv.com', 'buttondown.email', 'ghost.io', 'mailchimp.com', 'mcsv.net', 'convertkit.com', 'medium.com'], ['newsletter', 'digest']],
+  ['Education', ['edu', 'coursera.org', 'udemy.com', 'edx.org', 'canvas.net', 'blackboard.com', 'duolingo.com', 'masterclass.com'], ['college', 'university', 'school', 'academy']],
+  ['Entertainment', ['ticketmaster.com', 'eventbrite.com', 'fandango.com', 'amctheatres.com', 'livenation.com', 'twitch.tv', 'steam.com', 'epicgames.com', 'axs.com'], ['ticket', 'event', 'concert', 'gaming']],
+  ['Food & Dining', ['doordash.com', 'ubereats.com', 'grubhub.com', 'postmates.com', 'instacart.com', 'opentable.com', 'dominos.com', 'pizzahut.com', 'mcdonalds.com', 'starbucks.com', 'resy.com'], ['restaurant', 'delivery', 'food', 'dining']],
+  ['Real Estate', ['zillow.com', 'trulia.com', 'realtor.com', 'redfin.com', 'apartments.com'], ['realestate', 'mortgage', 'rent']],
+  ['Health & Fitness', ['myfitnesspal.com', 'peloton.com', 'fitbit.com', 'strava.com', 'mindbodyonline.com'], ['fitness', 'gym', 'workout']],
+  ['Investing', ['robinhood.com', 'fidelity.com', 'schwab.com', 'vanguard.com', 'etrade.com', 'coinbase.com', 'wealthfront.com', 'betterment.com'], ['invest', 'portfolio', 'crypto', 'brokerage']],
 ]
 
 export const SUBJECT_RULES = [
@@ -80,6 +92,12 @@ export const SUBJECT_RULES = [
   ['Shopping', /\border\b|\bshipped\b|\bdelivery\b|\breceipt\b|\bcart\b|\btracking\b/i],
   ['Travel', /\bitinerary\b|\bflight\b|\bbooking\b|\breservation\b|\bcheck-?in\b|\btrip\b/i],
   ['Newsletters', /\bnewsletter\b|\bdigest\b|\bweekly\b|\bmonthly\b|issue\s*#?\d+|\bedition\b/i],
+  ['Education', /\bcourse\b|\bclass\b|\bassignment\b|\bhomework\b|curriculum|tuition/i],
+  ['Entertainment', /\bticket\b|\bevent\b|\bconcert\b|\bshowtime\b|gaming|\bgig\b/i],
+  ['Food & Dining', /\bfood delivery\b|\bmenu\b|\bdine\b|restaurant|order ready|pickup/i],
+  ['Real Estate', /\brent\b|\bmortgage\b|\blease\b|\bproperty\b|open house|realtor/i],
+  ['Health & Fitness', /\bgym\b|\bworkout\b|\bfitness\b|personal training|yoga/i],
+  ['Investing', /\binvest\b|\bportfolio\b|\bcrypto\b|\bdividend\b|brokerage/i],
 ]
 
 export const GMAIL_CATEGORY_MAP = {

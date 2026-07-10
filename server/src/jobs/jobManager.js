@@ -47,18 +47,15 @@ export function createJob(name, runner) {
   Promise.resolve()
     .then(() => runner(emit, controller.signal))
     .then((result) => {
+      if (job.state === 'cancelled' || controller.signal.aborted) return
       job.state = 'done'
       job.result = result
       job.events.emit('end')
     })
     .catch((err) => {
-      if (controller.signal.aborted) {
-        job.state = 'cancelled'
-        job.error = 'cancelled'
-      } else {
-        job.state = 'error'
-        job.error = err?.message || String(err)
-      }
+      if (job.state === 'cancelled' || controller.signal.aborted) return
+      job.state = 'error'
+      job.error = err?.message || String(err)
       job.events.emit('end')
     })
     .finally(pruneFinished)
@@ -70,7 +67,10 @@ export function createJob(name, runner) {
 export function cancelJob(id) {
   const job = jobs.get(id)
   if (!job || job.state !== 'running') return false
+  job.state = 'cancelled'
+  job.error = 'cancelled'
   job.controller.abort()
+  job.events.emit('end')
   return true
 }
 

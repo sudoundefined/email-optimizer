@@ -1,29 +1,17 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Checkbox from '@mui/material/Checkbox'
-import Chip from '@mui/material/Chip'
-import CircularProgress from '@mui/material/CircularProgress'
-import Grid from '@mui/material/Grid'
-import Paper from '@mui/material/Paper'
-import Stack from '@mui/material/Stack'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TablePagination from '@mui/material/TablePagination'
-import TableRow from '@mui/material/TableRow'
-import Tooltip from '@mui/material/Tooltip'
-import Typography from '@mui/material/Typography'
-import StorageOutlined from '@mui/icons-material/StorageOutlined'
+import {
+  Alert, AlertIcon, Box, Button, Card, CardBody, Checkbox, Tag,
+  Grid, GridItem, Flex, Text, Table, Thead, Tbody,
+  Tr, Th, Td, TableContainer, Tooltip, Icon, VStack, HStack, Select, IconButton
+} from '@chakra-ui/react'
+import EmailLoader from './EmailLoader'
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, CopyIcon, UpDownIcon } from '@chakra-ui/icons'
 import { api, ApiError } from '../api'
+import { clientCache } from '../cache'
 import type { StorageAttachment, StorageDrillMessage, StorageStats, StorageYear, StorageSizeBand } from '../types'
 import ConfirmDialog from './ConfirmDialog'
 import { useJob } from '../hooks/useJob'
+import { useAutoClearAlert } from '../hooks/useAutoClearAlert'
 
 function parseFromHeader(from: string): string {
   const m = from.match(/^\s*"?([^"<]*)"?\s*<.*>$/)
@@ -77,143 +65,143 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
   const panelSelected = (messages ?? []).filter((m) => selected.has(m.id)).length
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-              border: '1px solid rgba(60, 60, 67, 0.1)',
-        borderRadius: '14px',
-        overflow: 'hidden',
-        animation: 'fadeInUp 0.4s ease-out',
-        background: 'rgba(255,255,255,0.85)',
-        backdropFilter: 'blur(12px)',
-      }}
+    <Flex
+      direction="column"
+      h="100%"
+      border="1px solid" borderColor="gray.100"
+      borderRadius="xl"
+      overflow="hidden"
+      bg="bg.card"
+      backdropFilter="blur(12px)"
+      pb={selected.size > 0 ? "80px" : "0px"}
+      transition="padding-bottom 0.2s"
     >
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          px: 3,
-          py: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-          background: 'var(--color-dominant-light)',
-        }}
-      >
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography variant="h6">{title}</Typography>
+      <Flex align="center" justify="space-between" px={6} py={4} borderBottom="1px" borderColor="border.subtle" bg="bg.glass">
+        <HStack spacing={2} minW={0}>
+          <Text fontSize="lg" fontWeight={700} isTruncated>{title}</Text>
           {messages && (
-            <Chip
-              label={`${messages.length} emails`}
-              size="small"
-              variant="outlined"
-            />
+            <Tag size="sm" variant="outline" borderRadius="full" flexShrink={0}>
+              {messages.length} emails
+            </Tag>
           )}
           {panelSelected > 0 && (
-            <Chip label={`${panelSelected} selected`} size="small" color="primary" />
+            <Tag size="sm" colorScheme="blue" borderRadius="full" flexShrink={0}>
+              {panelSelected} selected
+            </Tag>
           )}
-        </Stack>
-        <Button size="small" variant="text" onClick={onClose}>Close</Button>
-      </Box>
+        </HStack>
+        <Button size="sm" variant="ghost" onClick={onClose} flexShrink={0}>Close</Button>
+      </Flex>
 
-      {/* Body */}
       {loading && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 3, py: 3 }}>
-          <CircularProgress size={20} />
-          <Typography variant="body2" color="text.secondary">Loading messages…</Typography>
-        </Box>
+        <Flex align="center" justify="center" py={12}>
+          <EmailLoader size="sm" message="Loading messages…" />
+        </Flex>
       )}
 
       {messages && messages.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 3, py: 3 }}>
+        <Text fontSize="sm" color="gray.500" px={6} py={6}>
           No messages found for this selection.
-        </Typography>
+        </Text>
       )}
 
       {messages && messages.length > 0 && (
-        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
-          <Table size="small" stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox">
+        <TableContainer flex={1} overflowY="auto">
+          <Table size="sm" variant="simple" style={{ tableLayout: 'fixed' }}>
+            <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+              <Tr>
+                <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
                   <Checkbox
-                    size="small"
-                    checked={allSelected}
-                    indeterminate={someSelected && !allSelected}
+                    isChecked={allSelected}
+                    isIndeterminate={someSelected && !allSelected}
                     onChange={toggleAll}
-                    aria-label="Select all on this page"
+                    colorScheme="blue"
                   />
-                </TableCell>
-                <TableCell>From</TableCell>
-                <TableCell>Subject</TableCell>
-                <TableCell align="right">Size</TableCell>
-                <TableCell align="right">Date</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+                </Th>
+                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                </Th>
+                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                </Th>
+                <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex justify="flex-end" align="center" gap={2}>Size <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                </Th>
+                <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                </Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {pageRows.map((m) => (
-                <TableRow
+                <Tr
                   key={m.id}
-                  hover
-                  selected={selected.has(m.id)}
+                  bg="transparent"
+                  _hover={{ bg: 'gray.50' }}
                   onClick={() => toggle(m.id)}
-                  sx={{ cursor: 'pointer' }}
+                  cursor="pointer"
+                  borderBottom="1px solid"
+                  borderColor="gray.100"
+                  boxShadow={selected.has(m.id) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
                 >
-                  <TableCell padding="checkbox">
+                  <Td px={4} onClick={(e) => e.stopPropagation()}>
                     <Checkbox
-                      size="small"
-                      checked={selected.has(m.id)}
+                      isChecked={selected.has(m.id)}
                       onChange={() => toggle(m.id)}
                       onClick={(e) => e.stopPropagation()}
-                      aria-label={`Select ${m.subject || '(no subject)'}`}
+                      colorScheme="brand"
                     />
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 160 }}>
-                    <Tooltip title={m.from} placement="top-start">
-                      <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                  </Td>
+                  <Td maxW="160px">
+                    <Tooltip label={m.from} placement="top-start" hasArrow maxW="400px" whiteSpace="normal">
+                      <Text fontSize="sm" fontWeight={600} isTruncated>
                         {parseFromHeader(m.from)}
-                      </Typography>
+                      </Text>
                     </Tooltip>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 280 }}>
-                    <Typography variant="body2" color="text.secondary" noWrap>
+                  </Td>
+                  <Td maxW="280px">
+                    <Text fontSize="sm" color="neutral.500" isTruncated>
                       {m.subject || '(no subject)'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                    <Typography variant="caption">{m.sizeMB.toLocaleString()} MB</Typography>
-                  </TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                    <Typography variant="caption" color="text.secondary">
+                    </Text>
+                  </Td>
+                  <Td isNumeric whiteSpace="nowrap">
+                    <Text fontSize="xs" fontWeight={600} color="brand.900">{m.sizeMB.toLocaleString()} MB</Text>
+                  </Td>
+                  <Td isNumeric whiteSpace="nowrap">
+                    <Text fontSize="xs" color="neutral.500">
                       {new Date(m.date).toLocaleDateString(undefined, {
                         month: 'short', day: 'numeric', year: 'numeric',
                       })}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                    </Text>
+                  </Td>
+                </Tr>
               ))}
-            </TableBody>
+            </Tbody>
           </Table>
         </TableContainer>
       )}
       {paginate && (
-        <TablePagination
-          component="div"
-          count={messages?.length ?? 0}
-          page={safePage}
-          onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0) }}
-          rowsPerPageOptions={[50, 100, 200]}
-          labelRowsPerPage="Per page"
-          sx={{ borderTop: '1px solid rgba(60, 60, 67, 0.08)', flexShrink: 0 }}
-        />
+        <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="border.subtle" bg="bg.card">
+          <HStack spacing={4}>
+            <HStack>
+              <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+              <Select size="sm" w="80px" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0) }}>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </Select>
+            </HStack>
+            <Text fontSize="sm" color="gray.600">
+              {start + 1}-{Math.min(start + rowsPerPage, messages?.length || 0)} of {messages?.length || 0}
+            </Text>
+            <HStack spacing={1}>
+              <IconButton aria-label="Previous" icon={<ChevronLeftIcon />} size="sm" variant="ghost" isDisabled={safePage === 0} onClick={() => setPage(p => p - 1)} />
+              <IconButton aria-label="Next" icon={<ChevronRightIcon />} size="sm" variant="ghost" isDisabled={safePage >= pageCount - 1} onClick={() => setPage(p => p + 1)} />
+            </HStack>
+          </HStack>
+        </Flex>
       )}
-    </Paper>
+    </Flex>
   )
 }
 
@@ -221,22 +209,30 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
 
 type DrillKey = { by: 'sender'; value: string } | { by: 'month'; value: string } | { by: 'year'; value: string } | { by: 'size'; value: string } | null
 
-export default function StorageTab({ onDisconnected }: { onDisconnected: () => void }) {
+export default function StorageTab({ 
+  onDisconnected, 
+  onCacheInfo 
+}: { 
+  onDisconnected: () => void
+  onCacheInfo?: (info: { timestamp: number | null; secondsUntilRefresh: number; onRefresh: () => void; stats?: { totalMB: number; messageCount: number } }) => void
+}) {
   const [stats, setStats] = useState<StorageStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [trashDone, setTrashDone] = useState<string | null>(null)
   const [confirmTrash, setConfirmTrash] = useState(false)
+  const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null)
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState<number>(300)
 
-  // drill-down state
+  useAutoClearAlert(error, setError)
+  useAutoClearAlert(trashDone, setTrashDone)
+
   const [drillKey, setDrillKey] = useState<DrillKey>(null)
   const [drillMessages, setDrillMessages] = useState<StorageDrillMessage[] | null>(null)
   const [drillLoading, setDrillLoading] = useState(false)
 
-  // unified selection across attachment table + drill-down panel
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // attachments pagination
   const [attachPage, setAttachPage] = useState(0)
   const [attachRowsPerPage, setAttachRowsPerPage] = useState(100)
   useEffect(() => { setAttachPage(0) }, [stats?.attachments])
@@ -251,12 +247,12 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
       safePage,
       rows: paginate ? list.slice(startIdx, startIdx + attachRowsPerPage) : list,
       total: list.length,
+      pageCount
     }
   }, [stats, attachPage, attachRowsPerPage])
 
   const trashJob = useJob()
 
-  // year-expand state for the left-pane date filter
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
   const toggleYear = (year: string) => {
     setExpandedYears(prev => {
@@ -267,7 +263,6 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
     })
   }
 
-  // group months by year for dependent filtering
   const monthsByYear = useMemo(() => {
     if (!stats) return {}
     const groups: Record<string, typeof stats.months> = {}
@@ -287,36 +282,104 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
     [onDisconnected]
   )
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setStats(await api.storageStats())
-    } catch (err) {
-      handleApiError(err)
-    } finally {
-      setLoading(false)
+  const load = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true)
+      setError(null)
     }
-  }, [handleApiError])
+    try {
+      const data = await api.storageStats()
+      if (isSilent) {
+        // Compare with current stats
+        const currentStatsStr = stats ? JSON.stringify(stats) : ''
+        const newStatsStr = JSON.stringify(data)
+        if (currentStatsStr !== newStatsStr) {
+          setStats(data)
+        }
+      } else {
+        setStats(data)
+      }
+      clientCache.setStorageStats(data)
+      setCacheTimestamp(Date.now())
+      setSecondsUntilRefresh(300)
+    } catch (err) {
+      if (!isSilent) {
+        handleApiError(err)
+      } else {
+        console.error("Background load failed", err)
+      }
+    } finally {
+      if (!isSilent) {
+        setLoading(false)
+      }
+    }
+  }, [handleApiError, stats])
 
-  useEffect(() => { load() }, [load])
+  // Initial load checking client cache
+  useEffect(() => {
+    const cached = clientCache.getStorageStats()
+    if (cached) {
+      setStats(cached.data)
+      setCacheTimestamp(cached.timestamp)
+      setLoading(false)
+      const remaining = Math.max(0, 300000 - (Date.now() - cached.timestamp))
+      setSecondsUntilRefresh(Math.ceil(remaining / 1000))
+    } else {
+      load(false)
+    }
+  }, []) // run once on mount
+
+  // Background refresh checking loop
+  useEffect(() => {
+    if (!cacheTimestamp) return
+    let isFetching = false
+    const interval = setInterval(async () => {
+      const elapsed = Date.now() - cacheTimestamp
+      const remaining = Math.max(0, 300000 - elapsed)
+      const secs = Math.ceil(remaining / 1000)
+      setSecondsUntilRefresh(secs)
+
+      if (remaining === 0 && !isFetching) {
+        isFetching = true
+        try {
+          await load(true)
+        } catch (err) {
+          console.error("Background refresh failed", err)
+          setCacheTimestamp(Date.now())
+        } finally {
+          isFetching = false
+        }
+      }
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [cacheTimestamp, load])
 
   const refresh = async () => {
     setSelectedIds(new Set())
     setTrashDone(null)
     setDrillKey(null)
     setDrillMessages(null)
+    clientCache.clearStorageStats()
     try {
       await api.storageRefresh()
-      await load()
+      await load(false)
     } catch (err) {
       handleApiError(err)
     }
   }
 
-  // Open drill-down for a sender email, month string, or year string
+  useEffect(() => {
+    if (onCacheInfo) {
+      onCacheInfo({
+        timestamp: cacheTimestamp,
+        secondsUntilRefresh,
+        onRefresh: refresh,
+        stats: stats ? { totalMB: stats.totalMB, messageCount: stats.messageCount } : undefined
+      })
+    }
+  }, [cacheTimestamp, secondsUntilRefresh, onCacheInfo, stats])
+
   const openDrill = async (by: 'sender' | 'month' | 'year' | 'size', value: string) => {
-    // toggle off if same key clicked again
     if (drillKey?.by === by && drillKey.value === value) {
       setDrillKey(null)
       setDrillMessages(null)
@@ -341,7 +404,6 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
     setDrillMessages(null)
   }
 
-  // attachment table toggles
   const toggleAttachment = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -383,7 +445,6 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
       const count = 'trashed' in response ? response.trashed : ids.length
       setTrashDone(`Moved ${count.toLocaleString()} messages to Trash. Recoverable in Gmail for 30 days.`)
       setSelectedIds(new Set())
-      // remove trashed rows from local state
       setStats((prev) =>
         prev ? { ...prev, attachments: prev.attachments.filter((a) => !ids.includes(a.id)) } : prev
       )
@@ -393,41 +454,16 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 8,
-          gap: 2,
-        }}
-      >
-        <Box
-          sx={{
-            animation: 'pulse 1.8s ease-in-out infinite',
-            '@keyframes pulse': {
-              '0%, 100%': { opacity: 1, transform: 'scale(1)' },
-              '50%': { opacity: 0.5, transform: 'scale(0.92)' },
-            },
-          }}
-        >
-          <StorageOutlined sx={{ fontSize: 48, color: '#34C759' }} />
-        </Box>
-        <CircularProgress size={28} sx={{ color: '#34C759' }} />
-        <Typography variant="body2" color="text.secondary">
-          Analyzing your largest emails… this can take a moment.
-        </Typography>
-      </Box>
+      <Flex direction="column" align="center" justify="center" py={16}>
+        <EmailLoader size="md" message="Analyzing your largest emails… this can take a moment." />
+      </Flex>
     )
   }
 
   if (error && !stats) {
-    return <Alert severity="error">{error}</Alert>
+    return <Alert status="error" borderRadius="md"><AlertIcon />{error}</Alert>
   }
 
   if (!stats) return null
@@ -450,440 +486,355 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
       : ''
 
   return (
-    <div>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {trashDone && <Alert severity="success" sx={{ mb: 2 }}>{trashDone}</Alert>}
+    <Flex direction="column" h="100%" minH={0}>
+      {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
+      {trashDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashDone}</Alert>}
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Storage analysis covers every email larger than 500 KB (outside Trash and Spam). Cached for 5
-          minutes. Click any category to browse its messages.
-        </Typography>
-        <Button size="small" variant="outlined" onClick={refresh} sx={{ ml: 2, flexShrink: 0 }}>
-          Refresh
-        </Button>
-      </Box>
+      {/* Horizontal Size Bands */}
+      {(stats.sizes ?? []).length > 0 && !(stats.sizes ?? []).every(s => s.messageCount === 0) && (
+        <Flex 
+          overflowX="auto" 
+          py={2} 
+          mb={6}
+          gap={3} 
+          sx={{ '&::-webkit-scrollbar': { display: 'none' } }}
+        >
+            <Button
+              size="sm"
+              variant={drillKey?.by !== 'size' ? 'solid' : 'outline'}
+              colorScheme={drillKey?.by !== 'size' ? 'brand' : 'gray'}
+              onClick={() => {
+                if (drillKey?.by === 'size') closeDrill()
+              }}
+              borderRadius="full"
+              flexShrink={0}
+            >
+              All Sizes
+            </Button>
+            {(stats.sizes ?? []).map((s: StorageSizeBand) => {
+              const active = drillKey?.by === 'size' && drillKey.value === s.key
+              const disabled = s.messageCount === 0
+              return (
+                <Button
+                  key={s.key}
+                  size="sm"
+                  isDisabled={disabled}
+                  variant={active ? 'solid' : 'outline'}
+                  onClick={() => !disabled && openDrill('size', s.key)}
+                  bg={active ? 'brand.500' : 'bg.card'}
+                  borderColor={active ? 'brand.500' : 'border.glass'}
+                  color={active ? 'white' : 'text.primary'}
+                  _hover={disabled ? {} : { bg: active ? 'brand.500' : 'bg.hover' }}
+                  borderRadius="full"
+                  flexShrink={0}
+                  borderWidth="1px"
+                >
+                  {s.label} <Text as="span" ml={2} opacity={0.7} fontSize="xs">{disabled ? '0' : `${s.totalMB.toLocaleString()} MB`}</Text>
+                </Button>
+              )
+            })}
+          </Flex>
+      )}
 
-      {/* Reclaimable storage hero card */}
-      <Card
-        sx={{
-          background: 'var(--card-hero)',
-          color: '#fff',
-          mb: 3,
-          position: 'relative',
-          overflow: 'hidden',
-          animation: 'fadeInUp 0.5s ease-out, pulseGlow 4s ease-in-out infinite',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.08), transparent)',
-            backgroundSize: '200% 100%',
-            animation: 'shimmer 3s linear infinite',
-            pointerEvents: 'none',
-          },
-        }}
-      >
-        <CardContent sx={{ position: 'relative', zIndex: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.8)', letterSpacing: '0.1em' }}>
-                Reclaimable storage
-              </Typography>
-              <Typography variant="h2" sx={{ fontWeight: 700, color: '#fff' }}>
-                {stats.totalMB.toLocaleString()} MB
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5 }}>
-                across {stats.messageCount.toLocaleString()} large emails
-              </Typography>
-            </Box>
-            <Box sx={{
-              width: 56, height: 56, borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(255,255,255,0.1)',
-              backdropFilter: 'blur(8px)',
-            }}>
-              <StorageOutlined sx={{ fontSize: 28, color: '#fff' }} />
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Grid container spacing={3}>
+      <Grid templateColumns={{ base: '1fr', md: 'repeat(12, 1fr)' }} gap={6} mb={6} flex={1} minH={0}>
         {/* LEFT PANE — Navigation */}
-        <Grid size={{ xs: 12, md: 4, lg: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            
+        <GridItem colSpan={{ base: 12, md: 4, lg: 4 }} minH={0} overflowY={{ md: 'auto' }} pr={{ md: 2 }}>
+          <VStack spacing={6} align="stretch">
             {/* Storage by Year -> Month */}
-            <Card sx={{
-              borderRadius: '14px',
-              overflow: 'hidden',
-              animation: 'fadeInUp 0.5s ease-out 0.1s both',
-              transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
-            }}>
-              <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
-                <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
-                  📅 Storage by date
-                </Typography>
+            <Card borderRadius="2xl" overflow="hidden" boxShadow="sm" border="1px solid" borderColor="border.glass" bg="bg.card">
+              <Box px={5} py={4} borderBottom="1px" borderColor="border.glass" bgGradient="linear(to-r, brand.50, transparent)">
+                <Text fontSize="xs" fontWeight="800" color="brand.700" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
+                  <Icon as={CalendarIcon} mr={2} color="brand.500" /> Storage by Date
+                </Text>
               </Box>
-              <CardContent sx={{ p: '8px !important' }}>
+              <CardBody p={3} maxH="320px" overflowY="auto" css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
                 {(stats.years ?? []).length === 0 && (
-                  <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>No large emails found.</Typography>
+                  <Text fontSize="sm" color="gray.500" p={2}>No large emails found.</Text>
                 )}
-                {(stats.years ?? []).map((y: StorageYear) => {
-                  const isExpanded = expandedYears.has(y.year)
-                  return (
-                    <Box key={y.year}>
-                      {/* Year Row */}
-                      <Box
-                        onClick={() => toggleYear(y.year)}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          px: 1,
-                          py: 1,
-                          borderRadius: 1,
-                          cursor: 'pointer',
-                          bgcolor: isExpanded ? 'rgba(0, 122, 255, 0.05)' : 'transparent',
-                          '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.08)' },
-                        }}
-                      >
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{y.year}</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {y.totalMB.toLocaleString()} MB
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                            {isExpanded ? '▲' : '▼'}
-                          </Typography>
-                        </Box>
+                <VStack spacing={2} align="stretch">
+                  {(stats.years ?? []).map((y: StorageYear) => {
+                    const isExpanded = expandedYears.has(y.year)
+                    return (
+                      <Box key={y.year}>
+                        <Flex
+                          onClick={() => toggleYear(y.year)}
+                          align="center" justify="space-between" px={4} py={3} borderRadius="xl" cursor="pointer"
+                          bg={isExpanded ? 'brand.500' : 'bg.glass'}
+                          color={isExpanded ? 'white' : 'text.primary'}
+                          border="1px solid" borderColor={isExpanded ? 'brand.500' : 'border.subtle'}
+                          boxShadow={isExpanded ? '0 4px 14px rgba(0,0,0,0.1)' : 'none'}
+                          transition="all 0.2s"
+                          _hover={{ transform: 'translateX(4px)', bg: isExpanded ? 'brand.600' : 'bg.hover' }}
+                        >
+                          <HStack spacing={3}>
+                            <Flex w="32px" h="32px" borderRadius="lg" bg={isExpanded ? 'whiteAlpha.300' : 'brand.100'} align="center" justify="center">
+                              <CalendarIcon color={isExpanded ? 'white' : 'brand.500'} boxSize={4} />
+                            </Flex>
+                            <Text fontSize="sm" fontWeight={700} isTruncated>
+                              {y.year}
+                            </Text>
+                          </HStack>
+                          <HStack spacing={2} flexShrink={0}>
+                            <Text fontSize="sm" fontWeight={800}>
+                              {y.totalMB.toLocaleString()} MB
+                            </Text>
+                            <Text fontSize="10px" opacity={0.6}>{isExpanded ? '▲' : '▼'}</Text>
+                          </HStack>
+                        </Flex>
+                        {isExpanded && (
+                          <VStack spacing={1} align="stretch" mt={2} pl={6}>
+                            {(monthsByYear[y.year] || []).map((m) => {
+                              const active = drillKey?.by === 'month' && drillKey.value === m.month
+                              return (
+                                <Flex
+                                  key={m.month}
+                                  onClick={() => openDrill('month', m.month)}
+                                  align="center" justify="space-between" px={4} py={2} borderRadius="lg" cursor="pointer"
+                                  bg={active ? 'blue.50' : 'transparent'}
+                                  borderLeft="3px solid" borderColor={active ? 'blue.400' : 'transparent'}
+                                  color={active ? 'blue.800' : 'text.secondary'}
+                                  transition="all 0.2s"
+                                  _hover={{ bg: active ? 'blue.100' : 'bg.hover', transform: 'translateX(2px)' }}
+                                >
+                                  <Text fontSize="sm" fontWeight={active ? 700 : 500} isTruncated>
+                                    {new Date(Number(m.month.split('-')[0]), Number(m.month.split('-')[1]) - 1).toLocaleString('default', { month: 'long' })}
+                                  </Text>
+                                  <Text fontSize="xs" fontWeight={active ? 800 : 600} flexShrink={0}>
+                                    {m.totalMB.toLocaleString()} MB
+                                  </Text>
+                                </Flex>
+                              )
+                            })}
+                          </VStack>
+                        )}
                       </Box>
-                      {/* Nested Months */}
-                      {isExpanded && (monthsByYear[y.year] || []).map((m) => {
-                        const active = drillKey?.by === 'month' && drillKey.value === m.month
-                        return (
-                          <Box
-                            key={m.month}
-                            onClick={() => openDrill('month', m.month)}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              pl: 3,
-                              pr: 1,
-                              py: 0.75,
-                              borderRadius: 1,
-                              cursor: 'pointer',
-                              bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
-                              borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                              '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.12)' },
-                            }}
-                          >
-                            <Typography variant="body2" sx={{ color: active ? 'var(--color-accent)' : 'text.primary' }}>
-                              {new Date(Number(m.month.split('-')[0]), Number(m.month.split('-')[1]) - 1).toLocaleString('default', { month: 'long' })}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: active ? 'var(--color-accent)' : 'text.secondary' }}>
-                              {m.totalMB.toLocaleString()} MB
-                            </Typography>
-                          </Box>
-                        )
-                      })}
-                    </Box>
-                  )
-                })}
-              </CardContent>
+                    )
+                  })}
+                </VStack>
+              </CardBody>
             </Card>
 
             {/* Top Senders */}
-            <Card sx={{
-              borderRadius: '14px',
-              overflow: 'hidden',
-              animation: 'fadeInUp 0.5s ease-out 0.2s both',
-              transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
-            }}>
-              <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
-                <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
-                  👤 Top Senders
-                </Typography>
+            <Card borderRadius="2xl" overflow="hidden" boxShadow="sm" border="1px solid" borderColor="border.glass" bg="bg.card">
+              <Box px={5} py={4} borderBottom="1px" borderColor="border.glass" bgGradient="linear(to-r, brand.50, transparent)">
+                <Text fontSize="xs" fontWeight="800" color="brand.700" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
+                  <Icon as={CopyIcon} mr={2} color="brand.500" /> Top Senders
+                </Text>
               </Box>
-              <CardContent sx={{ p: '8px !important' }}>
+              <CardBody p={3} maxH="320px" overflowY="auto" css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
                 {stats.senders.length === 0 && (
-                  <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>No large emails found.</Typography>
+                  <Text fontSize="sm" color="gray.500" p={2}>No large emails found.</Text>
                 )}
-                {stats.senders.map((s) => {
-                  const active = drillKey?.by === 'sender' && drillKey.value === s.email
-                  return (
-                    <Box
-                      key={s.email}
-                      onClick={() => openDrill('sender', s.email)}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 1,
-                        py: 0.75,
-                        borderRadius: 1,
-                        cursor: 'pointer',
-                        bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
-                        borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                        '&:hover': { bgcolor: 'rgba(0, 122, 255, 0.12)' },
-                      }}
-                    >
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 140, color: active ? 'var(--color-accent)' : 'text.primary' }}>
-                        {parseFromHeader(s.name)}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: active ? 'var(--color-accent)' : 'text.secondary' }}>
-                        {s.totalMB.toLocaleString()} MB
-                      </Typography>
-                    </Box>
-                  )
-                })}
-              </CardContent>
+                <VStack spacing={2} align="stretch">
+                  {stats.senders.map((s) => {
+                    const active = drillKey?.by === 'sender' && drillKey.value === s.email
+                    return (
+                      <Flex
+                        key={s.email}
+                        onClick={() => openDrill('sender', s.email)}
+                        align="center" justify="space-between" px={4} py={3} borderRadius="xl" cursor="pointer"
+                        bg={active ? 'brand.500' : 'bg.glass'}
+                        color={active ? 'white' : 'text.primary'}
+                        border="1px solid" borderColor={active ? 'brand.500' : 'border.subtle'}
+                        boxShadow={active ? '0 4px 14px rgba(0,0,0,0.1)' : 'none'}
+                        transition="all 0.2s"
+                        _hover={{ transform: 'translateX(4px)', bg: active ? 'brand.600' : 'bg.hover' }}
+                      >
+                        <Box overflow="hidden">
+                          <Text fontSize="sm" fontWeight={active ? 700 : 500} isTruncated>
+                            {parseFromHeader(s.name)}
+                          </Text>
+                          <Text fontSize="xs" opacity={0.8} isTruncated>
+                            {s.email}
+                          </Text>
+                        </Box>
+                        <Text fontSize="sm" fontWeight={active ? 800 : 600} flexShrink={0}>
+                          {s.totalMB.toLocaleString()} MB
+                        </Text>
+                      </Flex>
+                    )
+                  })}
+                </VStack>
+              </CardBody>
             </Card>
-
-            {/* Size Bands */}
-            <Card sx={{
-              borderRadius: '14px',
-              overflow: 'hidden',
-              animation: 'fadeInUp 0.5s ease-out 0.3s both',
-              transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-              '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.08)' },
-            }}>
-              <Box sx={{ background: '#fff', px: 2, py: 1.5, borderBottom: '1px solid rgba(60,60,67,0.12)' }}>
-                <Typography variant="overline" sx={{ color: 'rgba(60,60,67,0.6)', display: 'block', lineHeight: 1.4 }}>
-                  📦 By Size
-                </Typography>
-              </Box>
-              <CardContent sx={{ p: '8px !important' }}>
-                {(stats.sizes ?? []).every(s => s.messageCount === 0) && (
-                  <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>No large emails found.</Typography>
-                )}
-                {(stats.sizes ?? []).map((s: StorageSizeBand) => {
-                  const active = drillKey?.by === 'size' && drillKey.value === s.key
-                  const disabled = s.messageCount === 0
-                  return (
-                    <Box
-                      key={s.key}
-                      onClick={() => !disabled && openDrill('size', s.key)}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 1,
-                        py: 0.75,
-                        borderRadius: 1,
-                        cursor: disabled ? 'default' : 'pointer',
-                        opacity: disabled ? 0.4 : 1,
-                        bgcolor: active ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
-                        borderLeft: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                        '&:hover': disabled ? {} : { bgcolor: 'rgba(0, 122, 255, 0.12)' },
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ color: active ? 'var(--color-accent)' : 'text.primary' }}>
-                        {s.label}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: active ? 'var(--color-accent)' : 'text.secondary' }}>
-                        {disabled ? '0 emails' : `${s.totalMB.toLocaleString()} MB`}
-                      </Typography>
-                    </Box>
-                  )
-                })}
-              </CardContent>
-            </Card>
-
-          </Box>
-        </Grid>
+          </VStack>
+        </GridItem>
 
         {/* RIGHT PANE — Content */}
-        <Grid size={{ xs: 12, md: 8, lg: 9 }}>
-          {drillKey ? (
-            <Box sx={{ height: 'calc(100vh - 200px)', minHeight: 400 }}>
-              <DrillPanel
-                title={drillTitle}
-                messages={drillMessages}
-                loading={drillLoading}
-                selected={selectedIds}
-                onSelectedChange={setSelectedIds}
-                onClose={closeDrill}
-              />
-            </Box>
-          ) : (
-            <Card
-              variant="outlined"
-              sx={{
-                border: '1px solid rgba(60, 60, 67, 0.1)',
-                borderRadius: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                height: 'calc(100vh - 200px)',
-                minHeight: 400,
-                animation: 'fadeInUp 0.5s ease-out 0.15s both',
-                background: 'rgba(255,255,255,0.85)',
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              <Box sx={{ p: 3, borderBottom: '1px solid rgba(60, 60, 67, 0.06)' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Largest attachments (&gt;5 MB)</Typography>
+        <GridItem colSpan={{ base: 12, md: 8, lg: 8 }} minH={0}>
+            <Box position="relative" h="100%">
+            {drillKey ? (
+              <Box h="100%">
+                <DrillPanel
+                  title={drillTitle}
+                  messages={drillMessages}
+                  loading={drillLoading}
+                  selected={selectedIds}
+                  onSelectedChange={setSelectedIds}
+                  onClose={closeDrill}
+                />
+              </Box>
+            ) : (
+              <Card 
+                variant="outline" 
+                borderRadius="xl" 
+                h="100%" 
+                display="flex" 
+                flexDir="column" 
+                bg="bg.card" 
+                backdropFilter="blur(12px)"
+                pb={selectedIds.size > 0 ? "80px" : "0px"}
+                transition="padding-bottom 0.2s"
+              >
+              <Box px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent">
+                <Flex align="center" justify="space-between">
+                  <Text fontSize="lg" fontWeight={700} color="text.primary">Largest attachments (&gt;5 MB)</Text>
                   {selectedIds.size > 0 && (
-                    <Chip
-                      label={`${selectedIds.size} selected`}
-                      color="primary"
-                      size="small"
-                      onDelete={() => setSelectedIds(new Set())}
-                    />
+                    <Tag size="sm" colorScheme="brand" borderRadius="full">
+                      {selectedIds.size} selected
+                    </Tag>
                   )}
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                </Flex>
+                <Text fontSize="sm" color="neutral.500" mt={1}>
                   Default view showing all massive attachments across your mailbox.
-                </Typography>
+                </Text>
               </Box>
 
               {stats.attachments.length === 0 ? (
-                <Box sx={{ p: 3 }}>
-                  <Typography variant="body2" color="text.secondary">No attachments larger than 5 MB found.</Typography>
+                <Box p={6}>
+                  <Text fontSize="sm" color="gray.500">No attachments larger than 5 MB found.</Text>
                 </Box>
               ) : (
-                <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell padding="checkbox">
+                <TableContainer flex={1} overflowY="auto">
+                  <Table size="sm" variant="simple">
+                    <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+                      <Tr>
+                        <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
                           <Checkbox
-                            size="small"
-                            checked={allAttachmentsSelected}
-                            indeterminate={someAttachmentsSelected && !allAttachmentsSelected}
+                            isChecked={allAttachmentsSelected}
+                            isIndeterminate={someAttachmentsSelected && !allAttachmentsSelected}
                             onChange={toggleAllAttachments}
-                            aria-label="Select all attachments on this page"
+                            colorScheme="brand"
                           />
-                        </TableCell>
-                        <TableCell>From</TableCell>
-                        <TableCell>Subject</TableCell>
-                        <TableCell align="right">Size</TableCell>
-                        <TableCell align="right">Date</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
+                        </Th>
+                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        </Th>
+                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        </Th>
+                        <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex justify="flex-end" align="center" gap={2}>Size <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        </Th>
+                        <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        </Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
                       {attachView.rows.map((a: StorageAttachment) => (
-                        <TableRow
+                        <Tr
                           key={a.id}
-                          hover
-                          selected={selectedIds.has(a.id)}
+                          bg="transparent"
+                          _hover={{ bg: 'gray.50' }}
                           onClick={() => toggleAttachment(a.id)}
-                          sx={{ cursor: 'pointer' }}
+                          cursor="pointer"
+                          borderBottom="1px solid"
+                          borderColor="gray.100"
+                          boxShadow={selectedIds.has(a.id) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
                         >
-                          <TableCell padding="checkbox">
+                          <Td px={4} onClick={(e) => e.stopPropagation()}>
                             <Checkbox
-                              size="small"
-                              checked={selectedIds.has(a.id)}
+                              isChecked={selectedIds.has(a.id)}
                               onChange={() => toggleAttachment(a.id)}
                               onClick={(e) => e.stopPropagation()}
-                              aria-label={`Select ${a.subject || '(no subject)'}`}
+                              colorScheme="brand"
                             />
-                          </TableCell>
-                          <TableCell sx={{ maxWidth: 160 }}>
-                            <Tooltip title={a.from} placement="top-start">
-                              <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                          </Td>
+                          <Td maxW="160px">
+                            <Tooltip label={a.from} placement="top-start" hasArrow maxW="400px" whiteSpace="normal">
+                              <Text fontSize="sm" fontWeight={600} isTruncated>
                                 {parseFromHeader(a.from)}
-                              </Typography>
+                              </Text>
                             </Tooltip>
-                          </TableCell>
-                          <TableCell sx={{ maxWidth: 280 }}>
-                            <Typography variant="body2" color="text.secondary" noWrap>
+                          </Td>
+                          <Td maxW="280px">
+                            <Text fontSize="sm" color="gray.500" isTruncated>
                               {a.subject || '(no subject)'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{a.sizeMB.toLocaleString()} MB</TableCell>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            <Typography variant="caption" color="text.secondary">
+                            </Text>
+                          </Td>
+                          <Td isNumeric whiteSpace="nowrap">
+                            <Text fontSize="xs" fontWeight={600}>{a.sizeMB.toLocaleString()} MB</Text>
+                          </Td>
+                          <Td isNumeric whiteSpace="nowrap">
+                            <Text fontSize="xs" color="gray.500">
                               {new Date(a.date).toLocaleDateString(undefined, {
                                 month: 'short', day: 'numeric', year: 'numeric',
                               })}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
+                            </Text>
+                          </Td>
+                        </Tr>
                       ))}
-                    </TableBody>
+                    </Tbody>
                   </Table>
                 </TableContainer>
               )}
               {attachView.paginate && (
-                <TablePagination
-                  component="div"
-                  count={attachView.total}
-                  page={attachView.safePage}
-                  onPageChange={(_, p) => setAttachPage(p)}
-                  rowsPerPage={attachRowsPerPage}
-                  onRowsPerPageChange={(e) => { setAttachRowsPerPage(parseInt(e.target.value, 10)); setAttachPage(0) }}
-                  rowsPerPageOptions={[50, 100, 200]}
-                  labelRowsPerPage="Per page"
-                  sx={{ borderTop: '1px solid rgba(60, 60, 67, 0.08)', flexShrink: 0 }}
-                />
+                <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="border.subtle" bg="bg.card">
+                  <HStack spacing={4}>
+                    <HStack>
+                      <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+                      <Select size="sm" w="80px" value={attachRowsPerPage} onChange={(e) => { setAttachRowsPerPage(Number(e.target.value)); setAttachPage(0) }}>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                        <option value={200}>200</option>
+                      </Select>
+                    </HStack>
+                    <Text fontSize="sm" color="gray.600">
+                      {attachView.safePage * attachRowsPerPage + 1}-{Math.min((attachView.safePage + 1) * attachRowsPerPage, attachView.total)} of {attachView.total}
+                    </Text>
+                    <HStack spacing={1}>
+                      <IconButton aria-label="Previous" icon={<ChevronLeftIcon />} size="sm" variant="ghost" isDisabled={attachView.safePage === 0} onClick={() => setAttachPage(p => p - 1)} />
+                      <IconButton aria-label="Next" icon={<ChevronRightIcon />} size="sm" variant="ghost" isDisabled={attachView.safePage >= attachView.pageCount - 1} onClick={() => setAttachPage(p => p + 1)} />
+                    </HStack>
+                  </HStack>
+                </Flex>
               )}
             </Card>
           )}
-        </Grid>
-      </Grid>
 
-      {/* Floating trash tray — appears when anything is selected */}
-      {selectedIds.size > 0 && (
-        <Paper
-          elevation={8}
-          sx={{
-            position: 'fixed',
-            left: '50%',
-            bottom: 24,
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 2,
-            background: 'rgba(255,255,255,0.80)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-            color: '#1C1C1E',
-            borderRadius: '14px',
-            px: 2.5,
-            py: 1.25,
-            zIndex: 50,
-            width: 'min(560px, 92vw)',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.16)',
-            border: '1px solid rgba(60,60,67,0.16)',
-          }}
-          role="toolbar"
-          aria-label="Actions for selected messages"
-        >
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1 }}>
-            <Chip label={selectedIds.size} color="primary" size="small" />
-            <Typography variant="body2" sx={{ color: 'rgba(60,60,67,0.7)' }}>
-              messages selected
-            </Typography>
-          </Stack>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              size="small"
-              color="error"
-              disabled={trashJob.running}
-              onClick={() => setConfirmTrash(true)}
+          {/* Floating trash tray */}
+          {selectedIds.size > 0 && (
+            <Flex
+              position="absolute" left={6} right={6} bottom={6} mx="auto"
+              align="center" justify="space-between" gap={4}
+              bg="bg.tray" color="text.inverse"
+              borderRadius="full" pl={4} pr={3} py={3} zIndex={50}
+              boxShadow="0 18px 50px rgba(0,0,0, 0.4)" border="1px solid" borderColor="whiteAlpha.200"
             >
-              Move to Trash
-            </Button>
-            <Button
-              variant="text"
-              size="small"
-              sx={{ color: 'rgba(60,60,67,0.6)' }}
-              onClick={() => setSelectedIds(new Set())}
-            >
-              Clear
-            </Button>
-          </Stack>
-        </Paper>
-      )}
+              <HStack spacing={3} flex={1}>
+                <Flex px={2} py={1} borderRadius="md" bg="brand.500" fontWeight={800} fontSize="sm" color="white" boxShadow="0 2px 8px rgba(67, 110, 111, 0.4)">
+                  {selectedIds.size}
+                </Flex>
+                <Text fontSize="sm" color="whiteAlpha.800">messages selected</Text>
+              </HStack>
+              <HStack spacing={2}>
+                <Button
+                  size="sm" borderRadius="full" px={4} colorScheme="red"
+                  isDisabled={trashJob.running}
+                  onClick={() => setConfirmTrash(true)}
+                >
+                  Move to Trash
+                </Button>
+                <Button size="sm" borderRadius="full" px={4} variant="ghost" color="whiteAlpha.800" _hover={{ color: 'white', bg: 'whiteAlpha.300' }} onClick={() => setSelectedIds(new Set())}>
+                  Clear
+                </Button>
+              </HStack>
+            </Flex>
+          )}
+        </Box>
+        </GridItem>
+      </Grid>
 
       {confirmTrash && (
         <ConfirmDialog
@@ -895,6 +846,6 @@ export default function StorageTab({ onDisconnected }: { onDisconnected: () => v
           onConfirm={runTrash}
         />
       )}
-    </div>
+    </Flex>
   )
 }

@@ -1,8 +1,5 @@
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
-import Card from '@mui/material/Card'
-import { MailOutlined as MailIcon, AutoAwesome as SparkleIcon } from '@mui/icons-material'
+import { Flex, Card, VStack, HStack, Heading, Text, Button, Box, Image } from '@chakra-ui/react'
+import { StarIcon } from '@chakra-ui/icons'
 
 const FEATURES = [
   { icon: '🧹', label: 'Bulk unsubscribe from marketing mail' },
@@ -13,81 +10,53 @@ const FEATURES = [
 
 export default function ConnectScreen() {
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        p: { xs: 2, sm: 4 },
-        background: 'var(--color-dominant-light)',
-      }}
-    >
-      <Card
-        sx={{
-          maxWidth: 480,
-          width: '100%',
-          p: { xs: 4, sm: 6 },
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-        }}
-      >
-        {/* Logo mark */}
-        <Box
-          sx={{
-            width: 64, height: 64, borderRadius: '16px', mb: 3,
-            background: 'var(--color-accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 16px rgba(0, 122, 255, 0.25)',
-          }}
-        >
-          <MailIcon sx={{ color: '#fff', fontSize: 32 }} />
-        </Box>
+    <Flex minH="100vh" align="center" justify="center" p={{ base: 4, sm: 8 }} bg="gray.50">
+      <Card maxW="480px" w="100%" p={{ base: 6, sm: 8 }} textAlign="center" borderRadius="xl" boxShadow="sm">
+        <VStack spacing={6}>
+          <Flex w="64px" h="64px" borderRadius="16px" bg="white" align="center" justify="center" boxShadow="md" overflow="hidden">
+            <Image src="/logo.png" alt="EmailDiet Logo" w="100%" h="100%" objectFit="cover" />
+          </Flex>
 
-        <Typography variant="h2" sx={{ mb: 1, color: 'var(--color-dominant)' }}>
-          Email Optimizer
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary', mb: 4 }}>
-          Take back control of your Gmail inbox. Unsubscribe in bulk, organise with labels, and free up storage.
-        </Typography>
+          <Box>
+            <Heading size="lg" mb={2} color="gray.900">EmailDiet</Heading>
+            <Text color="gray.500">
+              Take back control of your Gmail inbox. Unsubscribe in bulk, organise with labels, and free up storage.
+            </Text>
+          </Box>
 
-        {/* Feature list */}
-        <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', gap: 2, width: '100%', textAlign: 'left' }}>
-          {FEATURES.map(f => (
-            <Box
-              key={f.label}
-              sx={{
-                display: 'flex', alignItems: 'center', gap: 2,
-              }}
-            >
-              <Typography sx={{ fontSize: '1.25rem', lineHeight: 1 }}>{f.icon}</Typography>
-              <Typography variant="body2" sx={{ color: 'var(--color-dominant)', fontWeight: 500 }}>
-                {f.label}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+          <VStack spacing={4} align="stretch" w="full" textAlign="left">
+            {FEATURES.map(f => (
+              <HStack key={f.label} spacing={4}>
+                <Text fontSize="xl">{f.icon}</Text>
+                <Text color="gray.900" fontWeight={500}>{f.label}</Text>
+              </HStack>
+            ))}
+          </VStack>
 
-        {/* CTA */}
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          href="/api/auth/login"
-          startIcon={<SparkleIcon />}
-          fullWidth
-          sx={{ py: 1.5, fontSize: '16px', mb: 3 }}
-        >
-          Sign in with Google
-        </Button>
+          <Button
+            as="a"
+            href="/api/auth/login"
+            colorScheme="blue"
+            size="lg"
+            width="full"
+            leftIcon={<StarIcon />}
+            py={6}
+          >
+            Sign in with Google
+          </Button>
 
-        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '12px' }}>
-          While in Google Testing mode, sessions expire after ~7 days.
-          <br />Nothing is deleted permanently — Trash is always recoverable.
-        </Typography>
+          <Text fontSize="xs" color="gray.500">
+            While in Google Testing mode, sessions expire after ~7 days.<br />
+            Nothing is deleted permanently — Trash is always recoverable.
+          </Text>
+        </VStack>
       </Card>
-    </Box>
+      
+      <Flex position="absolute" bottom={4} w="full" justify="center">
+        <Text fontSize="sm" color="gray.400">
+          &copy; {new Date().getFullYear()} EmailDiet. All rights reserved.
+        </Text>
+      </Flex>
+    </Flex>
   )
 }

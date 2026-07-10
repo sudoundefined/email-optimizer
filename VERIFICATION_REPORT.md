@@ -1,6 +1,6 @@
-# Email Optimizer - Implementation Verification Report
+# EmailDiet - Implementation Verification Report
 **Date:** 2026-07-08  
-**Project:** Email Optimizer (formerly Email Unsubscriber)  
+**Project:** EmailDiet (formerly EmailDiet)  
 **Location:** `C:\Users\deepa\email-unsubscriber`
 
 ## Executive Summary
@@ -64,7 +64,7 @@
 **v3 - Protection, Filters & Storage**
 - ✅ Sender protect-list (auto + manual)
 - ✅ Quick-filter toolbar (10 Gmail query shortcuts)
-- ✅ Storage recovery dashboard (>500 KB emails, top senders, attachments table)
+- ✅ Storage recovery dashboard (>250 KB emails, top senders, attachments table)
 - ✅ Labels master-detail (manage system, user, and app-created labels)
 
 ### 🚧 Not Yet Implemented
@@ -165,7 +165,7 @@ The **MUI migration is 100% complete** and the app is in a **fully functional, p
 Following user feedback, the app has been further refined:
 - **Two-Pane Master-Detail Layouts**: Consistently applied to Inbox, Storage, and Labels tabs, offering better navigation and data viewing.
 - **Flat/Squared Design**: Eliminated rounded corners on cards (`borderRadius: 0`) and applied pill-shaped designs (`borderRadius: 24px`) to list items to enhance the clean, minimalist look.
-- **Storage Adjustments**: Threshold dropped to 500 KB to find and clear more space efficiently.
+- **Storage Adjustments**: Threshold dropped to 250 KB to find and clear more space efficiently.
 
 ### "Now" Tier Quick Wins (2026-07-09)
 Shipped two retention/sweeper features (branch `feat/now-tier-quick-wins`):

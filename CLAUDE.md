@@ -1,8 +1,8 @@
-# Email Unsubscriber — Architecture & Features
+# EmailDiet — Architecture & Features
 
 ## Overview
 
-Email Unsubscriber is a full-stack web application that connects to a user's Gmail account via OAuth 2.0 and provides tools to manage subscriptions, reclaim storage, organize emails with labels, and protect important senders from accidental unsubscription.
+EmailDiet is a full-stack web application that connects to a user's Gmail account via OAuth 2.0 and provides tools to manage subscriptions, reclaim storage, organize emails with labels, and protect important senders from accidental unsubscription.
 
 ---
 
@@ -10,7 +10,7 @@ Email Unsubscriber is a full-stack web application that connects to a user's Gma
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 18 + TypeScript, Vite, Material UI v9, Emotion |
+| **Frontend** | React 18 + TypeScript, Vite, Chakra UI v2, Framer Motion |
 | **Backend** | Node.js + Express (ESM), Google APIs (googleapis) |
 | **Auth** | Google OAuth 2.0 with PKCE state + CSRF protection |
 | **Data** | File-based JSON persistence (tokens, labels, protected senders) |
@@ -206,9 +206,9 @@ App.tsx (Tab navigation + auth state)
 ### 1. 📧 Subscription Scanner
 - Scans inbox for subscription/promotional emails across configurable time ranges
 - Groups by sender, detects best unsubscribe method per sender
-- Categorizes senders (Promotions, Newsletters, Social, Shopping, Finance, Travel)
+- Categorizes senders (18 categories including Promotions, Newsletters, Education, Entertainment, Food & Dining)
 - Scans the full matching set (no message cap by default; `SCAN_MAX_MESSAGES` env to limit)
-- Time ranges: last month, 3 months, 6 months, 1 year, all time
+- Time ranges: last month, 3 months, 6 months, 1 year, all time. Changing the range auto-triggers the scan.
 
 ### 2. 🚫 Smart Unsubscribe
 - **One-Click POST** (RFC 8058) — Fully automated, server-side
@@ -231,7 +231,7 @@ App.tsx (Tab navigation + auth state)
 - Scans all emails >500KB with aggregation by sender, month, year, and size band
 - Left/right master-detail pane layout
 - Dependent date filtering (Year → Month drill-down)
-- Large attachment table (>5MB) with bulk select
+- Large attachment table (>5MB) with bulk select and pagination
 - Bulk trash with confirmation dialog (30-day Gmail recovery)
 - 5-minute server-side cache for performance
 
@@ -240,6 +240,8 @@ App.tsx (Tab navigation + auth state)
 - Batch-applies labels to scanned sender messages (1,000 per batch)
 - Label registry persisted to JSON for cross-session tracking
 - Remove labels from Gmail or trash emails and delete label
+- Label sidebar categorized by System, User, and App with collapsible accordions
+- Paginated message drill-down
 
 ### 7. 🔐 Security
 - OAuth 2.0 with CSRF state tokens (10-minute TTL)
