@@ -3,7 +3,7 @@
 **Version:** 1.0 · **Last Updated:** 2026-07-11
 **Status:** Multi-User SaaS · Production-Ready · 55 tests passing · Clean production build
 
-> This is the single consolidated reference for EmailDiet's **architecture** (HLD + LLD), **design system** (Apple HIG), and **implementation details** (database schema, auth flow, service layer). It supersedes the separate `ARCHITECTURE.md`, `DESIGN.md`, and `implementation_plan.md` files.
+> This is the consolidated reference for EmailDiet's **architecture** (HLD + LLD) and **implementation details** (database schema, auth flow, service layer). Section 7 summarizes the design system; the full styling rulebook lives in [`DESIGN.md`](DESIGN.md).
 
 ---
 
