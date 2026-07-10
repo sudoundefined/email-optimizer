@@ -27,30 +27,40 @@ router.get('/:id/events', (req, res) => {
   })
   res.flushHeaders?.()
 
-  const send = (event, data) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  const safeSend = (event, data) => {
+    if (res.destroyed || res.writableEnded) return
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+    } catch { /* client gone */ }
   }
 
-  send('state', jobSnapshot(job))
+  safeSend('state', jobSnapshot(job))
 
   if (job.state !== 'running') {
-    send('end', jobSnapshot(job))
-    return res.end()
+    safeSend('end', jobSnapshot(job))
+    if (!res.destroyed && !res.writableEnded) res.end()
+    return
   }
 
-  const onProgress = () => send('state', jobSnapshot(job))
-  const onEnd = () => {
-    send('end', jobSnapshot(job))
-    cleanup()
-    res.end()
-  }
-  const heartbeat = setInterval(() => res.write(': ping\n\n'), 15000)
-
+  let cleaned = false
   function cleanup() {
+    if (cleaned) return
+    cleaned = true
     clearInterval(heartbeat)
     job.events.off('progress', onProgress)
     job.events.off('end', onEnd)
   }
+
+  const onProgress = () => safeSend('state', jobSnapshot(job))
+  const onEnd = () => {
+    safeSend('end', jobSnapshot(job))
+    cleanup()
+    if (!res.destroyed && !res.writableEnded) res.end()
+  }
+  const heartbeat = setInterval(() => {
+    if (res.destroyed || res.writableEnded) { cleanup(); return }
+    try { res.write(': ping\n\n') } catch { cleanup() }
+  }, 15000)
 
   job.events.on('progress', onProgress)
   job.events.on('end', onEnd)

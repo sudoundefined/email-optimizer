@@ -26,6 +26,7 @@ This document is the single reference for **what the app does**, **how to use ea
    - [Storage recovery dashboard](#10-storage-recovery-dashboard)
    - [Label manager](#11-label-manager)
    - [Weekly digest (scheduled)](#12-weekly-digest-scheduled)
+   - [Excel export](#13-excel-export)
 3. [Safety & Security model](#safety--security-model)
 4. [Pending / Roadmap](#pending--roadmap)
 
@@ -315,6 +316,38 @@ Label-backed groups show exact counts; query-backed groups (attachments, large, 
 **Under the hood:** `digestStore` (settings + baseline), `digestService` (pure diff/HTML/MIME builders), `digestRunner` (`runDigest`), `jobs/scheduler.js` (`isDigestDue`), routes `GET/POST /api/digest*`.
 
 ---
+
+### 13. Excel export
+
+**What it does:** Exports the currently visible sender list (filtered by segment, category, and search) to an Excel `.xlsx` file. Extracts email, display name, first name, last name, and domain for each sender.
+
+**How to use:**
+1. Go to the **Senders** tab and run a scan.
+2. Optionally apply filters (segments, category chips, search box) and/or select specific senders via checkboxes.
+3. Click the **download icon** (⬇) next to the Sort dropdown in the right pane toolbar.
+4. The `.xlsx` file downloads instantly — no server round-trip required.
+
+**Smart selection:**
+- If you have **senders checked**, only those are exported.
+- If **no senders are checked**, the entire visible/filtered list is exported.
+
+**Columns:**
+| Column | Source |
+|--------|--------|
+| **Email** | Sender's email address |
+| **Name** | Display name from the `From` header |
+| **First Name** | Split from name (everything before the first space) |
+| **Last Name** | Split from name (everything after the first space) |
+| **Domain** | Email domain (e.g. `linkedin.com`) |
+
+**Filename:** `Email_export_<unix_timestamp>.xlsx`
+
+**Notes:**
+- Name splitting is best-effort: single-word names (e.g. "LinkedIn") go entirely into First Name; multi-word last names (e.g. "John van der Berg") are preserved correctly.
+- Generated entirely client-side using the SheetJS (`xlsx`) library — zero additional API calls.
+- Columns are auto-sized for readability.
+
+**Under the hood:** `utils/exportExcel.ts` (`exportToExcel` + `splitName`) called from `MailboxTab.tsx`.
 
 ## Safety model
 

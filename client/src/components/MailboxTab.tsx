@@ -6,7 +6,8 @@ import {
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
-import { EmailIcon, SearchIcon, StarIcon, CopyIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons'
+import { EmailIcon, SearchIcon, StarIcon, CopyIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
+import { exportToExcel } from '../utils/exportExcel'
 import { api, ApiError } from '../api'
 import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription, Filter, GroupMessage } from '../types'
 import { useJob } from '../hooks/useJob'
@@ -821,18 +822,35 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                       <Tag size="sm" colorScheme="brand" borderRadius="full">{selectedSenders.size} selected</Tag>
                     )}
                   </HStack>
-                  <Select
-                    size="sm"
-                    w="160px"
-                    flexShrink={0}
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as SortKey)}
-                    bg="white"
-                  >
-                    <option value="volume">Sort: Most emails</option>
-                    <option value="name">Sort: Name (A–Z)</option>
-                    <option value="recent">Sort: Most recent</option>
-                  </Select>
+                  <HStack spacing={2} flexShrink={0}>
+                    <Select
+                      size="sm"
+                      w="160px"
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value as SortKey)}
+                      bg="white"
+                    >
+                      <option value="volume">Sort: Most emails</option>
+                      <option value="name">Sort: Name (A–Z)</option>
+                      <option value="recent">Sort: Most recent</option>
+                    </Select>
+                    <Tooltip label="Export to Excel" hasArrow>
+                      <IconButton
+                        aria-label="Export to Excel"
+                        icon={<DownloadIcon />}
+                        size="sm"
+                        variant="outline"
+                        colorScheme="brand"
+                        isDisabled={visibleSenders.length === 0}
+                        onClick={() => {
+                          const toExport = selectedSenders.size > 0
+                            ? visibleSenders.filter((s) => selectedSenders.has(s.email))
+                            : visibleSenders
+                          exportToExcel(toExport)
+                        }}
+                      />
+                    </Tooltip>
+                  </HStack>
                 </Flex>
                 
                 {segment === 'subscriptions' && (
