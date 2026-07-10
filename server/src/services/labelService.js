@@ -4,7 +4,8 @@ import { limited } from '../gmail/rateLimiter.js'
 import { requireScan } from '../store/scanCache.js'
 import { listRegistered, registerLabel, unregisterLabel } from '../store/labelRegistry.js'
 import { config } from '../config.js'
-import { getMetadata } from '../gmail/messages.js'
+import { getMetadata, listAllMessageIds } from '../gmail/messages.js'
+import { getDb } from '../db/db.js'
 
 const BATCH_MODIFY_MAX = 1000
 
@@ -197,3 +198,58 @@ export async function getLabelMessages(userId, labelId, max = 25) {
       }))
   }, userId)
 }
+
+/**
+ * Job runner: Apply a custom-named label (with default prefix) to all messages matching a query.
+ * Caps work at 5,000 messages and checks for truncation.
+ */
+export async function runApplyLabelToFilter(userId, { query, labelName, archive = false }, emit) {
+  return withAuthErrorHandling(async () => {
+    const db = getDb()
+    const prefRow = db.prepare('SELECT label_prefix FROM preferences WHERE user_id = ?').get(userId)
+    const prefix = prefRow?.label_prefix ?? config.labelPrefix ?? 'Unsub/'
+
+    const fullName = prefix && !labelName.startsWith(prefix) ? prefix + labelName : labelName
+
+    const gmail = await getGmail(userId)
+
+    emit({ phase: 'listing', listed: 0 })
+    const ids = await listAllMessageIds(gmail, query, {
+      maxMessages: 5001,
+      onProgress: (p) => emit({ phase: 'listing', ...p }),
+    })
+
+    const capped = ids.length > 5000
+    const targetIds = capped ? ids.slice(0, 5000) : ids
+
+    if (targetIds.length === 0) {
+      return { labeled: 0, total: 0, capped: false }
+    }
+
+    emit({ phase: 'labeling', labeled: 0, total: targetIds.length })
+
+    const labelsRes = await limited(() => gmail.users.labels.list({ userId: 'me' }))
+    const existingByName = new Map(
+      (labelsRes.data.labels || []).map((l) => [l.name.toLowerCase(), l])
+    )
+
+    const labelId = await ensureLabel(userId, gmail, fullName, existingByName)
+    const requestBody = { addLabelIds: [labelId] }
+    if (archive) requestBody.removeLabelIds = ['INBOX']
+
+    let labeled = 0
+    for (const ids1000 of chunk([...new Set(targetIds)], BATCH_MODIFY_MAX)) {
+      await limited(() =>
+        gmail.users.messages.batchModify({
+          userId: 'me',
+          requestBody: { ...requestBody, ids: ids1000 },
+        })
+      )
+      labeled += ids1000.length
+      emit({ phase: 'labeling', labeled, total: targetIds.length, currentLabel: fullName })
+    }
+
+    return { labeled, total: ids.length, capped }
+  }, userId)
+}
+

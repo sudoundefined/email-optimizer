@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { createJob } from '../jobs/jobManager.js'
 import { requireScan } from '../store/scanCache.js'
 import { suggestCategory } from '../services/categorizer.js'
-import { runApplyLabels, listAppLabels, deleteLabelOnly, runTrashLabel, getLabelMessages } from '../services/labelService.js'
+import { runApplyLabels, listAppLabels, deleteLabelOnly, runTrashLabel, getLabelMessages, runApplyLabelToFilter } from '../services/labelService.js'
 
 const router = Router()
 
@@ -31,6 +31,25 @@ router.post('/labels/apply', (req, res, next) => {
     const opts = { assignments, archive: Boolean(archive) }
     if (topLevel) opts.prefix = ''
     const job = createJob(userId, 'apply-labels', (emit) => runApplyLabels(userId, opts, emit))
+    res.json({ jobId: job.id })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/labels/apply-filter', (req, res, next) => {
+  try {
+    const userId = req.userId
+    const { query, labelName, archive } = req.body || {}
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ error: 'query parameter is required' })
+    }
+    if (!labelName || typeof labelName !== 'string' || !labelName.trim()) {
+      return res.status(400).json({ error: 'labelName parameter is required' })
+    }
+    const job = createJob(userId, 'apply-filter-label', (emit) =>
+      runApplyLabelToFilter(userId, { query: query.trim(), labelName: labelName.trim(), archive: Boolean(archive) }, emit)
+    )
     res.json({ jobId: job.id })
   } catch (err) {
     next(err)

@@ -199,11 +199,16 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const [protectedList, setProtectedList] = useState<ProtectedSender[]>([])
   const [protectionWarning, setProtectionWarning] = useState<string | null>(null)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [showFilterLabelDialog, setShowFilterLabelDialog] = useState(false)
+  const [customLabelName, setCustomLabelName] = useState('')
+  const [customLabelArchive, setCustomLabelArchive] = useState(false)
+  const [labelDone, setLabelDone] = useState<string | null>(null)
 
   useAutoClearAlert(error, setError)
   useAutoClearAlert(trashDone, setTrashDone)
   useAutoClearAlert(keepDone, setKeepDone)
   useAutoClearAlert(protectionWarning, setProtectionWarning)
+  useAutoClearAlert(labelDone, setLabelDone)
 
   const [segment, setSegment] = useState<Segment>('all')
   const [category, setCategory] = useState<string | null>(null)
@@ -227,6 +232,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const keepJob = useJob()
   const trashMessageJob = useJob()
   const filterTrashJob = useJob()
+  const filterLabelJob = useJob()
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -475,6 +481,30 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     }
   }
 
+  const runFilterLabel = async () => {
+    if (!activeFilter || !customLabelName.trim()) return
+    setShowFilterLabelDialog(false)
+    setError(null)
+    setLabelDone(null)
+    setTrashDone(null)
+    try {
+      const snapshot = await filterLabelJob.start(() =>
+        api.applyFilterLabel(activeFilter.query, customLabelName.trim(), customLabelArchive)
+      )
+      if (snapshot.state === 'error') {
+        setError(snapshot.error || 'Labeling failed')
+      } else {
+        const r = snapshot.result as { labeled: number; total: number; capped?: boolean }
+        const cappedNote = r.capped ? ' (capped at 5,000)' : ''
+        setLabelDone(`Successfully applied label to ${r.labeled.toLocaleString()} messages${cappedNote}.`)
+        setCustomLabelName('')
+        await loadData()
+      }
+    } catch (err) {
+      handleApiError(err)
+    }
+  }
+
   // --- Computed ---
   const suggestionMap = useMemo(() => {
     const m = new Map<string, Suggestion>()
@@ -557,6 +587,18 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
       {trashDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashDone}</Alert>}
       {keepDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{keepDone}</Alert>}
       {protectionWarning && <Alert status="warning" mb={4} borderRadius="md"><AlertIcon />{protectionWarning}</Alert>}
+      {labelDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{labelDone}</Alert>}
+
+      {filterLabelJob.running && (
+        <Box mb={4}>
+          <Text fontSize="xs" color="gray.500">
+            {filterLabelJob.job?.progress?.phase === 'listing'
+              ? `Scanning matching emails…`
+              : `Applying custom label… ${(filterLabelJob.job?.progress as any)?.labeled ?? 0} / ${(filterLabelJob.job?.progress as any)?.total ?? '?'}`}
+          </Text>
+          <Progress size="sm" colorScheme="blue" value={(filterLabelJob.job?.progress as any)?.total ? (((filterLabelJob.job?.progress as any)?.labeled || 0) / (filterLabelJob.job?.progress as any)?.total) * 100 : undefined} mt={1} borderRadius="md" isIndeterminate={!(filterLabelJob.job?.progress as any)?.total} />
+        </Box>
+      )}
 
       {trashSenderJob.running && trashProgress && (
         <Box mb={4}>
@@ -762,15 +804,30 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                       </Tag>
                     )}
                     {activeFilter && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        colorScheme="red"
-                        isLoading={filterTrashJob.running}
-                        onClick={() => setConfirmFilterTrash(true)}
-                      >
-                        Trash all matching
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          colorScheme="brand"
+                          isLoading={filterLabelJob.running}
+                          onClick={() => {
+                            setCustomLabelArchive(false)
+                            setCustomLabelName('')
+                            setShowFilterLabelDialog(true)
+                          }}
+                        >
+                          Label all matching
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          colorScheme="red"
+                          isLoading={filterTrashJob.running}
+                          onClick={() => setConfirmFilterTrash(true)}
+                        >
+                          Trash all matching
+                        </Button>
+                      </>
                     )}
                     <Button size="sm" variant="solid" colorScheme="brand" onClick={() => { setActiveFilter(null); setActiveDrillDownSender(null); setMessages(null); setSelectedMessages(new Set()) }}>
                       Close
@@ -1041,6 +1098,59 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
           onCancel={() => setConfirmFilterTrash(false)}
           onConfirm={runFilterTrash}
         />
+      )}
+
+      {showFilterLabelDialog && activeFilter && (
+        <Modal isOpen onClose={() => setShowFilterLabelDialog(false)} size="md" isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Label matching messages</ModalHeader>
+            <ModalBody>
+              <Text fontSize="sm" mb={4}>
+                Apply a custom label to all emails matching the filter <Text as="strong">"{activeFilter.label}"</Text> (up to 5,000 messages).
+              </Text>
+              <VStack spacing={4} align="stretch">
+                <Box>
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={1} textTransform="uppercase">
+                    Label Name
+                  </Text>
+                  <Input
+                    placeholder="e.g. Clean Promotions"
+                    value={customLabelName}
+                    onChange={(e) => setCustomLabelName(e.target.value)}
+                    size="sm"
+                    borderRadius="md"
+                    autoFocus
+                  />
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    Note: The label will be prefixed with the app's folder (e.g. Unsub/Promo Clean).
+                  </Text>
+                </Box>
+                <Checkbox
+                  isChecked={customLabelArchive}
+                  onChange={(e) => setCustomLabelArchive(e.target.checked)}
+                  size="sm"
+                  colorScheme="blue"
+                >
+                  Also archive tagged emails (move out of Inbox)
+                </Checkbox>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" size="sm" mr={3} onClick={() => setShowFilterLabelDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="blue"
+                size="sm"
+                isDisabled={!customLabelName.trim()}
+                onClick={runFilterLabel}
+              >
+                Apply Label
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       )}
     </Flex>
   )

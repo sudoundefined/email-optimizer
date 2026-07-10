@@ -27,6 +27,7 @@ This document is the single reference for **what the app does**, **how to use ea
    - [Label manager](#11-label-manager)
    - [Weekly digest (scheduled)](#12-weekly-digest-scheduled)
    - [Excel export](#13-excel-export)
+   - [Custom query labeling](#14-custom-query-labeling)
 3. [Safety & Security model](#safety--security-model)
 4. [Pending / Roadmap](#pending--roadmap)
 
@@ -348,6 +349,24 @@ Label-backed groups show exact counts; query-backed groups (attachments, large, 
 - Columns are auto-sized for readability.
 
 **Under the hood:** `utils/exportExcel.ts` (`exportToExcel` + `splitName`) called from `MailboxTab.tsx`.
+
+---
+
+### 14. Custom query labeling
+
+**What it does:** Applies a custom-named label to all emails matching any Smart Filter search query. The labels are registered locally so they populate the Labels tab.
+
+**How to use:**
+1. Select any **Smart Filter** from the left pane (e.g. "Unread marketing") to load the list of matching emails.
+2. Click the new **Label all matching** button in the header.
+3. Type a custom label name (e.g. "Promo Clean 2026"), check "Also archive tagged emails" if desired, and confirm.
+4. Watch the progress bar execute the background labeling task.
+
+**Capping and Safety:**
+- To prevent API quota exhaustion, the query labeling task is capped at **5,000 messages** per run, reporting truncation honestly.
+- All custom labels created are automatically saved to the local SQLite database registry, meaning they will instantly appear under the **Labels** tab for you to browse, manage, or empty-to-trash.
+
+**Under the hood:** `runApplyLabelToFilter` inside `server/src/services/labelService.js` triggered by `POST /api/labels/apply-filter`.
 
 ## Safety model
 

@@ -337,7 +337,7 @@ All services are scoped by `userId` — every function accepts `userId` as the f
 | `/api/scan` | `POST /scan`, `GET /scan`, `GET /senders`, `GET /suggestions`, `GET /subscriptions` | ✓ | Scan management |
 | `/api/inbox` | `GET /groups`, `GET /group/:key/messages`, `GET /filters`, `POST /filter/messages`, `POST /filter/:key/trash` | ✓ | Inbox analytics |
 | `/api/storage` | `GET /stats`, `GET /drill`, `POST /refresh` | ✓ | Storage analysis |
-| `/api/labels` | `POST /apply`, `DELETE /:name`, `GET /labels` | ✓ | Label management |
+| `/api/labels` | `POST /apply`, `POST /apply-filter`, `DELETE /:name`, `GET /labels` | ✓ | Label management |
 | `/api/unsubscribe` | `POST /unsubscribe` | ✓ | Execute unsubscribe |
 | `/api/protect` | `GET /protected`, `POST /protect`, `DELETE /protect` | ✓ | Protected senders |
 | `/api/messages` | `POST /trash` | ✓ | Trash messages |

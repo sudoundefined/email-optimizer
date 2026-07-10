@@ -78,6 +78,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ assignments, ...opts }),
     }),
+  applyFilterLabel: (query: string, labelName: string, archive: boolean) =>
+    request<{ jobId: string }>('/api/labels/apply-filter', {
+      method: 'POST',
+      body: JSON.stringify({ query, labelName, archive }),
+    }),
   labels: () => request<AppLabel[]>('/api/labels'),
   labelMessages: (id: string) => request<GroupMessage[]>(`/api/labels/${id}/messages`),
   deleteLabelOnly: (id: string) =>
