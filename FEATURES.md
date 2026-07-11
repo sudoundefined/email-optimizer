@@ -1,6 +1,6 @@
 # EmailDiet — Feature Guide & Roadmap
 
-**Last updated:** 2026-07-10
+**Last updated:** 2026-07-11
 **Status:** Multi-User SaaS Production Release · full unit-test suite passing (`npm test -w server`) · clean production build
 
 This document is the single reference for **what the app does**, **how to use each feature**, and **what's still pending**. For architecture internals see [ARCHITECTURE.md](ARCHITECTURE.md); for styling rules see [DESIGN.md](DESIGN.md); for setup see [README.md](README.md).
@@ -395,26 +395,14 @@ The app is built around **non-destructive, recoverable** actions:
 
 ## Pending / TODO
 
-Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
-
-### 🚀 Now (no AI, high value)
-
-- [x] **Multi-user SaaS re-architecture** — *shipped*: SQLite (WAL) + JWT cookie sessions + AES-256-GCM token encryption + per-user rate limiting + landing page + account page & audit log.
-- [x] **Scheduled re-scan + weekly digest email** — *shipped 2026-07-09* (see [feature 12](#12-weekly-digest-scheduled)). Fully built; scheduled runs are reliable **once production OAuth is verified** (assets + guide in [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md)).
-- [x] **Expanded label taxonomy + tag-only / archive** — *shipped* (see [feature 3](#3-auto-categorization--labels)). 18 top-level categories; tags in place by default, opt-in archive.
-- [x] **Subscriptions detector** — *shipped* (see [feature 3a](#3a-subscriptions-detector)). Heuristic, cache-only recurring-service detection with cadence.
-- [x] **Empty Trash** — *shipped* (see [feature 10](#10-empty-trash-permanent)). One-click permanent purge of Gmail Trash with streamed progress.
-- [x] **Excel export** — *shipped* (see [feature 13](#13-excel-export)). Client-side SheetJS export of filtered/selected senders.
-- [x] **UI Polish & Universal Pagination** — *shipped*. Premium typography, consistent loaders, pagination across all tables, and active state highlights without row background shifts.
-- [x] **Dark mode & themes** — *shipped*: full dark/light color modes across two curated themes (Botanical Forest, Espresso) via Chakra semantic tokens; toggles in the sidebar. See [DESIGN.md](DESIGN.md).
+Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context and the shipped-version log. Shipped items are documented in [Shipped features](#shipped-features) above and are not repeated here.
 
 ### 🔄 Next (rules & automation)
 
-- [ ] **Auto-rules engine** — visual IF-THEN builder ("new marketing sender → auto-label + archive", "sender emails again after I unsubscribed → auto-trash + notify").
+- [ ] **Auto-rules engine** — visual IF-THEN builder ("new marketing sender → auto-label + archive", "sender emails again after I unsubscribed → auto-trash + notify"). The shipped [activity audit log](#0a-account--logs-page) provides the per-user unsubscribe history the re-subscribe detector will build on.
 - [ ] **Priority triage (SaneBox-style)** — auto-file low-priority mail to a `Later` label; train by moving senders in/out.
 - [ ] **Snooze** — hide a thread and resurface it at a scheduled time.
 - [ ] **Engagement stats** — never-read report (senders you never open) and per-sender open-rate heatmap, with one-click "unsubscribe from all never-read."
-- [x] **Unsubscribe audit log** — *shipped* as part of the [Account & Logs](#0a-account--logs-page) activity trail: every unsubscribe (plus scan/trash/label/login) is persisted per user in SQLite `activity_log` with structured details. This is the data source the auto-rules "re-subscribe detector" will build on.
 
 ### 🤖 Later (AI-powered — needs Claude API)
 
@@ -437,8 +425,6 @@ Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context.
 
 ### 🧹 Housekeeping / tech debt
 
-- [x] **Bundle size** — *done*: `vite` `manualChunks` splits react/chakra/app; no chunk exceeds the 500 KB warning.
-- [x] **Single source of truth for filters** — *done*: server `FILTER_DEFS` is authoritative; the client fetches via `GET /api/inbox/filters` (no duplicated list).
 - [ ] **Incremental scan / local index** — for power users (100k+ emails), scan only new mail since last run; cache sender metadata in SQLite.
 - [ ] **OS `prefers-color-scheme` sync** — color mode currently defaults to light with a manual toggle; optionally honor the OS preference on first load.
 
