@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Alert, AlertIcon, Box, Button, Card, CardBody, Tag,
+  Alert, AlertIcon, Box, Button, Card, Tag,
   Grid, GridItem, Input, Progress,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
-import { EmailIcon, StarIcon, CopyIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
+import { EmailIcon, HamburgerIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
 import { exportToExcel } from '../utils/exportExcel'
 import { api, ApiError } from '../api'
 import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription, Filter, GroupMessage } from '../types'
@@ -18,22 +18,14 @@ import UnsubscribePanel from './UnsubscribePanel'
 import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
 import ProtectedTab from './ProtectedTab'
-import FilterToolbar from './FilterToolbar'
+import MailboxNav, { SEGMENTS } from './MailboxNav'
+import type { Segment } from './MailboxNav'
 import TagSearchInput from './TagSearchInput'
 import { compileGmailQuery, filterSenders, needsGmail } from '../utils/searchQuery'
 import type { Chip } from '../utils/searchQuery'
 import { useAutoClearAlert } from '../hooks/useAutoClearAlert'
 
-type Segment = 'all' | 'unsub' | 'nomethod' | 'subscriptions' | 'protected'
 type SortKey = 'volume' | 'name' | 'recent'
-
-const SEGMENTS: { key: Segment; label: string; blurb: string }[] = [
-  { key: 'all', label: 'All senders', blurb: 'Everything from your scan' },
-  { key: 'unsub', label: 'With unsubscribe', blurb: 'One-click, email, or link' },
-  { key: 'nomethod', label: 'No method', blurb: 'No unsubscribe detected' },
-  { key: 'subscriptions', label: 'Subscriptions', blurb: 'Recurring paid services' },
-  { key: 'protected', label: 'Protected list', blurb: 'Shielded from bulk actions' },
-]
 
 function parseFromHeader(from: string): string {
   const m = from.match(/^\s*"?([^"<]*)"?\s*<.*>$/)
@@ -220,6 +212,14 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const [tagSearchQuery, setTagSearchQuery] = useState<string | null>(null) // non-null → Gmail-routed results shown
   const [labelPrefix, setLabelPrefix] = useState('Unsub/')
   const [sort, setSort] = useState<SortKey>('volume')
+  const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('mailbox-nav-collapsed') === '1')
+
+  const toggleNavCollapsed = () => {
+    setNavCollapsed((v) => {
+      localStorage.setItem('mailbox-nav-collapsed', v ? '0' : '1')
+      return !v
+    })
+  }
 
   // Inbox / Messages State
   const [filters, setFilters] = useState<Filter[]>([])
@@ -616,6 +616,21 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const rightTitle = SEGMENTS.find((s) => s.key === segment)?.label ?? 'Senders'
   const isMessageView = !!activeFilter || !!activeDrillDownSender || !!tagSearchQuery
 
+  const handleCategorySelect = (cat: string | null) => {
+    setCategory(cat)
+    setActiveFilter(null)
+    setActiveDrillDownSender(null)
+    setTagSearchQuery(null)
+  }
+
+  const handleSegmentSelect = (seg: Segment) => {
+    setSegment(seg)
+    setActiveFilter(null)
+    setActiveDrillDownSender(null)
+    setTagSearchQuery(null)
+    if (seg === 'protected') setCategory(null)
+  }
+
   return (
     <Flex direction="column" h="100%" minH={0}>
       <ScanControls onScan={runScan} onCancel={scanJob.cancel} running={scanJob.running} scan={scan} />
@@ -681,9 +696,32 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
       {scan && !scanJob.running && (
         <>
-          {/* ── TOP BAR — multi-filter search (kept outside any overflow container so the suggestion dropdown can overlay) ── */}
-          <Card borderRadius="xl" mt={2} mb={4} overflow="visible">
-            <CardBody p={3}>
+          {/* ── TOOLBAR — flat sticky row: rail toggle + multi-filter search (dropdown is portaled) ── */}
+          <Flex
+            align="center"
+            gap={2}
+            position="sticky"
+            top={0}
+            zIndex="sticky"
+            bg="bg.app"
+            borderBottom="1px solid"
+            borderColor="border.subtle"
+            pt={2}
+            pb={3}
+            mb={3}
+          >
+            <Tooltip label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'} hasArrow>
+              <IconButton
+                aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+                aria-expanded={!navCollapsed}
+                icon={<HamburgerIcon />}
+                size="sm"
+                variant="ghost"
+                display={{ base: 'none', md: 'inline-flex' }}
+                onClick={toggleNavCollapsed}
+              />
+            </Tooltip>
+            <Box flex={1} minW={0}>
               <TagSearchInput
                 chips={chips}
                 onChipsChange={setChips}
@@ -692,139 +730,30 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 categories={categoryList}
                 isSearching={messagesLoading && !!tagSearchQuery}
               />
-            </CardBody>
-          </Card>
+            </Box>
+          </Flex>
 
-          <Grid templateColumns={{ base: '1fr', md: 'repeat(12, 1fr)' }} gap={6} flex={1} minH={0}>
-          {/* ── LEFT PANE — navigation & filters ── */}
-          <GridItem colSpan={{ base: 12, md: 4, lg: 3 }} minH={0} overflowY={{ md: 'auto' }} pr={{ md: 2 }}>
-            <VStack spacing={4} align="stretch">
-              {!showProtectedView && categoryCounts.length > 0 && (
-                <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
-                  <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
-                    <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
-                      <Icon as={EmailIcon} mr={2} color="brand.500" /> Categories
-                    </Text>
-                  </Box>
-                  <CardBody p={2} maxH="280px" overflowY="auto">
-                    <Flex
-                      onClick={() => {
-                        setCategory(null)
-                        setActiveFilter(null)
-                        setActiveDrillDownSender(null)
-                        setTagSearchQuery(null)
-                      }}
-                      align="center"
-                      justify="space-between"
-                      px={3} py={2} mb={1}
-                      borderRadius="md"
-                      cursor="pointer"
-                      bg={category === null && !isMessageView ? 'bg.accent' : 'transparent'}
-                      borderLeft="2px solid"
-                      borderColor={category === null && !isMessageView ? 'brand.icon' : 'transparent'}
-                      _hover={{ bg: category === null && !isMessageView ? 'bg.accent' : 'bg.hover' }}
-                    >
-                      <Text fontSize="sm" fontWeight={600} color="text.primary">All categories</Text>
-                    </Flex>
-                    {categoryCounts.map(([cat, count]) => {
-                      const active = category === cat && !isMessageView
-                      const color = CATEGORY_COLORS[cat] ?? '#AEAEB2'
-                      return (
-                        <Flex
-                          key={cat}
-                          onClick={() => {
-                            setCategory(active ? null : cat)
-                            setActiveFilter(null)
-                            setActiveDrillDownSender(null)
-                            setTagSearchQuery(null)
-                          }}
-                          align="center"
-                          justify="space-between"
-                          px={3} py={2} mb={1}
-                          borderRadius="md"
-                          cursor="pointer"
-                          bg={active ? 'bg.accent' : 'transparent'}
-                          borderLeft="2px solid"
-                          borderColor={active ? 'brand.icon' : 'transparent'}
-                          _hover={{ bg: active ? 'bg.accent' : 'bg.hover' }}
-                        >
-                          <Flex align="center" minW={0}>
-                            <Box w={2} h={2} borderRadius="full" bg={color} mr={2} flexShrink={0} />
-                            <Text fontSize="sm" fontWeight={600} color="text.primary" isTruncated>{cat}</Text>
-                          </Flex>
-                          <Text fontSize="sm" fontWeight={700} ml={2} flexShrink={0} color="text.primary">
-                            {count.toLocaleString()}
-                          </Text>
-                        </Flex>
-                      )
-                    })}
-                  </CardBody>
-                </Card>
-              )}
-
-              <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
-                <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
-                  <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
-                    <Icon as={CopyIcon} mr={2} color="brand.500" /> Segments
-                  </Text>
-                </Box>
-                <CardBody p={2}>
-                  {SEGMENTS.map((seg) => {
-                    const active = segment === seg.key && !isMessageView
-                    const count = segmentCounts[seg.key]
-                    return (
-                      <Flex
-                        key={seg.key}
-                        onClick={() => {
-                          setSegment(seg.key)
-                          setActiveFilter(null)
-                          setActiveDrillDownSender(null)
-                          setTagSearchQuery(null)
-                          if (seg.key === 'protected') setCategory(null)
-                        }}
-                        align="center"
-                        justify="space-between"
-                        px={3} py={2} mb={1}
-                        borderRadius="md"
-                        cursor="pointer"
-                        bg={active ? 'bg.accent' : 'transparent'}
-                        borderLeft="2px solid"
-                        borderColor={active ? 'brand.icon' : 'transparent'}
-                        _hover={{ bg: active ? 'bg.accent' : 'bg.hover' }}
-                      >
-                        <Box overflow="hidden">
-                          <Text fontSize="sm" fontWeight={600} color={active ? 'text.secondary' : 'text.primary'} isTruncated>
-                            {seg.label}
-                          </Text>
-                          <Text fontSize="xs" color={active ? 'text.secondary' : 'neutral.500'} isTruncated>
-                            {seg.blurb}
-                          </Text>
-                        </Box>
-                        <Text fontSize="sm" fontWeight={700} ml={2} flexShrink={0} color={active ? 'text.secondary' : 'text.primary'}>
-                          {count.toLocaleString()}
-                        </Text>
-                      </Flex>
-                    )
-                  })}
-                </CardBody>
-              </Card>
-
-              <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
-                <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
-                  <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
-                    <Icon as={StarIcon} mr={2} color="brand.500" /> Smart Filters
-                  </Text>
-                </Box>
-                <CardBody p={4}>
-                  <FilterToolbar filters={filters} activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
-                </CardBody>
-              </Card>
-
-            </VStack>
+          <Grid templateColumns={{ base: '1fr', md: navCollapsed ? '56px 1fr' : '232px 1fr' }} gap={4} flex={1} minH={0}>
+          {/* ── LEFT PANE — flat navigation rail ── */}
+          <GridItem minH={0} overflowY={{ md: 'auto' }} pr={{ md: 1 }}>
+            <MailboxNav
+              collapsed={navCollapsed}
+              showCategories={!showProtectedView && categoryCounts.length > 0}
+              categoryCounts={categoryCounts}
+              category={category}
+              onCategorySelect={handleCategorySelect}
+              segment={segment}
+              segmentCounts={segmentCounts}
+              onSegmentSelect={handleSegmentSelect}
+              isMessageView={isMessageView}
+              filters={filters}
+              activeFilterKey={activeFilter?.key ?? null}
+              onFilterSelect={handleFilterSelect}
+            />
           </GridItem>
 
           {/* ── RIGHT PANE — content ── */}
-          <GridItem colSpan={{ base: 12, md: 8, lg: 9 }} minH={0}>
+          <GridItem minH={0}>
             <Box position="relative" h="100%">
             {isMessageView ? (
               <Card 
