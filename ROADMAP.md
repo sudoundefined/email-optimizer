@@ -4,6 +4,21 @@ This app started as a Gmail bulk-unsubscriber. The roadmap below charts its evol
 
 Each tier builds on the previous one. Features are grouped by theme and ordered roughly by value/effort ratio. Benchmarks: **Clean Email** (bulk cleaning), **SaneBox** (priority triage), **Spark** & **Shortwave** (AI drafting). Feature details live in [FEATURES.md](FEATURES.md).
 
+**Last updated:** 2026-07-11
+
+## Milestones at a glance
+
+| Version | Theme | Status | Detailed plan |
+| :--- | :--- | :--- | :--- |
+| v1–v7 | Core cleanup → Multi-user SaaS | ✅ Shipped | [FEATURES.md](FEATURES.md) (per-feature guides) |
+| **v8** | Quick wins (reuse existing infrastructure) | ⚡ Planned — build next | [docs/PLAN-QUICK-WINS.md](docs/PLAN-QUICK-WINS.md) |
+| **v9** | Rules & automation | 🔄 Planned | [docs/PLAN-NEXT.md](docs/PLAN-NEXT.md) |
+| **v10** | AI-powered (Claude API) | 🤖 Later | — (planned after v9) |
+| **v11** | Platform (multi-account, Outlook/IMAP, Postgres) | 🌐 Later | — |
+| — | Production OAuth verification | 🚧 Blocker for reliable scheduling — submit anytime | [docs/OAUTH_VERIFICATION.md](docs/OAUTH_VERIFICATION.md) |
+
+> **Note:** Production OAuth verification is *parallel-track* — it's a Google process (~2–4 weeks), not engineering work, and it unblocks the schedulers that v8/v9 lean on. Submit it before or alongside v8.
+
 ---
 
 ## ✅ Shipped
@@ -51,6 +66,19 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 
 ---
 
+## ⚡ v8 — Next up (quick wins, reuse existing infrastructure)
+
+These four recombine shipped subsystems (metadata cache, job manager, digest cron, retention engine, audit log) rather than adding new ones. **Detailed implementation plan — schemas, endpoints, file-level tasks, tests, acceptance criteria: [docs/PLAN-QUICK-WINS.md](docs/PLAN-QUICK-WINS.md).** Build order **1 → 3 → 2 → 4**.
+
+- [ ] **Sender watch list** — mark a sender as "watch" and get alerted in the weekly digest when its volume spikes; new `sender_watches` table + a digest section.
+- [ ] **Storage trend tracking** — snapshot mailbox size per scan into `storage_snapshots`; render a "reclaimed since X" sparkline on the storage dashboard.
+- [ ] **Scheduled auto-clean rules** — per-user recurring rules ("every Sunday, trash promos older than 30 days") combining the retention engine with a generalized scheduler tick; runs reported via the existing audit log.
+- [ ] **Digest one-click act links** — signed, single-use action links in the weekly digest to unsubscribe or keep-latest-N straight from the email.
+
+**Why this tier first:** it also builds the substrate v9 depends on — the generic scheduler loop, digest-section plumbing, signed action tokens, and storage snapshots.
+
+---
+
 ## 🔄 Next (rules & automation)
 
 **Auto-rules engine**
@@ -64,6 +92,15 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 **Engagement stats**
 - **Never-read report** — analyze `UNREAD` ratios over time to surface senders you subscribe to but never open. One-click "unsubscribe from all never-read senders."
 - **Open-rate heatmap** — per-sender open rate (% of emails you actually read). Sort by lowest-open to find dead subscriptions.
+
+**Cleanup depth**
+- **Unsubscribe verification loop** — 14 days after a one-click unsubscribe, check the metadata cache: did the sender email again? Show a "still emailing you" badge with an escalation path (Gmail filter → auto-trash). Builds on the shipped audit log and pairs with the re-subscribe detector above.
+- **Duplicate email detector** — flag duplicate messages via metadata (same sender + subject + size within a window) and offer batch-trash; no body reads needed.
+- **Attachment offloader** — for the >5 MB attachments already surfaced by the Storage Reclaimer, offer "download all as ZIP" before trashing; streamed through the server, nothing persisted.
+- **Gmail filter export** — for senders that ignore unsubscribes, create a native Gmail filter (auto-archive/trash) via the API so cleanup persists even when the app isn't running.
+
+**Engagement & retention**
+- **Inbox health score** — composite 0–100 score (marketing ratio, storage pressure, unread ratio, unsubscribe debt) on the dashboard, tracked weekly in the digest.
 
 ---
 

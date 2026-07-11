@@ -25,7 +25,7 @@ function makeOAuth2Client() {
   return new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri)
 }
 
-export function getAuthUrl() {
+export function getAuthUrlWithState() {
   const client = makeOAuth2Client()
   const state = crypto.randomBytes(16).toString('hex')
   pendingStates.set(state, Date.now())
@@ -33,12 +33,17 @@ export function getAuthUrl() {
   for (const [s, t] of pendingStates) {
     if (Date.now() - t > STATE_TTL_MS) pendingStates.delete(s)
   }
-  return client.generateAuthUrl({
+  const url = client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     scope: SCOPES,
     state,
   })
+  return { url, state }
+}
+
+export function getAuthUrl() {
+  return getAuthUrlWithState().url
 }
 
 /**
@@ -46,8 +51,8 @@ export function getAuthUrl() {
  * upsert user in DB, store encrypted tokens.
  * @returns {{ userId: string, email: string }} The authenticated user
  */
-export async function handleCallback(code, state) {
-  if (!state || !pendingStates.has(state)) {
+export async function handleCallback(code, state, expectedCookieState) {
+  if (!state || !pendingStates.has(state) || (expectedCookieState !== undefined && state !== expectedCookieState)) {
     throw new Error('Invalid OAuth state — possible CSRF or expired login attempt. Try again.')
   }
   pendingStates.delete(state)

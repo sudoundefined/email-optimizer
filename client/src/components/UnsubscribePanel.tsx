@@ -17,7 +17,7 @@ function ResultRow({ r }: { r: UnsubResult }) {
         <Text fontSize="sm" fontWeight={600}>{r.sender}</Text>
         <Text fontSize="xs" color="gray.500">{r.detail}</Text>
       </Box>
-      {r.manualUrl && (
+      {r.manualUrl && /^https?:\/\//i.test(r.manualUrl) && (
         <Button size="sm" as="a" href={r.manualUrl} target="_blank" rel="noopener noreferrer" variant="outline">
           Open
         </Button>
