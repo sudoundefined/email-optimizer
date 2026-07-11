@@ -86,3 +86,69 @@ describe('getSuggestions', () => {
     expect(getSuggestions('zzz', CATEGORIES)).toEqual([])
   })
 })
+
+import { filterSenders } from './searchQuery'
+import type { Sender, Suggestion } from '../types'
+
+const SENDERS: Sender[] = [
+  { email: 'deals@amazon.com', name: 'Amazon Deals', domain: 'amazon.com', messageCount: 40, latestSubject: 'Big sale today', latestDate: 1700000000000, method: 'oneclick' },
+  { email: 'news@nytimes.com', name: 'NYT Briefing', domain: 'nytimes.com', messageCount: 12, latestSubject: 'Morning briefing', latestDate: 1700000001000, method: 'link' },
+  { email: 'noreply@facebook.com', name: 'Facebook', domain: 'facebook.com', messageCount: 7, latestSubject: 'You have notifications', latestDate: 1700000002000, method: 'none' },
+]
+
+function sugg(email: string, category: string): [string, Suggestion] {
+  return [email, { senderEmail: email, messageCount: 1, category, confidence: 'high', reason: '' }]
+}
+
+const SUGGESTION_MAP = new Map<string, Suggestion>([
+  sugg('deals@amazon.com', 'Promotions'),
+  sugg('news@nytimes.com', 'Newsletters'),
+  sugg('noreply@facebook.com', 'Social'),
+])
+
+const emails = (list: Sender[]) => list.map((s) => s.email)
+
+describe('filterSenders', () => {
+  it('returns all senders for an empty chip list', () => {
+    expect(filterSenders(SENDERS, SUGGESTION_MAP, [])).toEqual(SENDERS)
+  })
+
+  it('filters by a single tag chip', () => {
+    const chips = [parseToken('tag:Promotions', ['Promotions'])]
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, chips))).toEqual(['deals@amazon.com'])
+  })
+
+  it('ORs multiple chips of the same field', () => {
+    const cats = ['Promotions', 'Social']
+    const chips = [parseToken('tag:Promotions', cats), parseToken('tag:Social', cats)]
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, chips))).toEqual(['deals@amazon.com', 'noreply@facebook.com'])
+  })
+
+  it('ANDs chips across different fields', () => {
+    const cats = ['Promotions', 'Social']
+    const chips = [parseToken('tag:Promotions', cats), parseToken('tag:Social', cats), parseToken('from:amazon', cats)]
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, chips))).toEqual(['deals@amazon.com'])
+  })
+
+  it('matches from: against email, name, and domain', () => {
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, [parseToken('from:nytimes.com', [])]))).toEqual(['news@nytimes.com'])
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, [parseToken('from:facebook', [])]))).toEqual(['noreply@facebook.com'])
+  })
+
+  it('filters by method and subject', () => {
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, [parseToken('method:none', [])]))).toEqual(['noreply@facebook.com'])
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, [parseToken('subject:briefing', [])]))).toEqual(['news@nytimes.com'])
+  })
+
+  it('ANDs free-text chips together', () => {
+    const chips = [parseToken('amazon', []), parseToken('sale', [])]
+    expect(emails(filterSenders(SENDERS, SUGGESTION_MAP, chips))).toEqual(['deals@amazon.com'])
+    const noMatch = [parseToken('amazon', []), parseToken('briefing', [])]
+    expect(filterSenders(SENDERS, SUGGESTION_MAP, noMatch)).toEqual([])
+  })
+
+  it('ignores invalid chips and Gmail-only chips', () => {
+    const chips = [parseToken('tag:banana', ['Promotions']), parseToken('is:unread', [])]
+    expect(filterSenders(SENDERS, SUGGESTION_MAP, chips)).toEqual(SENDERS)
+  })
+})

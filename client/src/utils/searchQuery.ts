@@ -3,6 +3,8 @@
  * Spec: docs/superpowers/specs/2026-07-11-tag-search-design.md
  */
 
+import type { Sender, Suggestion } from '../types'
+
 export type ChipField =
   | 'tag' | 'from' | 'method' | 'subject' // resolvable against the cached scan
   | 'is' | 'older_than' | 'newer_than' | 'larger' // Gmail-only
@@ -72,4 +74,57 @@ export function getSuggestions(partial: string, categories: string[]): string[] 
     return METHODS.filter((mth) => mth.startsWith(v)).map((mth) => `method:${mth}`)
   }
   return FIELD_PREFIXES.filter((f) => f.startsWith(p) && f !== p)
+}
+
+function includesCI(haystack: string | undefined | null, needle: string): boolean {
+  return (haystack || '').toLowerCase().includes(needle.toLowerCase())
+}
+
+function groupChips(chips: Chip[]): Map<ChipField, Chip[]> {
+  const groups = new Map<ChipField, Chip[]>()
+  for (const c of chips) {
+    if (!c.valid) continue
+    const list = groups.get(c.field) ?? []
+    list.push(c)
+    groups.set(c.field, list)
+  }
+  return groups
+}
+
+/** OR within a field, AND across fields; free-text chips AND together. */
+export function filterSenders(
+  senders: Sender[],
+  suggestionMap: Map<string, Suggestion>,
+  chips: Chip[]
+): Sender[] {
+  const groups = groupChips(chips)
+  if (groups.size === 0) return senders
+  return senders.filter((s) => {
+    for (const [field, group] of groups) {
+      let match: boolean
+      switch (field) {
+        case 'tag': {
+          const cat = suggestionMap.get(s.email)?.category
+          match = group.some((c) => c.value === cat)
+          break
+        }
+        case 'from':
+          match = group.some((c) => includesCI(s.email, c.value) || includesCI(s.name, c.value) || includesCI(s.domain, c.value))
+          break
+        case 'method':
+          match = group.some((c) => s.method === c.value)
+          break
+        case 'subject':
+          match = group.some((c) => includesCI(s.latestSubject, c.value))
+          break
+        case 'text':
+          match = group.every((c) => includesCI(s.name, c.value) || includesCI(s.email, c.value) || includesCI(s.latestSubject, c.value))
+          break
+        default:
+          match = true // Gmail-only fields are not resolvable against the cache
+      }
+      if (!match) return false
+    }
+    return true
+  })
 }
