@@ -3,7 +3,7 @@
 **Version:** 1.0 · **Last Updated:** 2026-07-11
 **Status:** Multi-User SaaS · Production-Ready · 55 tests passing · Clean production build
 
-> This is the single consolidated reference for EmailDiet's **architecture** (HLD + LLD), **design system** (Apple HIG), and **implementation details** (database schema, auth flow, service layer). It supersedes the separate `ARCHITECTURE.md`, `DESIGN.md`, and `implementation_plan.md` files.
+> This is the consolidated reference for EmailDiet's **architecture** (HLD + LLD) and **implementation details** (database schema, auth flow, service layer). Section 7 summarizes the design system; the full styling rulebook lives in [`DESIGN.md`](DESIGN.md).
 
 ---
 
@@ -436,8 +436,8 @@ Typed HTTP client with `ApiError` class. All requests use `credentials: 'include
 
 | Module | Description |
 |--------|-------------|
-| `themes.ts` | Two curated Chakra UI themes — **Botanical Forest** (nature-inspired greens/teals on warm backgrounds) and **Espresso** (rich warm browns/coppers on cream). Both include full dark mode `_dark` variants, semantic tokens (`bg.app`, `bg.card`, `bg.glass`, `text.primary`, `text.secondary`, `border.glass`, `brand.icon`), and component overrides. |
-| `ThemeContext.tsx` | React context providing `theme` (botanical/espresso) and `toggleTheme`. Persists preference in localStorage. Detects OS `prefers-color-scheme` for initial dark mode. |
+| `themes.ts` | Two curated Chakra UI themes — **Botanical Forest** (nature-inspired greens/teals on warm backgrounds) and **Espresso** (rich warm browns/coppers on cream). Both include full dark mode `_dark` variants, semantic tokens (`bg.app`, `bg.card`, `bg.glass`, `text.primary`, `text.secondary`, `border.glass`, `brand.icon`), and shared component overrides (pill-shaped buttons/tabs/tags, `3xl` glass cards and modals with `backdrop-filter: blur(12px)`). |
+| `ThemeContext.tsx` | React context providing `theme` (`botanical` or `espresso`) and `setTheme`. Persists the choice in `localStorage` under the `app-theme` key (default `botanical`). Dark/light mode is handled separately via Chakra's `useColorMode` toggle in `App.tsx` — config is `initialColorMode: 'light'`, `useSystemColorMode: false`, so there is no OS `prefers-color-scheme` sync. |
 
 ---
 
