@@ -245,6 +245,7 @@ The list is persisted **per user** in the SQLite `protected_senders` table (`UNI
 - Chips of the same field OR together; different fields AND together.
 - If any Gmail-only chip is present, the whole query compiles to one Gmail search and results open in the message panel (view + label only — bulk trash remains limited to the allow-listed quick-filter presets).
 - `tag:` values without a Gmail-native category map to `label:"<your label prefix><Category>"`, so they only match mail you have already labeled.
+- `method:` is cache-only — it has no Gmail query equivalent, so `method:` chips are ignored (skipped, not sent) whenever a search is routed to Gmail; they still filter normally against the cached scan.
 
 ---
 

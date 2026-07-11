@@ -201,7 +201,7 @@ describe('compileGmailQuery', () => {
 
   it('quotes free text with spaces and ANDs multiple text chips', () => {
     const chips = [parseToken('big sale', CATS), parseToken('amazon', CATS)]
-    expect(compileGmailQuery(chips, P)).toBe('"big sale" amazon')
+    expect(compileGmailQuery(chips, P)).toBe('"big sale" "amazon"')
   })
 
   it('strips quotes, braces, and parens from values (injection defense)', () => {
@@ -211,5 +211,23 @@ describe('compileGmailQuery', () => {
   it('skips invalid chips', () => {
     const chips = [parseToken('tag:banana', CATS), parseToken('from:amazon', CATS)]
     expect(compileGmailQuery(chips, P)).toBe('from:amazon')
+  })
+
+  it('always quotes free text, even a single unspaced word, so operator-lookalikes stay literal', () => {
+    expect(compileGmailQuery([parseToken('in:trash', [])], P)).toBe('"in:trash"')
+    expect(compileGmailQuery([parseToken('has:attachment', [])], P)).toBe('"has:attachment"')
+  })
+
+  it('quotes a leading-dash free-text term so it is not read as negation', () => {
+    expect(compileGmailQuery([parseToken('-newsletter', [])], P)).toBe('"-newsletter"')
+  })
+
+  it('skips method: chips entirely — method is cache-only and inexpressible in Gmail queries', () => {
+    const chips = [parseToken('method:oneclick', CATS), parseToken('is:unread', CATS)]
+    expect(compileGmailQuery(chips, P)).toBe('is:unread')
+  })
+
+  it('compiles a method-only chip list to an empty string', () => {
+    expect(compileGmailQuery([parseToken('method:oneclick', CATS)], P)).toBe('')
   })
 })

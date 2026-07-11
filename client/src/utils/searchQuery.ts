@@ -140,16 +140,17 @@ export function needsGmail(chips: Chip[]): boolean {
   return chips.some((c) => c.valid && GMAIL_ONLY.has(c.field))
 }
 
-/** Strip Gmail grouping/quoting metacharacters, then quote if spaced. */
-function quoteValue(value: string): string {
+/** Strip Gmail grouping/quoting metacharacters, then quote if spaced (or always, when forced). */
+function quoteValue(value: string, forceQuote = false): string {
   const v = value.replace(/["(){}]/g, '')
-  return /\s/.test(v) ? `"${v}"` : v
+  return forceQuote || /\s/.test(v) ? `"${v}"` : v
 }
 
 export function compileGmailQuery(chips: Chip[], labelPrefix: string): string {
   const groups = groupChips(chips)
   const parts: string[] = []
   for (const [field, group] of groups) {
+    if (field === 'method') continue // cache-only concept, inexpressible in a Gmail query
     const terms = group.map((c) => {
       switch (field) {
         case 'tag': {
@@ -162,7 +163,7 @@ export function compileGmailQuery(chips: Chip[], labelPrefix: string): string {
         case 'older_than': return `older_than:${c.value}`
         case 'newer_than': return `newer_than:${c.value}`
         case 'larger': return `larger:${c.value}`
-        default: return quoteValue(c.value) // free text
+        default: return quoteValue(c.value, true) // free text: always quoted so it can't act as a live operator
       }
     })
     if (field === 'text' || terms.length === 1) parts.push(...terms) // text ANDs; singletons need no group
