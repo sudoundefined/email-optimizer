@@ -99,6 +99,7 @@ Single accent per theme: **`brand.500`** for primary actions and selection. No p
 | `ScanControls` | Scan launcher + time range + stats |
 | `ScanLoader` | Animated scan progress (listing → fetching → grouping) |
 | `FilterToolbar` | Smart filter chips (engagement/cleanup/category) |
+| `TagSearchInput` | Chips-based multi-filter search input with suggestions and explicit Search trigger |
 | `SenderTable` | Sortable sender table with bulk selection and category badges |
 | `UnsubscribePanel` | Batch unsubscribe progress and results |
 | `LabelReview` | Label assignment review dialog |

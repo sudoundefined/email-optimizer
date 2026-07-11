@@ -17,6 +17,7 @@ A multi-user SaaS web app for cleaning up and optimizing your Gmail inbox. Scan 
 | **Protected Senders List** | Auto-shields banks, utilities, medical, and government senders from unsubscribe/trash via smart heuristics; manual protect/unprotect anytime. |
 | **Keep-Latest-N Retention** | Keep only the N newest emails from a high-volume sender and trash the rest. |
 | **Quick Filters & Trash-All-Matching** | 10 one-click cleanup presets (never opened, old promotions, large >5 MB, …) with per-message or whole-set trashing. |
+| **Tag-Based Multi-Filter Search** | Stack filter chips (`tag:`, `from:`, `method:`, `subject:`, `is:unread`, `older_than:`, `larger:`, free text) into one search — instant on cached scan data, or compiled into a single sanitized Gmail query (view/label only). |
 | **Storage Reclaimer** | Drill down by sender, year, month, or size band; batch-trash the heavy stuff. Plus explicit **Empty Trash** to reclaim space immediately. |
 | **Auto-Categorization & Labels** | 18-category label taxonomy applied in place (opt-in archive), a full label manager, and custom query labeling. |
 | **Subscriptions Detector** | Surfaces recurring paid services (Netflix, Spotify, …) with estimated billing cadence — heuristic, cache-only, no extra API calls. |
@@ -29,7 +30,7 @@ A multi-user SaaS web app for cleaning up and optimizing your Gmail inbox. Scan 
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | React 18, TypeScript, Vite 6, Chakra UI v2, Framer Motion, SheetJS (`xlsx`) |
+| **Frontend** | React 18, TypeScript, Vite 6, Chakra UI v2, Framer Motion, SheetJS (`xlsx`), Vitest + Testing Library |
 | **Backend** | Node.js (ESM), Express, Gmail API (`googleapis`), `jsonwebtoken`, `express-rate-limit`, `p-limit` |
 | **Database** | SQLite (`better-sqlite3`) in WAL mode with foreign-key cascade isolation |
 | **Monorepo** | npm workspaces (`client/` + `server/`) |
@@ -99,6 +100,7 @@ Open the app and sign in with Google.
 
 ```bash
 npm test -w server            # backend unit test suite
+npm test -w client            # frontend unit/component tests (vitest)
 npm run build -w client       # TypeScript check + production build
 npm run db:inspect -w server  # inspect SQLite tables, row counts, samples
 ```

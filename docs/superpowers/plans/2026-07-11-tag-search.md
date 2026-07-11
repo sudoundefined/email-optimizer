@@ -1,5 +1,7 @@
 # Tag-Based Multi-Filter Search Implementation Plan
 
+**Status:** ✅ Shipped in v0.2.0 (2026-07-11) — all 7 tasks complete, whole-branch review + fix wave approved, security review clean (report: `docs/superpowers/reviews/2026-07-11-security-report.md`), merged via PR #3.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the plain "Search senders…" box in the Mailbox tab with a tags-input that combines multiple filter chips (`tag:Promotions`, `from:amazon`, `is:unread`, …) into one search, executed on an explicit Search click, with hybrid client/Gmail routing.
@@ -50,7 +52,7 @@ The client has **no test runner today** (`client/package.json` has no `test` scr
 - Consumes: nothing.
 - Produces: `npm test -w client` runs vitest once (CI-style). `npm test -w client -- <path>` runs a single file. Tasks 2–5 rely on this.
 
-- [ ] **Step 1: Install dev dependencies**
+- [x] **Step 1: Install dev dependencies**
 
 ```bash
 cd C:\Users\deepa\email-unsubscriber
@@ -59,7 +61,7 @@ npm install -D vitest jsdom @testing-library/react -w client
 
 Expected: `package.json` in `client/` gains the three devDependencies; install exits 0.
 
-- [ ] **Step 2: Add the test script**
+- [x] **Step 2: Add the test script**
 
 In `client/package.json`, change the `scripts` block from:
 
@@ -82,7 +84,7 @@ to:
   },
 ```
 
-- [ ] **Step 3: Create vitest config and setup files**
+- [x] **Step 3: Create vitest config and setup files**
 
 Create `client/vitest.config.ts`:
 
@@ -116,7 +118,7 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 }
 ```
 
-- [ ] **Step 4: Create a smoke test and verify the runner works**
+- [x] **Step 4: Create a smoke test and verify the runner works**
 
 Create `client/src/utils/searchQuery.test.ts`:
 
@@ -133,12 +135,12 @@ describe('vitest infrastructure', () => {
 Run: `npm test -w client`
 Expected: `1 passed` — the runner discovers and passes the smoke test.
 
-- [ ] **Step 5: Verify the client still builds (test files must not break tsc)**
+- [x] **Step 5: Verify the client still builds (test files must not break tsc)**
 
 Run: `npm run build -w client`
 Expected: exits 0. (If `tsc -b` complains it cannot find vitest types, confirm `vitest` is in `client/node_modules` — the `import { describe … } from 'vitest'` style used here needs no tsconfig `types` entry.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/package.json client/vitest.config.ts client/vitest.setup.ts client/src/utils/searchQuery.test.ts package-lock.json
@@ -164,7 +166,7 @@ git commit -m "test(client): add vitest + jsdom + testing-library infrastructure
   ```
   `categories` is the app's category list observed in the current scan (e.g. `['Promotions', 'Newsletters', 'Social']`); `parseToken` canonicalizes `tag:` values to the exact casing found in that list.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Replace the entire contents of `client/src/utils/searchQuery.test.ts` with:
 
@@ -259,12 +261,12 @@ describe('getSuggestions', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w client -- src/utils/searchQuery.test.ts`
 Expected: FAIL — `Cannot find module './searchQuery'` (or equivalent resolve error).
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `client/src/utils/searchQuery.ts`:
 
@@ -350,17 +352,17 @@ export function getSuggestions(partial: string, categories: string[]): string[] 
 
 (Note: `Sender`/`Suggestion`/`GMAIL_ONLY` imports/constants are unused until Tasks 3–4 — that is fine, TypeScript `noUnusedLocals` may flag them; if `npm run build -w client` complains, add them in Task 3 instead and keep only what compiles now.)
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w client -- src/utils/searchQuery.test.ts`
 Expected: PASS — all `parseToken` and `getSuggestions` tests green.
 
-- [ ] **Step 5: Verify the build**
+- [x] **Step 5: Verify the build**
 
 Run: `npm run build -w client`
 Expected: exits 0. If `noUnusedLocals` errors on `Sender`/`Suggestion`/`GMAIL_ONLY`, remove them from this task's code (they are reintroduced in Tasks 3–4).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/utils/searchQuery.ts client/src/utils/searchQuery.test.ts
@@ -383,7 +385,7 @@ git commit -m "feat(client): tag-search token parser and suggestions"
   ```
   Semantics: OR within a field, AND across fields; free-text chips AND together, each substring-matching name/email/latestSubject (case-insensitive); `from:` matches email/name/domain; invalid chips and Gmail-only chips are ignored.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `client/src/utils/searchQuery.test.ts`:
 
@@ -455,12 +457,12 @@ describe('filterSenders', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w client -- src/utils/searchQuery.test.ts`
 Expected: FAIL — `filterSenders` is not exported.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Append to `client/src/utils/searchQuery.ts` (and ensure the `import type { Sender, Suggestion } from '../types'` line from Task 2 is present at the top):
 
@@ -519,12 +521,12 @@ export function filterSenders(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w client -- src/utils/searchQuery.test.ts`
 Expected: PASS — all tests including the Task 2 suites.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add client/src/utils/searchQuery.ts client/src/utils/searchQuery.test.ts
@@ -548,7 +550,7 @@ git commit -m "feat(client): tag-search client-side sender filtering (OR-within,
   ```
   Mapping: `tag:Promotions|Social` → `category:promotions|social` (Gmail-native); any other tag → `label:<labelPrefix><Category>` (quoted if it contains spaces); `from:`/`subject:` pass through quoted; free text → quoted bare term; `is:`/`older_than:`/`newer_than:`/`larger:` pass through. Values are sanitized (quotes/braces/parens stripped) and space-containing values wrapped in `"…"`. Same-field groups render as `(a OR b)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `client/src/utils/searchQuery.test.ts`:
 
@@ -615,12 +617,12 @@ describe('compileGmailQuery', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w client -- src/utils/searchQuery.test.ts`
 Expected: FAIL — `needsGmail` / `compileGmailQuery` not exported.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Append to `client/src/utils/searchQuery.ts` (the `GMAIL_ONLY` set was defined in Task 2; add it if it was removed for unused-locals):
 
@@ -667,17 +669,17 @@ export function compileGmailQuery(chips: Chip[], labelPrefix: string): string {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w client -- src/utils/searchQuery.test.ts`
 Expected: PASS — full file green.
 
-- [ ] **Step 5: Verify build**
+- [x] **Step 5: Verify build**
 
 Run: `npm run build -w client`
 Expected: exits 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/utils/searchQuery.ts client/src/utils/searchQuery.test.ts
@@ -707,7 +709,7 @@ git commit -m "feat(client): compile tag-search chips to a sanitized Gmail query
   ```
   Behavior contract: Enter with text → add chip; Enter with empty input + ≥1 valid chips → `onSearch`; Backspace on empty input → remove last chip; Search click first converts any leftover input text into a chip, then fires `onSearch` with the combined list; any invalid chip disables Search.
 
-- [ ] **Step 1: Write the failing component tests**
+- [x] **Step 1: Write the failing component tests**
 
 Create `client/src/components/TagSearchInput.test.tsx`:
 
@@ -790,12 +792,12 @@ describe('TagSearchInput', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w client -- src/components/TagSearchInput.test.tsx`
 Expected: FAIL — cannot resolve `./TagSearchInput`.
 
-- [ ] **Step 3: Write the component**
+- [x] **Step 3: Write the component**
 
 Create `client/src/components/TagSearchInput.tsx`:
 
@@ -964,17 +966,17 @@ export default function TagSearchInput({
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w client -- src/components/TagSearchInput.test.tsx`
 Expected: PASS — all 6 tests green.
 
-- [ ] **Step 5: Verify build**
+- [x] **Step 5: Verify build**
 
 Run: `npm run build -w client`
 Expected: exits 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/components/TagSearchInput.tsx client/src/components/TagSearchInput.test.tsx
@@ -993,7 +995,7 @@ git commit -m "feat(client): TagSearchInput chips component with suggestions and
 - Consumes: everything from Tasks 2–5; existing `api.filterMessages(q)` (api.ts:98); existing message panel (renders when `isMessageView`); `GET /api/user/preferences` returning `{ labelPrefix?: string, … }` (server route exists — `server/src/routes/user.js:35`; AccountPage already fetches it).
 - Produces: the user-facing feature. No new exports consumed by later tasks.
 
-- [ ] **Step 1: Add `userPreferences` to the API client**
+- [x] **Step 1: Add `userPreferences` to the API client**
 
 In `client/src/api.ts`, after the `inboxFilters` line (line 97), add:
 
@@ -1001,7 +1003,7 @@ In `client/src/api.ts`, after the `inboxFilters` line (line 97), add:
   userPreferences: () => request<{ labelPrefix?: string }>('/api/user/preferences'),
 ```
 
-- [ ] **Step 2: Update MailboxTab imports**
+- [x] **Step 2: Update MailboxTab imports**
 
 In `client/src/components/MailboxTab.tsx` (imports at lines 1-22), add:
 
@@ -1011,7 +1013,7 @@ import { compileGmailQuery, filterSenders, needsGmail } from '../utils/searchQue
 import type { Chip } from '../utils/searchQuery'
 ```
 
-- [ ] **Step 3: Replace the search state**
+- [x] **Step 3: Replace the search state**
 
 At line 215, replace:
 
@@ -1028,7 +1030,7 @@ with:
   const [labelPrefix, setLabelPrefix] = useState('Unsub/')
 ```
 
-- [ ] **Step 4: Load the label prefix in `loadData`**
+- [x] **Step 4: Load the label prefix in `loadData`**
 
 In `loadData` (lines 246-263), extend the `Promise.all` array (after `api.inboxFilters(),`):
 
@@ -1042,7 +1044,7 @@ destructure it (`const [scanRes, suggRes, protRes, subRes, filterRes, prefRes] =
       if (prefRes.labelPrefix) setLabelPrefix(prefRes.labelPrefix)
 ```
 
-- [ ] **Step 5: Add the search handlers**
+- [x] **Step 5: Add the search handlers**
 
 After `handleSenderDrillDown` (ends line 436), add:
 
@@ -1080,7 +1082,7 @@ After `handleSenderDrillDown` (ends line 436), add:
   }
 ```
 
-- [ ] **Step 6: Use `filterSenders` in `visibleSenders`**
+- [x] **Step 6: Use `filterSenders` in `visibleSenders`**
 
 In the `visibleSenders` useMemo (lines 555-576), replace the free-text block:
 
@@ -1104,7 +1106,7 @@ with:
 
 and change the dependency array from `[scan, segment, category, search, sort, suggestionMap, subMap]` to `[scan, segment, category, activeSearch, sort, suggestionMap, subMap]`.
 
-- [ ] **Step 7: Derive the category list and treat tag search as a message view**
+- [x] **Step 7: Derive the category list and treat tag search as a message view**
 
 Just after the `categoryCounts` useMemo (ends line 553), add:
 
@@ -1124,7 +1126,7 @@ to:
   const isMessageView = !!activeFilter || !!activeDrillDownSender || !!tagSearchQuery
 ```
 
-- [ ] **Step 8: Clear tag-search results wherever the message view is exited**
+- [x] **Step 8: Clear tag-search results wherever the message view is exited**
 
 Every existing call-site pair `setActiveFilter(null); setActiveDrillDownSender(null)` that resets the view must also reset the Gmail-routed search. Add `setTagSearchQuery(null)` in these three places:
 
@@ -1134,7 +1136,7 @@ Every existing call-site pair `setActiveFilter(null); setActiveDrillDownSender(n
 
 Also in `handleFilterSelect` (line 401-407) and `handleSenderDrillDown` (line 420-425), add `setTagSearchQuery(null)` next to the existing resets — selecting a preset or drilling into a sender replaces tag-search results.
 
-- [ ] **Step 9: Replace the search box card**
+- [x] **Step 9: Replace the search box card**
 
 Replace the search card (lines 711-725):
 
@@ -1175,7 +1177,7 @@ with:
 
 If `InputGroup`, `InputLeftElement`, `Input`, or `SearchIcon` are now unused in MailboxTab, remove them from the imports (check with the build — `SearchIcon`/`Input` may still be used elsewhere in the file).
 
-- [ ] **Step 10: Handle the tag-search case in the message-view header**
+- [x] **Step 10: Handle the tag-search case in the message-view header**
 
 The header (lines 792-798) currently assumes `activeFilter` or `activeDrillDownSender`. Replace:
 
@@ -1207,7 +1209,7 @@ with:
                     </Text>
 ```
 
-- [ ] **Step 11: Allow "Label all matching" for tag-search results (view/label only — NO trash)**
+- [x] **Step 11: Allow "Label all matching" for tag-search results (view/label only — NO trash)**
 
 The action buttons block (lines 806-829) renders Label + Trash only for `activeFilter`. Keep the Trash button `activeFilter`-only (allow-list rule). Make the Label button also available for tag search — change the condition and keep Trash separate:
 
@@ -1257,7 +1259,7 @@ with
 
 and change the `api.applyFilterLabel(activeFilter.query, …)` call (line 492) to `api.applyFilterLabel(labelQuery, …)`.
 
-- [ ] **Step 12: Type-check, run all client tests, and build**
+- [x] **Step 12: Type-check, run all client tests, and build**
 
 ```bash
 npm test -w client
@@ -1266,7 +1268,7 @@ npm run build -w client
 
 Expected: all vitest suites pass; `tsc -b && vite build` exits 0. Fix any missed `search` references the compiler reports (the old state variable must be fully gone).
 
-- [ ] **Step 13: Manual verification in the running app**
+- [x] **Step 13: Manual verification in the running app**
 
 Start the dev environment (`npm run dev` from the repo root; client on :5173) with a connected Gmail account that has scan data, then verify:
 
@@ -1279,7 +1281,7 @@ Start the dev environment (`npm run dev` from the repo root; client on :5173) wi
 
 Expected: all six pass. If protected by OAuth setup issues, note it and verify with `npm test -w client` + build only, flagging manual steps as pending for the human.
 
-- [ ] **Step 14: Commit**
+- [x] **Step 14: Commit**
 
 ```bash
 git add client/src/api.ts client/src/components/MailboxTab.tsx
@@ -1298,7 +1300,7 @@ git commit -m "feat(client): hybrid tag-based multi-filter search in Mailbox tab
 - Consumes: the shipped feature from Task 6.
 - Produces: docs required by the repo's new-feature checklist (CLAUDE.md).
 
-- [ ] **Step 1: Document the feature in FEATURES.md**
+- [x] **Step 1: Document the feature in FEATURES.md**
 
 Find the section describing search/filtering in the Mailbox tab (search for "Search senders" or "Quick Filters") and add a subsection:
 
@@ -1323,7 +1325,7 @@ Chips of the same field OR together; different fields AND together. If any Gmail
 
 Adjust placement/heading level to match the file's existing structure.
 
-- [ ] **Step 2: Update the ARCHITECTURE.md file index**
+- [x] **Step 2: Update the ARCHITECTURE.md file index**
 
 In the client file index section, add rows/entries for:
 
@@ -1334,7 +1336,7 @@ client/src/components/TagSearchInput.tsx — chips input with suggestions and ex
 
 Follow the file's existing index format exactly.
 
-- [ ] **Step 3: Run the full test suite and build**
+- [x] **Step 3: Run the full test suite and build**
 
 ```bash
 npm test -ws --if-present
@@ -1343,7 +1345,7 @@ npm run build -w client
 
 Expected: server `node --test` suites pass (untouched), client vitest suites pass, build exits 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add FEATURES.md ARCHITECTURE.md

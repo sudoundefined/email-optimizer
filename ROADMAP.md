@@ -64,6 +64,12 @@ Each tier builds on the previous one. Features are grouped by theme and ordered 
 - **UI polish & universal pagination** — premium typography, consistent loaders, pagination across all tables
 - **Housekeeping** — bundle split via Vite `manualChunks` (no chunk over 500 KB); server `FILTER_DEFS` is the single source of truth for quick-filters
 
+### Tag-based multi-filter search (v0.2.0 — shipped 2026-07-11)
+- **Chips search input** — the Mailbox search box accepts stacked filter chips (`tag:`, `from:`, `method:`, `subject:`, `is:unread`, `older_than:`/`newer_than:`, `larger:`, free text) with autocomplete suggestions and inline validation; same-field chips OR together, cross-field chips AND; explicit Search trigger
+- **Hybrid routing** — cache-answerable chips filter the scanned sender list instantly (zero network); any Gmail-only chip compiles the whole query into one sanitized Gmail search via the existing read-only filter endpoint — results are view/label only (bulk trash stays allow-listed-preset-only)
+- **Client test infrastructure** — first automated client tests: vitest + jsdom + Testing Library (43 tests)
+- **Security hardening** — Gmail-query injection defense (metacharacter strip + forced quoting of free text); DNS-rebinding fix in the unsubscribe SSRF guard (connect-time IP pinning); full security review report in `docs/superpowers/reviews/`
+
 ---
 
 ## ⚡ v8 — Next up (quick wins, reuse existing infrastructure)

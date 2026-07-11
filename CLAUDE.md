@@ -19,6 +19,7 @@ Multi-user SaaS Gmail optimizer. Google OAuth → scan inbox metadata → bulk u
 ```bash
 npm run dev                  # API :3001 (--watch) + Vite :5173
 npm test -w server           # backend unit tests (node --test)
+npm test -w client           # frontend unit/component tests (vitest + jsdom)
 npm run build -w client      # tsc check + prod build
 npm run db:inspect -w server # dump SQLite tables/rows
 ```
@@ -30,9 +31,9 @@ client/src/
   App.tsx        # tab router, auth state, color mode
   api.ts         # typed HTTP client (credentials:'include', ApiError)
   types.ts       # all API response interfaces
-  components/    # 19 TSX; largest: MailboxTab (45KB), StorageTab (37KB), LabelManager (36KB) — read sections, not whole files
+  components/    # 21 TSX; largest: MailboxTab (50KB), StorageTab (37KB), LabelManager (36KB) — read sections, not whole files
   hooks/         # useJob (SSE+poll), useAuth, useAutoClearAlert
-  utils/exportExcel.ts  # SheetJS export
+  utils/         # exportExcel.ts (SheetJS), searchQuery.ts (tag-search parse/suggest/filter/compile — pure, vitest-covered)
   theme/         # themes.ts (botanical|espresso), ThemeContext.tsx
 server/src/
   index.js       # middleware pipeline + route mounting
@@ -92,4 +93,4 @@ Required: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY`. St
 
 ## New feature checklist
 
-service (`userId` first) → route (`req.userId`, `next(err)`) → mount in `index.js` → `createJob` if long-running → `api.ts` method → `types.ts` interface → component (DESIGN.md rules) → `*.test.js` (node:test) → update FEATURES.md + ARCHITECTURE.md → `npm test -w server` + `npm run build -w client`
+service (`userId` first) → route (`req.userId`, `next(err)`) → mount in `index.js` → `createJob` if long-running → `api.ts` method → `types.ts` interface → component (DESIGN.md rules) → `*.test.js` (node:test) / `*.test.ts(x)` (vitest, client logic) → update FEATURES.md + ARCHITECTURE.md → `npm test -ws --if-present` + `npm run build -w client`

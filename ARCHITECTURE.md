@@ -390,6 +390,7 @@ App.tsx (Tab navigation + auth state + theme)
 │   ├── ScanControls.tsx     — Scan launcher + time range + stats
 │   ├── ScanLoader.tsx       — Animated scan progress display
 │   ├── FilterToolbar.tsx    — Smart filter chips (engagement/cleanup/category)
+│   ├── TagSearchInput.tsx   — Multi-filter chips search (tag:/from:/is:… + suggestions)
 │   ├── SenderTable.tsx      — Sortable sender table with bulk selection
 │   ├── UnsubscribePanel.tsx — Unsubscribe progress/results display
 │   ├── LabelReview.tsx      — Label assignment review dialog
@@ -684,6 +685,7 @@ CREATE INDEX idx_activity_log_action ON activity_log(action);
 **Running tests:**
 ```bash
 npm test -w server        # Run all backend unit tests
+npm test -w client        # Run client unit/component tests (vitest + jsdom + Testing Library)
 npm run build -w client   # TypeScript check + Vite production build
 npm run db:inspect -w server  # Inspect SQLite tables, row counts, samples
 ```
