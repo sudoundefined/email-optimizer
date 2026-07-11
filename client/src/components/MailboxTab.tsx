@@ -731,10 +731,11 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
       {scan && !scanJob.running && (
         <>
-          {/* ── TOOLBAR — flat sticky row: rail toggle + multi-filter search (dropdown is portaled) ── */}
+          {/* ── TOOLBAR — flat sticky row: rail toggle + search + (senders view) sort/export ── */}
           <Flex
             align="center"
             gap={2}
+            wrap="wrap"
             position="sticky"
             top={0}
             zIndex="sticky"
@@ -764,7 +765,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
               display={{ base: 'inline-flex', md: 'none' }}
               onClick={mobileNav.onOpen}
             />
-            <Box flex={1} minW={0}>
+            <Box flex={1} minW="240px">
               <TagSearchInput
                 chips={chips}
                 onChipsChange={handleChipsChange}
@@ -774,6 +775,47 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 isSearching={messagesLoading && !!tagSearchQuery}
               />
             </Box>
+            {!isMessageView && !showProtectedView && (
+              <HStack spacing={2} flexShrink={0} pt="2px">
+                <Text fontSize="sm" fontWeight={700} color="text.primary" isTruncated maxW="160px">{rightTitle}</Text>
+                <Tag size="sm" variant="outline" borderRadius="full">{visibleSenders.length.toLocaleString()}</Tag>
+                {category && (
+                  <Tag size="sm" borderRadius="full" bg={`${CATEGORY_COLORS[category] ?? '#AEAEB2'}20`} color={CATEGORY_COLORS[category] ?? '#8E8E93'}>
+                    {category}
+                  </Tag>
+                )}
+                {selectedSenders.size > 0 && (
+                  <Tag size="sm" colorScheme="brand" borderRadius="full">{selectedSenders.size} selected</Tag>
+                )}
+                <Select
+                  size="sm"
+                  w="150px"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  bg="bg.input"
+                >
+                  <option value="volume">Sort: Most emails</option>
+                  <option value="name">Sort: Name (A–Z)</option>
+                  <option value="recent">Sort: Most recent</option>
+                </Select>
+                <Tooltip label="Export to Excel" hasArrow>
+                  <IconButton
+                    aria-label="Export to Excel"
+                    icon={<DownloadIcon />}
+                    size="sm"
+                    variant="outline"
+                    colorScheme="brand"
+                    isDisabled={visibleSenders.length === 0}
+                    onClick={() => {
+                      const toExport = selectedSenders.size > 0
+                        ? visibleSenders.filter((s) => selectedSenders.has(s.email))
+                        : visibleSenders
+                      exportToExcel(toExport)
+                    }}
+                  />
+                </Tooltip>
+              </HStack>
+            )}
           </Flex>
 
           <Grid templateColumns={{ base: '1fr', md: navCollapsed ? '56px 1fr' : '232px 1fr' }} gap={4} flex={1} minH={0}>
@@ -915,61 +957,17 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 </Box>
               </Card>
             ) : (
-              <Card 
-                variant="outline" 
-                borderRadius="xl" 
-                h="100%" 
-                display="flex" 
-                flexDir="column" 
-                bg="bg.card" 
+              <Card
+                variant="outline"
+                borderRadius="xl"
+                h="100%"
+                display="flex"
+                flexDir="column"
+                bg="bg.card"
                 backdropFilter="blur(12px)"
                 pb={selectedSenders.size > 0 ? "80px" : "0px"}
                 transition="padding-bottom 0.2s"
               >
-                <Flex align="center" justify="space-between" px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent" gap={4}>
-                  <HStack spacing={3} minW={0} overflow="hidden">
-                    <Text fontSize="lg" fontWeight={700} color="text.primary" isTruncated>{rightTitle}</Text>
-                    <Tag size="sm" variant="outline" borderRadius="full">{visibleSenders.length.toLocaleString()}</Tag>
-                    {category && (
-                      <Tag size="sm" borderRadius="full" bg={`${CATEGORY_COLORS[category] ?? '#AEAEB2'}20`} color={CATEGORY_COLORS[category] ?? '#8E8E93'}>
-                        {category}
-                      </Tag>
-                    )}
-                    {selectedSenders.size > 0 && (
-                      <Tag size="sm" colorScheme="brand" borderRadius="full">{selectedSenders.size} selected</Tag>
-                    )}
-                  </HStack>
-                  <HStack spacing={2} flexShrink={0}>
-                    <Select
-                      size="sm"
-                      w="160px"
-                      value={sort}
-                      onChange={(e) => setSort(e.target.value as SortKey)}
-                      bg="white"
-                    >
-                      <option value="volume">Sort: Most emails</option>
-                      <option value="name">Sort: Name (A–Z)</option>
-                      <option value="recent">Sort: Most recent</option>
-                    </Select>
-                    <Tooltip label="Export to Excel" hasArrow>
-                      <IconButton
-                        aria-label="Export to Excel"
-                        icon={<DownloadIcon />}
-                        size="sm"
-                        variant="outline"
-                        colorScheme="brand"
-                        isDisabled={visibleSenders.length === 0}
-                        onClick={() => {
-                          const toExport = selectedSenders.size > 0
-                            ? visibleSenders.filter((s) => selectedSenders.has(s.email))
-                            : visibleSenders
-                          exportToExcel(toExport)
-                        }}
-                      />
-                    </Tooltip>
-                  </HStack>
-                </Flex>
-                
                 {segment === 'subscriptions' && (
                   <Flex px={6} py={3} borderBottom="1px" borderColor="whiteAlpha.400" wrap="wrap" gap={2} align="center">
                     <Text fontSize="xs" color="neutral.500" mr={1}>

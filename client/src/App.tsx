@@ -325,7 +325,7 @@ export default function App() {
 
         {/* Tab Content */}
         <Flex
-          p={{ base: 4, md: 8 }}
+          p={tab === 'mailbox' ? { base: 3, md: 5 } : { base: 4, md: 8 }}
           overflowY={tab === 'account' ? 'auto' : 'hidden'}
           overflowX="hidden"
           flex={1}
