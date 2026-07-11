@@ -1,5 +1,6 @@
 import net from 'node:net'
 import dns from 'node:dns/promises'
+import https from 'node:https'
 import { getGmail } from '../gmail/client.js'
 import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { requireScan } from '../store/scanCache.js'
@@ -37,43 +38,101 @@ export function isPrivateIp(ip) {
   )
 }
 
-/** Rejects non-https URLs and hosts that resolve to private/loopback ranges. */
+/**
+ * Rejects non-https URLs and hosts that resolve to private/loopback ranges.
+ * Returns the validated `{ address, family }` (the literal itself for IP-literal
+ * hosts) so the caller can pin the actual TCP connection to this exact address
+ * instead of letting the HTTP client re-resolve the hostname later — re-resolving
+ * is what opens the DNS-rebinding TOCTOU window (see M1 in the security report).
+ */
 export async function assertSafeUrl(rawUrl) {
   const url = new URL(rawUrl)
   if (url.protocol !== 'https:') throw new Error('one-click URL must be https')
   const host = url.hostname
-  if (net.isIP(host)) {
+  const literalFamily = net.isIP(host)
+  if (literalFamily) {
     if (isPrivateIp(host)) throw new Error('URL resolves to a private address')
-    return
+    return { address: host, family: literalFamily }
   }
   if (/^localhost$/i.test(host)) throw new Error('URL resolves to a private address')
-  const { address } = await dns.lookup(host)
+  const { address, family } = await dns.lookup(host)
   if (isPrivateIp(address)) throw new Error('URL resolves to a private address')
+  return { address, family }
+}
+
+/**
+ * Builds a `dns.lookup`-shaped resolver that always answers with the single,
+ * already-validated `address`/`family` — used as the `lookup` option on an
+ * outbound request so the socket can only ever connect to the address
+ * `assertSafeUrl` checked, regardless of what the hostname resolves to by the
+ * time the connection is actually opened. `options.all` is honored because
+ * Node's happy-eyeballs connect logic requests the array form.
+ * Defense in depth: re-checks `isPrivateIp` here too, in case this is ever
+ * called with an address that skipped `assertSafeUrl`.
+ */
+export function pinnedLookup(address, family) {
+  return (hostname, options, callback) => {
+    if (isPrivateIp(address)) {
+      callback(new Error('URL resolves to a private address'))
+      return
+    }
+    if (options && options.all) {
+      callback(null, [{ address, family }])
+    } else {
+      callback(null, address, family)
+    }
+  }
+}
+
+/**
+ * POSTs the one-click body with the connection pinned to `address`/`family`.
+ * `hostname` (from the URL) is still what's sent as the Host header and used
+ * for TLS SNI/certificate verification — only the DNS resolution step is
+ * overridden, so this doesn't affect which cert the server needs to present.
+ */
+function pinnedHttpsPost(targetUrl, address, family) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(targetUrl)
+    const body = 'List-Unsubscribe=One-Click'
+    const req = https.request(
+      {
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: `${url.pathname}${url.search}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(body),
+          'User-Agent': BROWSER_UA,
+        },
+        lookup: pinnedLookup(address, family),
+        // Don't pool/reuse keep-alive sockets across hosts: each call gets its own
+        // freshly-validated connection instead of possibly reusing one opened for
+        // a different pinned address under the same hostname:port pool key.
+        agent: false,
+        signal: AbortSignal.timeout(10_000),
+      },
+      (res) => {
+        res.resume() // discard the body, same intent as the previous res.body?.cancel()
+        resolve({ status: res.statusCode, location: res.headers.location })
+      }
+    )
+    req.on('error', reject)
+    req.end(body)
+  })
 }
 
 async function oneClickPost(url) {
   let currentUrl = url
   for (let hop = 0; hop < 5; hop++) {
-    await assertSafeUrl(currentUrl)
-    const res = await fetch(currentUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': BROWSER_UA,
-      },
-      body: 'List-Unsubscribe=One-Click',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(10_000),
-    })
+    const { address, family } = await assertSafeUrl(currentUrl)
+    const res = await pinnedHttpsPost(currentUrl, address, family)
     if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get('location')
-      await res.body?.cancel()
-      if (!location) throw new Error(`HTTP ${res.status} redirect without location`)
-      currentUrl = new URL(location, currentUrl).toString()
+      if (!res.location) throw new Error(`HTTP ${res.status} redirect without location`)
+      currentUrl = new URL(res.location, currentUrl).toString()
       continue
     }
-    await res.body?.cancel()
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`)
     return
   }
   throw new Error('Too many redirects')

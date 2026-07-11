@@ -32,8 +32,10 @@ Severity is calibrated for a single-user self-hosted tool: e.g. rate-limiting ga
 
 ### Medium
 
-#### M1 — SSRF guard is check-then-use (TOCTOU / DNS-rebinding window)
+#### M1 — SSRF guard is check-then-use (TOCTOU / DNS-rebinding window) — ✅ REMEDIATED
 **File:** `server/src/services/unsubscribeService.js:41-52` (`assertSafeUrl`) and `:54-80` (`oneClickPost`)
+
+> **Remediated (fixed in this branch):** `assertSafeUrl` now returns the validated `{ address, family }` and each hop of `oneClickPost` connects through a pinned `lookup` that can only answer with that checked address, closing the re-resolution window; details in `.superpowers/sdd/m1-fix-report.md`.
 
 **Evidence:** `assertSafeUrl` resolves the hostname with `dns.lookup(host)` and validates the returned address against `isPrivateIp`, then `oneClickPost` issues a *separate* `fetch(currentUrl, …)` call. The name is resolved twice (once for the check, once by `fetch`), so a hostname whose DNS answer changes between the two resolutions — or that returns multiple A records where `dns.lookup` samples a public one but `fetch` connects to a private one — can bypass the guard. `dns.lookup` returns a single address; a rebinding server can answer "public" to the check and "private" (e.g. `169.254.169.254`, `127.0.0.1`) to the connect.
 
