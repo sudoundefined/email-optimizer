@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Box, Button, Card, Tag, useToast,
+  Box, Button, Card, Tag, TagLabel, TagCloseButton, useToast,
   Grid, GridItem, Input, Progress,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
@@ -234,6 +234,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const [segment, setSegment] = useState<Segment>('all')
   const [category, setCategory] = useState<string | null>(null)
   const [chips, setChips] = useState<Chip[]>([])            // being edited in the input
+  const [appliedChips, setAppliedChips] = useState<Chip[]>([]) // submitted set, shown as removable tags outside the bar
   const [activeSearch, setActiveSearch] = useState<Chip[]>([]) // applied on last Search click
   const [tagSearchQuery, setTagSearchQuery] = useState<string | null>(null) // non-null → Gmail-routed results shown
   const [labelPrefix, setLabelPrefix] = useState('Unsub/')
@@ -478,6 +479,9 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     setActiveDrillDownSender(null)
     setSelectedMessages(new Set())
     setTrashDone(null)
+    // Record the submitted set (shown as removable tags) and close the bar.
+    setAppliedChips(searchChips)
+    searchBar.onClose()
     if (needsGmail(searchChips)) {
       setActiveSearch([])
       const q = compileGmailQuery(searchChips, labelPrefix)
@@ -501,8 +505,21 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
   const clearTagSearch = () => {
     setChips([])
+    setAppliedChips([])
     setActiveSearch([])
     setTagSearchQuery(null)
+  }
+
+  // Remove one applied filter tag: re-run the search with the rest, or clear
+  // entirely when it was the last one.
+  const removeAppliedChip = (index: number) => {
+    const next = appliedChips.filter((_, i) => i !== index)
+    setChips(next)
+    if (next.length === 0) {
+      clearTagSearch()
+    } else {
+      runTagSearch(next)
+    }
   }
 
   // Editing the chip list. Removing the last chip while a search is applied is
@@ -510,6 +527,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const handleChipsChange = (next: Chip[]) => {
     setChips(next)
     if (next.length === 0 && (activeSearch.length > 0 || tagSearchQuery)) {
+      setAppliedChips([])
       setActiveSearch([])
       setTagSearchQuery(null)
     }
@@ -703,9 +721,12 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 aria-expanded={searchBar.isOpen}
                 icon={<SearchIcon />}
                 size="sm"
-                variant={chips.length > 0 ? 'solid' : 'ghost'}
-                colorScheme={chips.length > 0 ? 'brand' : 'gray'}
-                onClick={searchBar.onToggle}
+                variant={appliedChips.length > 0 ? 'solid' : 'ghost'}
+                colorScheme={appliedChips.length > 0 ? 'brand' : 'gray'}
+                onClick={() => {
+                  if (!searchBar.isOpen && appliedChips.length > 0) setChips(appliedChips)
+                  searchBar.onToggle()
+                }}
               />
             </Tooltip>
           </HStack>
@@ -751,6 +772,29 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
           </HStack>
         ) : undefined}
       />
+
+      {/* Applied search filters — removable tags shown outside the search bar */}
+      {scan && !scanJob.running && appliedChips.length > 0 && (
+        <Flex align="center" gap={2} wrap="wrap" mb={3}>
+          <Text fontSize="xs" color="text.secondary" fontWeight={600} mr={1}>Filters:</Text>
+          {appliedChips.map((chip, i) => (
+            <Tag
+              key={`${chip.field}:${chip.value}:${i}`}
+              size="sm"
+              borderRadius="full"
+              fontWeight={600}
+              colorScheme={chip.valid ? 'brand' : 'red'}
+              variant="subtle"
+            >
+              <TagLabel>{chip.field === 'text' ? chip.value : `${chip.field}:${chip.value}`}</TagLabel>
+              <TagCloseButton aria-label={`Remove ${chip.field === 'text' ? chip.value : `${chip.field}:${chip.value}`} filter`} onClick={() => removeAppliedChip(i)} />
+            </Tag>
+          ))}
+          <Button size="xs" variant="ghost" colorScheme="brand" borderRadius="full" onClick={clearTagSearch}>
+            Clear all
+          </Button>
+        </Flex>
+      )}
 
       {/* Floating multi-filter search bar — opened by the toolbar search icon */}
       {scan && !scanJob.running && searchBar.isOpen && (
