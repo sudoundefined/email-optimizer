@@ -504,6 +504,16 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     setTagSearchQuery(null)
   }
 
+  // Editing the chip list. Removing the last chip while a search is applied is
+  // treated as Clear — the full list returns without a second explicit Search.
+  const handleChipsChange = (next: Chip[]) => {
+    setChips(next)
+    if (next.length === 0 && (activeSearch.length > 0 || tagSearchQuery)) {
+      setActiveSearch([])
+      setTagSearchQuery(null)
+    }
+  }
+
   const runTrashMessages = async () => {
     setConfirmMessageTrash(false)
     setError(null)
@@ -757,7 +767,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
             <Box flex={1} minW={0}>
               <TagSearchInput
                 chips={chips}
-                onChipsChange={setChips}
+                onChipsChange={handleChipsChange}
                 onSearch={runTagSearch}
                 onClear={clearTagSearch}
                 categories={categoryList}
