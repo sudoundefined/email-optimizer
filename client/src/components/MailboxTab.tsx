@@ -4,6 +4,7 @@ import {
   Grid, GridItem, Input, Progress,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
+  Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, useDisclosure,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
 import { EmailIcon, HamburgerIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
@@ -238,6 +239,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const [labelPrefix, setLabelPrefix] = useState('Unsub/')
   const [sort, setSort] = useState<SortKey>('volume')
   const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('mailbox-nav-collapsed') === '1')
+  const mobileNav = useDisclosure()
 
   const toggleNavCollapsed = () => {
     setNavCollapsed((v) => {
@@ -744,6 +746,14 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 onClick={toggleNavCollapsed}
               />
             </Tooltip>
+            <IconButton
+              aria-label="Open navigation"
+              icon={<HamburgerIcon />}
+              size="sm"
+              variant="ghost"
+              display={{ base: 'inline-flex', md: 'none' }}
+              onClick={mobileNav.onOpen}
+            />
             <Box flex={1} minW={0}>
               <TagSearchInput
                 chips={chips}
@@ -757,8 +767,8 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
           </Flex>
 
           <Grid templateColumns={{ base: '1fr', md: navCollapsed ? '56px 1fr' : '232px 1fr' }} gap={4} flex={1} minH={0}>
-          {/* ── LEFT PANE — flat navigation rail ── */}
-          <GridItem minH={0} overflowY={{ md: 'auto' }} pr={{ md: 1 }}>
+          {/* ── LEFT PANE — flat navigation rail (drawer on mobile) ── */}
+          <GridItem minH={0} overflowY={{ md: 'auto' }} pr={{ md: 1 }} display={{ base: 'none', md: 'block' }}>
             <MailboxNav
               collapsed={navCollapsed}
               showCategories={!showProtectedView && categoryCounts.length > 0}
@@ -774,6 +784,30 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
               onFilterSelect={handleFilterSelect}
             />
           </GridItem>
+
+          <Drawer isOpen={mobileNav.isOpen} placement="left" onClose={mobileNav.onClose}>
+            <DrawerOverlay />
+            <DrawerContent bg="bg.card" backdropFilter="blur(12px)">
+              <DrawerCloseButton />
+              <DrawerHeader fontSize="md">Navigate</DrawerHeader>
+              <DrawerBody px={2}>
+                <MailboxNav
+                  collapsed={false}
+                  showCategories={!showProtectedView && categoryCounts.length > 0}
+                  categoryCounts={categoryCounts}
+                  category={category}
+                  onCategorySelect={(c) => { handleCategorySelect(c); mobileNav.onClose() }}
+                  segment={segment}
+                  segmentCounts={segmentCounts}
+                  onSegmentSelect={(s) => { handleSegmentSelect(s); mobileNav.onClose() }}
+                  isMessageView={isMessageView}
+                  filters={filters}
+                  activeFilterKey={activeFilter?.key ?? null}
+                  onFilterSelect={(f) => { handleFilterSelect(f); mobileNav.onClose() }}
+                />
+              </DrawerBody>
+            </DrawerContent>
+          </Drawer>
 
           {/* ── RIGHT PANE — content ── */}
           <GridItem minH={0}>
