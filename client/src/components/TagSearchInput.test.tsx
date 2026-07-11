@@ -73,4 +73,48 @@ describe('TagSearchInput', () => {
     fireEvent.click(screen.getByRole('button', { name: /clear/i }))
     expect(onClear).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps focus in the input after a chip is added with Enter', () => {
+    render(<Harness />)
+    input().focus()
+    fireEvent.change(input(), { target: { value: 'tag:Promotions' } })
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    expect(screen.getByText('tag:Promotions')).toBeTruthy()
+    expect(document.activeElement).toBe(input())
+  })
+
+  it('shows suggestions in an ARIA listbox while the input is focused', () => {
+    render(<Harness />)
+    fireEvent.focus(input())
+    const listbox = screen.getByRole('listbox')
+    expect(listbox).toBeTruthy()
+    const options = screen.getAllByRole('option')
+    expect(options.length).toBeGreaterThan(0)
+    expect(options[0].textContent).toBe('tag:')
+  })
+
+  it('selects the active suggestion with ArrowDown + Enter and keeps focus', () => {
+    render(<Harness />)
+    input().focus()
+    fireEvent.focus(input())
+    fireEvent.keyDown(input(), { key: 'ArrowDown' }) // activate 'tag:'
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    // prefix suggestion fills the input rather than committing a chip
+    expect(input().value).toBe('tag:')
+    expect(document.activeElement).toBe(input())
+    // now the category values are suggested; pick the first (tag:Promotions)
+    fireEvent.keyDown(input(), { key: 'ArrowDown' })
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    expect(screen.getByText('tag:Promotions')).toBeTruthy()
+    expect(input().value).toBe('')
+    expect(document.activeElement).toBe(input())
+  })
+
+  it('closes the suggestion list on Escape', () => {
+    render(<Harness />)
+    fireEvent.focus(input())
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    fireEvent.keyDown(input(), { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
 })

@@ -681,84 +681,86 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
       {scan && !scanJob.running && (
         <>
-          {!showProtectedView && categoryCounts.length > 0 && (
-            <Flex 
-              overflowX="auto" 
-              py={4} 
-              mb={2}
-              gap={3} 
-              sx={{ '&::-webkit-scrollbar': { display: 'none' } }}
-            >
-              <Button
-                size="sm"
-                variant={category === null && !isMessageView ? 'solid' : 'outline'}
-                colorScheme={category === null && !isMessageView ? 'brand' : 'gray'}
-                onClick={() => {
-                  setCategory(null)
-                  setActiveFilter(null)
-                  setActiveDrillDownSender(null)
-                  setTagSearchQuery(null)
-                }}
-                borderRadius="full"
-                flexShrink={0}
-              >
-                All categories
-              </Button>
-              {categoryCounts.map(([cat, count]) => {
-                const active = category === cat && !isMessageView
-                const color = CATEGORY_COLORS[cat] ?? '#AEAEB2'
-                return (
-                  <Button
-                    key={cat}
-                    size="sm"
-                    variant={active ? 'solid' : 'outline'}
-                    onClick={() => {
-                      setCategory(active ? null : cat)
-                      setActiveFilter(null)
-                      setActiveDrillDownSender(null)
-                      setTagSearchQuery(null)
-                    }}
-                    bg={active ? color : 'bg.card'}
-                    borderColor={active ? color : 'border.subtle'}
-                    color={active ? 'white' : color}
-                    _hover={{ bg: active ? color : `${color}15` }}
-                    borderRadius="full"
-                    flexShrink={0}
-                  >
-                    {cat} <Text as="span" ml={2} opacity={0.8} fontSize="xs">{count}</Text>
-                  </Button>
-                )
-              })}
-            </Flex>
-          )}
+          {/* ── TOP BAR — multi-filter search (kept outside any overflow container so the suggestion dropdown can overlay) ── */}
+          <Card borderRadius="xl" mt={2} mb={4} overflow="visible">
+            <CardBody p={3}>
+              <TagSearchInput
+                chips={chips}
+                onChipsChange={setChips}
+                onSearch={runTagSearch}
+                onClear={clearTagSearch}
+                categories={categoryList}
+                isSearching={messagesLoading && !!tagSearchQuery}
+              />
+            </CardBody>
+          </Card>
 
           <Grid templateColumns={{ base: '1fr', md: 'repeat(12, 1fr)' }} gap={6} flex={1} minH={0}>
           {/* ── LEFT PANE — navigation & filters ── */}
           <GridItem colSpan={{ base: 12, md: 4, lg: 3 }} minH={0} overflowY={{ md: 'auto' }} pr={{ md: 2 }}>
             <VStack spacing={4} align="stretch">
-              <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
-                <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
-                  <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
-                    <Icon as={StarIcon} mr={2} color="brand.500" /> Smart Filters
-                  </Text>
-                </Box>
-                <CardBody p={4}>
-                  <FilterToolbar filters={filters} activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
-                </CardBody>
-              </Card>
-
-              <Card borderRadius="xl">
-                <CardBody p={3}>
-                  <TagSearchInput
-                    chips={chips}
-                    onChipsChange={setChips}
-                    onSearch={runTagSearch}
-                    onClear={clearTagSearch}
-                    categories={categoryList}
-                    isSearching={messagesLoading && !!tagSearchQuery}
-                  />
-                </CardBody>
-              </Card>
+              {!showProtectedView && categoryCounts.length > 0 && (
+                <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
+                  <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
+                    <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
+                      <Icon as={EmailIcon} mr={2} color="brand.500" /> Categories
+                    </Text>
+                  </Box>
+                  <CardBody p={2} maxH="280px" overflowY="auto">
+                    <Flex
+                      onClick={() => {
+                        setCategory(null)
+                        setActiveFilter(null)
+                        setActiveDrillDownSender(null)
+                        setTagSearchQuery(null)
+                      }}
+                      align="center"
+                      justify="space-between"
+                      px={3} py={2} mb={1}
+                      borderRadius="md"
+                      cursor="pointer"
+                      bg={category === null && !isMessageView ? 'bg.accent' : 'transparent'}
+                      borderLeft="2px solid"
+                      borderColor={category === null && !isMessageView ? 'brand.icon' : 'transparent'}
+                      _hover={{ bg: category === null && !isMessageView ? 'bg.accent' : 'bg.hover' }}
+                    >
+                      <Text fontSize="sm" fontWeight={600} color="text.primary">All categories</Text>
+                    </Flex>
+                    {categoryCounts.map(([cat, count]) => {
+                      const active = category === cat && !isMessageView
+                      const color = CATEGORY_COLORS[cat] ?? '#AEAEB2'
+                      return (
+                        <Flex
+                          key={cat}
+                          onClick={() => {
+                            setCategory(active ? null : cat)
+                            setActiveFilter(null)
+                            setActiveDrillDownSender(null)
+                            setTagSearchQuery(null)
+                          }}
+                          align="center"
+                          justify="space-between"
+                          px={3} py={2} mb={1}
+                          borderRadius="md"
+                          cursor="pointer"
+                          bg={active ? 'bg.accent' : 'transparent'}
+                          borderLeft="2px solid"
+                          borderColor={active ? 'brand.icon' : 'transparent'}
+                          _hover={{ bg: active ? 'bg.accent' : 'bg.hover' }}
+                        >
+                          <Flex align="center" minW={0}>
+                            <Box w={2} h={2} borderRadius="full" bg={color} mr={2} flexShrink={0} />
+                            <Text fontSize="sm" fontWeight={600} color="text.primary" isTruncated>{cat}</Text>
+                          </Flex>
+                          <Text fontSize="sm" fontWeight={700} ml={2} flexShrink={0} color="text.primary">
+                            {count.toLocaleString()}
+                          </Text>
+                        </Flex>
+                      )
+                    })}
+                  </CardBody>
+                </Card>
+              )}
 
               <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
                 <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
@@ -804,6 +806,17 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                       </Flex>
                     )
                   })}
+                </CardBody>
+              </Card>
+
+              <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
+                <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
+                  <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
+                    <Icon as={StarIcon} mr={2} color="brand.500" /> Smart Filters
+                  </Text>
+                </Box>
+                <CardBody p={4}>
+                  <FilterToolbar filters={filters} activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
                 </CardBody>
               </Card>
 
