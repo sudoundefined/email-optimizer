@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  Box, Button, Flex, HStack, Input, List, ListItem,
+  Box, Button, Flex, HStack, Input, List, ListItem, Portal,
   Tag, TagCloseButton, TagLabel, Text, Tooltip,
 } from '@chakra-ui/react'
 import { SearchIcon } from '@chakra-ui/icons'
@@ -28,11 +28,32 @@ export default function TagSearchInput({
   const [focused, setFocused] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fieldRef = useRef<HTMLDivElement>(null)
+  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null)
 
   const suggestions = useMemo(
     () => (focused ? getSuggestions(text, categories).slice(0, 8) : []),
     [focused, text, categories]
   )
+
+  // The dropdown is portaled to <body> (theme Cards create backdrop-filter
+  // stacking contexts and the tab shell clips overflow), so position it
+  // manually from the field's viewport rect while it is open.
+  useLayoutEffect(() => {
+    if (suggestions.length === 0) { setMenuRect(null); return }
+    const update = () => {
+      const r = fieldRef.current?.getBoundingClientRect()
+      if (r) setMenuRect({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+    // chips/text change the field's wrap height, so re-measure on those too
+  }, [suggestions.length, chips, text])
   const hasInvalid = chips.some((c) => !c.valid)
 
   const refocus = () => inputRef.current?.focus()
@@ -91,6 +112,7 @@ export default function TagSearchInput({
     <Flex gap={2} align="flex-start">
       <Box position="relative" flex={1} minW={0}>
         <Flex
+          ref={fieldRef}
           wrap="wrap"
           align="center"
           gap={1.5}
@@ -145,45 +167,57 @@ export default function TagSearchInput({
             onChange={(e) => { setText(e.target.value); setActiveIndex(-1) }}
             onKeyDown={handleKeyDown}
             onFocus={() => setFocused(true)}
-            onBlur={() => setTimeout(() => setFocused(false), 150)}
+            onBlur={() => {
+              // Clicking outside commits the pending text as a chip (suggestion
+              // clicks preventDefault on mousedown, so they never reach here).
+              setFocused(false)
+              setActiveIndex(-1)
+              if (text.trim()) {
+                onChipsChange([...chips, parseToken(text.trim(), categories)])
+                setText('')
+              }
+            }}
           />
         </Flex>
-        {suggestions.length > 0 && (
-          <List
-            id="tag-search-suggestions"
-            role="listbox"
-            position="absolute"
-            top="100%"
-            left={0}
-            zIndex="dropdown"
-            mt={1}
-            w="100%"
-            bg="bg.card"
-            borderRadius="md"
-            boxShadow="md"
-            border="1px solid"
-            borderColor="border.subtle"
-            maxH="260px"
-            overflowY="auto"
-          >
-            {suggestions.map((s, i) => (
-              <ListItem
-                key={s}
-                id={`tag-search-option-${i}`}
-                role="option"
-                aria-selected={i === activeIndex}
-                px={3}
-                py={1.5}
-                fontSize="sm"
-                cursor="pointer"
-                bg={i === activeIndex ? 'bg.hover' : 'transparent'}
-                _hover={{ bg: 'bg.hover' }}
-                onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s) }}
-              >
-                {s}
-              </ListItem>
-            ))}
-          </List>
+        {suggestions.length > 0 && menuRect && (
+          <Portal>
+            <List
+              id="tag-search-suggestions"
+              role="listbox"
+              position="fixed"
+              top={`${menuRect.top}px`}
+              left={`${menuRect.left}px`}
+              w={`${menuRect.width}px`}
+              zIndex="popover"
+              bg="bg.card"
+              backdropFilter="blur(12px)"
+              borderRadius="xl"
+              boxShadow="xl"
+              border="1px solid"
+              borderColor="border.glass"
+              py={1}
+              maxH="260px"
+              overflowY="auto"
+            >
+              {suggestions.map((s, i) => (
+                <ListItem
+                  key={s}
+                  id={`tag-search-option-${i}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                  px={3}
+                  py={1.5}
+                  fontSize="sm"
+                  cursor="pointer"
+                  bg={i === activeIndex ? 'bg.hover' : 'transparent'}
+                  _hover={{ bg: 'bg.hover' }}
+                  onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s) }}
+                >
+                  {s}
+                </ListItem>
+              ))}
+            </List>
+          </Portal>
         )}
         {hasInvalid && (
           <Text fontSize="xs" color="red.400" mt={1}>Fix or remove red filters to search</Text>

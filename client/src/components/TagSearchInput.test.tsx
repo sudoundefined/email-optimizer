@@ -93,6 +93,17 @@ describe('TagSearchInput', () => {
     expect(options[0].textContent).toBe('tag:')
   })
 
+  it('renders the suggestion list in a portal so ancestor stacking contexts cannot hide it', () => {
+    render(<Harness />)
+    fireEvent.focus(input())
+    const listbox = screen.getByRole('listbox')
+    // Portaled to document.body — NOT a DOM descendant of the input's field wrapper.
+    // Regression guard: theme Cards apply backdropFilter (a stacking context), which
+    // trapped the in-flow absolute dropdown behind later siblings.
+    expect(listbox.closest('.chakra-portal')).toBeTruthy()
+    expect(input().parentElement!.contains(listbox)).toBe(false)
+  })
+
   it('selects the active suggestion with ArrowDown + Enter and keeps focus', () => {
     render(<Harness />)
     input().focus()
