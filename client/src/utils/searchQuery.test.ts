@@ -152,3 +152,64 @@ describe('filterSenders', () => {
     expect(filterSenders(SENDERS, SUGGESTION_MAP, chips)).toEqual(SENDERS)
   })
 })
+
+import { needsGmail, compileGmailQuery } from './searchQuery'
+
+const CATS = ['Promotions', 'Social', 'Newsletters', 'Food & Dining']
+
+describe('needsGmail', () => {
+  it('is false for cache-answerable chips', () => {
+    expect(needsGmail([parseToken('tag:Promotions', CATS), parseToken('from:amazon', CATS)])).toBe(false)
+  })
+  it('is true when any Gmail-only chip is present', () => {
+    expect(needsGmail([parseToken('from:amazon', CATS), parseToken('is:unread', CATS)])).toBe(true)
+    expect(needsGmail([parseToken('older_than:6m', CATS)])).toBe(true)
+    expect(needsGmail([parseToken('larger:5M', CATS)])).toBe(true)
+  })
+  it('ignores invalid chips', () => {
+    expect(needsGmail([parseToken('is:starred', CATS)])).toBe(false)
+  })
+})
+
+describe('compileGmailQuery', () => {
+  const P = 'Unsub/'
+
+  it('maps Gmail-native tags to category:', () => {
+    expect(compileGmailQuery([parseToken('tag:Promotions', CATS)], P)).toBe('category:promotions')
+    expect(compileGmailQuery([parseToken('tag:Social', CATS)], P)).toBe('category:social')
+  })
+
+  it('maps non-native tags to the prefixed label, quoting spaces', () => {
+    expect(compileGmailQuery([parseToken('tag:Newsletters', CATS)], P)).toBe('label:Unsub/Newsletters')
+    expect(compileGmailQuery([parseToken('tag:Food & Dining', CATS)], P)).toBe('label:"Unsub/Food & Dining"')
+  })
+
+  it('ORs same-field chips and ANDs across fields', () => {
+    const chips = [parseToken('tag:Promotions', CATS), parseToken('tag:Social', CATS), parseToken('is:unread', CATS)]
+    expect(compileGmailQuery(chips, P)).toBe('(category:promotions OR category:social) is:unread')
+  })
+
+  it('passes through from/subject/is/older_than/newer_than/larger', () => {
+    const chips = [
+      parseToken('from:amazon', CATS),
+      parseToken('subject:order shipped', CATS),
+      parseToken('older_than:6m', CATS),
+      parseToken('larger:5M', CATS),
+    ]
+    expect(compileGmailQuery(chips, P)).toBe('from:amazon subject:"order shipped" older_than:6m larger:5M')
+  })
+
+  it('quotes free text with spaces and ANDs multiple text chips', () => {
+    const chips = [parseToken('big sale', CATS), parseToken('amazon', CATS)]
+    expect(compileGmailQuery(chips, P)).toBe('"big sale" amazon')
+  })
+
+  it('strips quotes, braces, and parens from values (injection defense)', () => {
+    expect(compileGmailQuery([parseToken('from:a"b{c}(d)', CATS)], P)).toBe('from:abcd')
+  })
+
+  it('skips invalid chips', () => {
+    const chips = [parseToken('tag:banana', CATS), parseToken('from:amazon', CATS)]
+    expect(compileGmailQuery(chips, P)).toBe('from:amazon')
+  })
+})

@@ -20,6 +20,7 @@ export interface Chip {
 
 const METHODS = ['oneclick', 'mailto', 'link', 'none'] as const
 const FIELD_PREFIXES = ['tag:', 'from:', 'method:', 'subject:', 'is:unread', 'older_than:', 'newer_than:', 'larger:']
+const GMAIL_ONLY: ReadonlySet<ChipField> = new Set(['is', 'older_than', 'newer_than', 'larger'])
 
 export function parseToken(raw: string, categories: string[]): Chip {
   const text = raw.trim()
@@ -127,4 +128,45 @@ export function filterSenders(
     }
     return true
   })
+}
+
+/** App categories that map 1:1 onto Gmail's native category: operator. */
+const GMAIL_NATIVE_TAGS: Record<string, string> = {
+  promotions: 'promotions',
+  social: 'social',
+}
+
+export function needsGmail(chips: Chip[]): boolean {
+  return chips.some((c) => c.valid && GMAIL_ONLY.has(c.field))
+}
+
+/** Strip Gmail grouping/quoting metacharacters, then quote if spaced. */
+function quoteValue(value: string): string {
+  const v = value.replace(/["(){}]/g, '')
+  return /\s/.test(v) ? `"${v}"` : v
+}
+
+export function compileGmailQuery(chips: Chip[], labelPrefix: string): string {
+  const groups = groupChips(chips)
+  const parts: string[] = []
+  for (const [field, group] of groups) {
+    const terms = group.map((c) => {
+      switch (field) {
+        case 'tag': {
+          const native = GMAIL_NATIVE_TAGS[c.value.toLowerCase()]
+          return native ? `category:${native}` : `label:${quoteValue(labelPrefix + c.value)}`
+        }
+        case 'from': return `from:${quoteValue(c.value)}`
+        case 'subject': return `subject:${quoteValue(c.value)}`
+        case 'is': return 'is:unread'
+        case 'older_than': return `older_than:${c.value}`
+        case 'newer_than': return `newer_than:${c.value}`
+        case 'larger': return `larger:${c.value}`
+        default: return quoteValue(c.value) // free text
+      }
+    })
+    if (field === 'text' || terms.length === 1) parts.push(...terms) // text ANDs; singletons need no group
+    else parts.push(`(${terms.join(' OR ')})`)
+  }
+  return parts.join(' ')
 }
