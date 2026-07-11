@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import {
-  Button, Select, HStack, Flex, Card, CardBody, Text, IconButton, Tooltip
+  Button, Select, HStack, Flex, Card, CardBody, Text, IconButton, Tooltip, Spacer
 } from '@chakra-ui/react'
 import { SearchIcon, RepeatIcon } from '@chakra-ui/icons'
 import type { ScanResult } from '../types'
@@ -14,12 +14,14 @@ const RANGES = [
 ]
 
 export default function ScanControls({
-  onScan, onCancel, running, scan,
+  onScan, onCancel, running, scan, leftSlot, rightSlot,
 }: {
   onScan: (range: string) => void
   onCancel?: () => void
   running: boolean
   scan: ScanResult | null
+  leftSlot?: ReactNode
+  rightSlot?: ReactNode
 }) {
   const [range, setRange] = useState(scan?.range || RANGES[2].value)
 
@@ -31,10 +33,12 @@ export default function ScanControls({
   }, [running, scan?.range])
 
   // After a scan completes, controls collapse to a slim inline row — the big
-  // card is the primary CTA only until there's data to show.
+  // card is the primary CTA only until there's data to show. leftSlot/rightSlot
+  // let the parent share this line (nav toggle on the left, view controls right).
   if (scan && !running) {
     return (
       <Flex align="center" gap={3} mb={3} wrap="wrap">
+        {leftSlot}
         <Select
           w="150px"
           size="sm"
@@ -62,6 +66,8 @@ export default function ScanControls({
           <Text as="span" fontWeight={700} color="text.primary">{scan.messageCount.toLocaleString()}</Text> emails ·{' '}
           scanned {new Date(scan.scannedAt).toLocaleString()}
         </Text>
+        {rightSlot && <Spacer />}
+        {rightSlot}
       </Flex>
     )
   }

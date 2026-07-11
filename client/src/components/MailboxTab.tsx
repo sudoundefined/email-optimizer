@@ -7,7 +7,7 @@ import {
   Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, useDisclosure,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
-import { EmailIcon, HamburgerIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
+import { EmailIcon, HamburgerIcon, SearchIcon, CloseIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
 import { exportToExcel } from '../utils/exportExcel'
 import { api, ApiError } from '../api'
 import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription, Filter, GroupMessage } from '../types'
@@ -240,6 +240,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const [sort, setSort] = useState<SortKey>('volume')
   const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('mailbox-nav-collapsed') === '1')
   const mobileNav = useDisclosure()
+  const searchBar = useDisclosure()
 
   const toggleNavCollapsed = () => {
     setNavCollapsed((v) => {
@@ -669,8 +670,127 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   }
 
   return (
-    <Flex direction="column" h="100%" minH={0}>
-      <ScanControls onScan={runScan} onCancel={scanJob.cancel} running={scanJob.running} scan={scan} />
+    <Flex direction="column" h="100%" minH={0} position="relative">
+      <ScanControls
+        onScan={runScan}
+        onCancel={scanJob.cancel}
+        running={scanJob.running}
+        scan={scan}
+        leftSlot={scan && !scanJob.running ? (
+          <HStack spacing={1}>
+            <Tooltip label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'} hasArrow>
+              <IconButton
+                aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+                aria-expanded={!navCollapsed}
+                icon={<HamburgerIcon />}
+                size="sm"
+                variant="ghost"
+                display={{ base: 'none', md: 'inline-flex' }}
+                onClick={toggleNavCollapsed}
+              />
+            </Tooltip>
+            <IconButton
+              aria-label="Open navigation"
+              icon={<HamburgerIcon />}
+              size="sm"
+              variant="ghost"
+              display={{ base: 'inline-flex', md: 'none' }}
+              onClick={mobileNav.onOpen}
+            />
+            <Tooltip label="Search senders & messages" hasArrow>
+              <IconButton
+                aria-label="Search"
+                aria-expanded={searchBar.isOpen}
+                icon={<SearchIcon />}
+                size="sm"
+                variant={chips.length > 0 ? 'solid' : 'ghost'}
+                colorScheme={chips.length > 0 ? 'brand' : 'gray'}
+                onClick={searchBar.onToggle}
+              />
+            </Tooltip>
+          </HStack>
+        ) : undefined}
+        rightSlot={scan && !scanJob.running && !isMessageView && !showProtectedView ? (
+          <HStack spacing={2} flexShrink={0}>
+            <Tag size="sm" variant="outline" borderRadius="full">{rightTitle} · {visibleSenders.length.toLocaleString()}</Tag>
+            {category && (
+              <Tag size="sm" borderRadius="full" bg={`${CATEGORY_COLORS[category] ?? '#AEAEB2'}20`} color={CATEGORY_COLORS[category] ?? '#8E8E93'}>
+                {category}
+              </Tag>
+            )}
+            {selectedSenders.size > 0 && (
+              <Tag size="sm" colorScheme="brand" borderRadius="full">{selectedSenders.size} selected</Tag>
+            )}
+            <Select
+              size="sm"
+              w="150px"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              bg="bg.input"
+            >
+              <option value="volume">Sort: Most emails</option>
+              <option value="name">Sort: Name (A–Z)</option>
+              <option value="recent">Sort: Most recent</option>
+            </Select>
+            <Tooltip label="Export to Excel" hasArrow>
+              <IconButton
+                aria-label="Export to Excel"
+                icon={<DownloadIcon />}
+                size="sm"
+                variant="outline"
+                colorScheme="brand"
+                isDisabled={visibleSenders.length === 0}
+                onClick={() => {
+                  const toExport = selectedSenders.size > 0
+                    ? visibleSenders.filter((s) => selectedSenders.has(s.email))
+                    : visibleSenders
+                  exportToExcel(toExport)
+                }}
+              />
+            </Tooltip>
+          </HStack>
+        ) : undefined}
+      />
+
+      {/* Floating multi-filter search bar — opened by the toolbar search icon */}
+      {scan && !scanJob.running && searchBar.isOpen && (
+        <Box
+          position="absolute"
+          top={{ base: '52px', md: '44px' }}
+          left={0}
+          right={0}
+          zIndex="popover"
+          bg="bg.card"
+          backdropFilter="blur(12px)"
+          border="1px solid"
+          borderColor="border.glass"
+          borderRadius="xl"
+          boxShadow="xl"
+          p={3}
+        >
+          <Flex align="center" gap={2}>
+            <Box flex={1} minW={0}>
+              <TagSearchInput
+                chips={chips}
+                onChipsChange={handleChipsChange}
+                onSearch={(c) => { runTagSearch(c) }}
+                onClear={clearTagSearch}
+                categories={categoryList}
+                isSearching={messagesLoading && !!tagSearchQuery}
+              />
+            </Box>
+            <Tooltip label="Close search" hasArrow>
+              <IconButton
+                aria-label="Close search"
+                icon={<CloseIcon boxSize={2.5} />}
+                size="sm"
+                variant="ghost"
+                onClick={searchBar.onClose}
+              />
+            </Tooltip>
+          </Flex>
+        </Box>
+      )}
       
       {/* Single slim progress strip — one long-running bulk job at a time (phase C) */}
       {(() => {
@@ -731,93 +851,6 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
       {scan && !scanJob.running && (
         <>
-          {/* ── TOOLBAR — flat sticky row: rail toggle + search + (senders view) sort/export ── */}
-          <Flex
-            align="center"
-            gap={2}
-            wrap="wrap"
-            position="sticky"
-            top={0}
-            zIndex="sticky"
-            bg="bg.app"
-            borderBottom="1px solid"
-            borderColor="border.subtle"
-            pt={2}
-            pb={3}
-            mb={3}
-          >
-            <Tooltip label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'} hasArrow>
-              <IconButton
-                aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
-                aria-expanded={!navCollapsed}
-                icon={<HamburgerIcon />}
-                size="sm"
-                variant="ghost"
-                display={{ base: 'none', md: 'inline-flex' }}
-                onClick={toggleNavCollapsed}
-              />
-            </Tooltip>
-            <IconButton
-              aria-label="Open navigation"
-              icon={<HamburgerIcon />}
-              size="sm"
-              variant="ghost"
-              display={{ base: 'inline-flex', md: 'none' }}
-              onClick={mobileNav.onOpen}
-            />
-            <Box flex={1} minW="240px">
-              <TagSearchInput
-                chips={chips}
-                onChipsChange={handleChipsChange}
-                onSearch={runTagSearch}
-                onClear={clearTagSearch}
-                categories={categoryList}
-                isSearching={messagesLoading && !!tagSearchQuery}
-              />
-            </Box>
-            {!isMessageView && !showProtectedView && (
-              <HStack spacing={2} flexShrink={0} pt="2px">
-                <Text fontSize="sm" fontWeight={700} color="text.primary" isTruncated maxW="160px">{rightTitle}</Text>
-                <Tag size="sm" variant="outline" borderRadius="full">{visibleSenders.length.toLocaleString()}</Tag>
-                {category && (
-                  <Tag size="sm" borderRadius="full" bg={`${CATEGORY_COLORS[category] ?? '#AEAEB2'}20`} color={CATEGORY_COLORS[category] ?? '#8E8E93'}>
-                    {category}
-                  </Tag>
-                )}
-                {selectedSenders.size > 0 && (
-                  <Tag size="sm" colorScheme="brand" borderRadius="full">{selectedSenders.size} selected</Tag>
-                )}
-                <Select
-                  size="sm"
-                  w="150px"
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortKey)}
-                  bg="bg.input"
-                >
-                  <option value="volume">Sort: Most emails</option>
-                  <option value="name">Sort: Name (A–Z)</option>
-                  <option value="recent">Sort: Most recent</option>
-                </Select>
-                <Tooltip label="Export to Excel" hasArrow>
-                  <IconButton
-                    aria-label="Export to Excel"
-                    icon={<DownloadIcon />}
-                    size="sm"
-                    variant="outline"
-                    colorScheme="brand"
-                    isDisabled={visibleSenders.length === 0}
-                    onClick={() => {
-                      const toExport = selectedSenders.size > 0
-                        ? visibleSenders.filter((s) => selectedSenders.has(s.email))
-                        : visibleSenders
-                      exportToExcel(toExport)
-                    }}
-                  />
-                </Tooltip>
-              </HStack>
-            )}
-          </Flex>
-
           <Grid templateColumns={{ base: '1fr', md: navCollapsed ? '56px 1fr' : '232px 1fr' }} gap={4} flex={1} minH={0}>
           {/* ── LEFT PANE — flat navigation rail (drawer on mobile) ── */}
           <GridItem minH={0} overflowY={{ md: 'auto' }} pr={{ md: 1 }} display={{ base: 'none', md: 'block' }}>
