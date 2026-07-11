@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Alert, AlertIcon, Box, Button, Card, Tag,
+  Box, Button, Card, Tag, useToast,
   Grid, GridItem, Input, Progress,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
@@ -23,7 +23,32 @@ import type { Segment } from './MailboxNav'
 import TagSearchInput from './TagSearchInput'
 import { compileGmailQuery, filterSenders, needsGmail } from '../utils/searchQuery'
 import type { Chip } from '../utils/searchQuery'
-import { useAutoClearAlert } from '../hooks/useAutoClearAlert'
+/**
+ * Bridges message-state (set all over the action handlers) to transient toasts:
+ * fire once when a message lands, then clear the state immediately so banners
+ * never pile up above the table (mailbox redesign phase C).
+ */
+function useStatusToast(
+  message: string | null,
+  clear: (v: string | null) => void,
+  status: 'success' | 'error' | 'warning'
+) {
+  const toast = useToast()
+  useEffect(() => {
+    if (!message) return
+    toast({
+      description: message,
+      status,
+      duration: status === 'error' ? 8000 : 6000,
+      isClosable: true,
+      position: 'top-right',
+      variant: 'subtle',
+    })
+    clear(null)
+    // toast/clear are stable; fire only on message change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message])
+}
 
 type SortKey = 'volume' | 'name' | 'recent'
 
@@ -199,11 +224,11 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const [customLabelArchive, setCustomLabelArchive] = useState(false)
   const [labelDone, setLabelDone] = useState<string | null>(null)
 
-  useAutoClearAlert(error, setError)
-  useAutoClearAlert(trashDone, setTrashDone)
-  useAutoClearAlert(keepDone, setKeepDone)
-  useAutoClearAlert(protectionWarning, setProtectionWarning)
-  useAutoClearAlert(labelDone, setLabelDone)
+  useStatusToast(error, setError, 'error')
+  useStatusToast(trashDone, setTrashDone, 'success')
+  useStatusToast(keepDone, setKeepDone, 'success')
+  useStatusToast(protectionWarning, setProtectionWarning, 'warning')
+  useStatusToast(labelDone, setLabelDone, 'success')
 
   const [segment, setSegment] = useState<Segment>('all')
   const [category, setCategory] = useState<string | null>(null)
@@ -635,42 +660,40 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     <Flex direction="column" h="100%" minH={0}>
       <ScanControls onScan={runScan} onCancel={scanJob.cancel} running={scanJob.running} scan={scan} />
       
-      {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
-      {trashDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashDone}</Alert>}
-      {keepDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{keepDone}</Alert>}
-      {protectionWarning && <Alert status="warning" mb={4} borderRadius="md"><AlertIcon />{protectionWarning}</Alert>}
-      {labelDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{labelDone}</Alert>}
-
-      {filterLabelJob.running && (
-        <Box mb={4}>
-          <Text fontSize="xs" color="gray.500">
-            {filterLabelJob.job?.progress?.phase === 'listing'
-              ? `Scanning matching emails…`
-              : `Applying custom label… ${(filterLabelJob.job?.progress as any)?.labeled ?? 0} / ${(filterLabelJob.job?.progress as any)?.total ?? '?'}`}
-          </Text>
-          <Progress size="sm" colorScheme="blue" value={(filterLabelJob.job?.progress as any)?.total ? (((filterLabelJob.job?.progress as any)?.labeled || 0) / (filterLabelJob.job?.progress as any)?.total) * 100 : undefined} mt={1} borderRadius="md" isIndeterminate={!(filterLabelJob.job?.progress as any)?.total} />
-        </Box>
-      )}
-
-      {trashSenderJob.running && trashProgress && (
-        <Box mb={4}>
-          <Text fontSize="xs" color="gray.500">
-            Moving to Trash… {trashProgress.trashed ?? 0} / {trashProgress.total ?? '?'} emails
-          </Text>
-          <Progress size="sm" colorScheme="blue" value={trashProgress.total ? (trashProgress.trashed! / trashProgress.total) * 100 : undefined} mt={1} borderRadius="md" isIndeterminate={!trashProgress.total} />
-        </Box>
-      )}
-
-      {keepJob.running && (
-        <Box mb={4}>
-          <Text fontSize="xs" color="gray.500">
-            {keepProgress?.phase === 'trashing'
-              ? `Keeping latest, trashing older… ${keepProgress.trashed ?? 0} / ${keepProgress.total ?? '?'} emails`
-              : `Scanning sender history… ${keepProgress?.listed ?? 0} found`}
-          </Text>
-          <Progress size="sm" colorScheme="blue" value={keepProgress?.total ? (keepProgress.trashed! / keepProgress.total) * 100 : undefined} mt={1} borderRadius="md" isIndeterminate={!keepProgress?.total} />
-        </Box>
-      )}
+      {/* Single slim progress strip — one long-running bulk job at a time (phase C) */}
+      {(() => {
+        const labelP = filterLabelJob.job?.progress as { phase?: string; labeled?: number; total?: number } | null
+        const strip = filterLabelJob.running
+          ? {
+              text: labelP?.phase === 'listing'
+                ? 'Scanning matching emails…'
+                : `Applying custom label… ${labelP?.labeled ?? 0} / ${labelP?.total ?? '?'}`,
+              pct: labelP?.total ? ((labelP.labeled || 0) / labelP.total) * 100 : undefined,
+            }
+          : trashSenderJob.running && trashProgress
+            ? {
+                text: `Moving to Trash… ${trashProgress.trashed ?? 0} / ${trashProgress.total ?? '?'} emails`,
+                pct: trashProgress.total ? ((trashProgress.trashed ?? 0) / trashProgress.total) * 100 : undefined,
+              }
+            : keepJob.running
+              ? {
+                  text: keepProgress?.phase === 'trashing'
+                    ? `Keeping latest, trashing older… ${keepProgress.trashed ?? 0} / ${keepProgress.total ?? '?'} emails`
+                    : `Scanning sender history… ${keepProgress?.listed ?? 0} found`,
+                  pct: keepProgress?.total ? ((keepProgress.trashed ?? 0) / keepProgress.total) * 100 : undefined,
+                }
+              : null
+        if (!strip) return null
+        return (
+          <Flex align="center" gap={3} mb={3} px={3} py={2} borderRadius="lg" bg="bg.accent" role="status">
+            <Text fontSize="xs" fontWeight={600} color="text.secondary" flexShrink={0}>{strip.text}</Text>
+            <Progress
+              size="xs" colorScheme="brand" flex={1} borderRadius="full"
+              value={strip.pct} isIndeterminate={strip.pct === undefined}
+            />
+          </Flex>
+        )
+      })()}
 
       {unsubJob.running && unsubJob.job?.progress != null && (
         <UnsubscribePanel progress={unsubJob.job.progress as never} running />
