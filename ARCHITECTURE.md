@@ -774,6 +774,7 @@ client/src/
 │   ├── LabelManager.tsx          # Label management (36KB)
 │   ├── DigestSettingsDialog.tsx  # Digest schedule config
 │   ├── ConfirmDialog.tsx         # Armed confirmation dialog
+│   ├── TagSearchInput.tsx        # Tags input with suggestions and explicit Search trigger
 │   ├── AnimatedProgress.tsx      # ProgressBar.js indicators
 │   └── EmailLoader.tsx           # Animated envelope loader
 ├── hooks/
@@ -781,6 +782,7 @@ client/src/
 │   ├── useAuth.ts                # Authentication state
 │   └── useAutoClearAlert.ts      # Auto-dismiss alerts
 ├── utils/
+│   ├── searchQuery.ts            # Tag-search parsing, sender filtering, Gmail query compilation (pure)
 │   └── exportExcel.ts            # Excel export with name splitting
 └── theme/
     ├── themes.ts                 # Botanical + Espresso themes (dark/light)

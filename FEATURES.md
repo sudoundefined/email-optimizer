@@ -21,6 +21,7 @@ This document is the single reference for **what the app does**, **how to use ea
    - [Per-sender trash](#5-per-sender-trash)
    - [Keep-latest-N retention](#6-keep-latest-n-retention)
    - [Quick-filter toolbar & message drill-down](#7-quick-filter-toolbar--message-drill-down)
+   - [Tag-Based Multi-Filter Search](#7a-tag-based-multi-filter-search)
    - [Trash-all-matching](#8-trash-all-matching)
    - [Storage recovery dashboard](#9-storage-recovery-dashboard)
    - [Empty Trash (permanent)](#10-empty-trash-permanent)
@@ -220,6 +221,31 @@ The list is persisted **per user** in the SQLite `protected_senders` table (`UNI
 **Notes:**
 - Filter definitions live server-side (`FILTER_DEFS`) and are fetched via `GET /api/inbox/filters` — a single source of truth kept in sync with the client by a drift-guard test.
 - The inbox groups API (`GET /api/inbox/groups` — 11 groups with live counts: Important, Primary, Marketing, Social, Updates, Forums, Starred, Unread, With attachments, Large >5 MB, Stale unread 6 mo+ — plus `GET /api/inbox/groups/:key/messages`) remains available server-side for group-based browsing.
+
+---
+
+### 7a. Tag-Based Multi-Filter Search
+
+**What it does:** The Mailbox search box is a tags input: type tokens and press Enter to build filter chips, then click **Search** to run them all at once.
+
+**Supported chips:**
+
+| Chip | Example | Resolved |
+| --- | --- | --- |
+| `tag:` | `tag:Promotions` | Cached scan (category suggestions) |
+| `from:` | `from:amazon` | Cached scan (email/name/domain) |
+| `method:` | `method:oneclick` | Cached scan (unsubscribe method) |
+| `subject:` | `subject:invoice` | Cached scan (latest subject) |
+| free text | `big sale` | Cached scan (name/email/subject) |
+| `is:unread` | `is:unread` | Gmail query |
+| `older_than:` / `newer_than:` | `older_than:6m` | Gmail query |
+| `larger:` | `larger:5M` | Gmail query |
+
+**How chips combine:**
+- Chips of the same field OR together; different fields AND together.
+- If any Gmail-only chip is present, the whole query compiles to one Gmail search and results open in the message panel (view + label only — bulk trash remains limited to the allow-listed quick-filter presets).
+- `tag:` values without a Gmail-native category map to `label:"<your label prefix><Category>"`, so they only match mail you have already labeled.
+- `method:` is cache-only — it has no Gmail query equivalent, so `method:` chips are ignored (skipped, not sent) whenever a search is routed to Gmail; they still filter normally against the cached scan.
 
 ---
 

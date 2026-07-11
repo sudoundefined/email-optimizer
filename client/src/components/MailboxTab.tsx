@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert, AlertIcon, Box, Button, Card, CardBody, Tag,
-  Grid, GridItem, Input, InputGroup, InputLeftElement, Progress,
+  Grid, GridItem, Input, Progress,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
-import { EmailIcon, SearchIcon, StarIcon, CopyIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
+import { EmailIcon, StarIcon, CopyIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
 import { exportToExcel } from '../utils/exportExcel'
 import { api, ApiError } from '../api'
 import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription, Filter, GroupMessage } from '../types'
@@ -19,6 +19,9 @@ import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
 import ProtectedTab from './ProtectedTab'
 import FilterToolbar from './FilterToolbar'
+import TagSearchInput from './TagSearchInput'
+import { compileGmailQuery, filterSenders, needsGmail } from '../utils/searchQuery'
+import type { Chip } from '../utils/searchQuery'
 import { useAutoClearAlert } from '../hooks/useAutoClearAlert'
 
 type Segment = 'all' | 'unsub' | 'nomethod' | 'subscriptions' | 'protected'
@@ -212,7 +215,10 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
   const [segment, setSegment] = useState<Segment>('all')
   const [category, setCategory] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [chips, setChips] = useState<Chip[]>([])            // being edited in the input
+  const [activeSearch, setActiveSearch] = useState<Chip[]>([]) // applied on last Search click
+  const [tagSearchQuery, setTagSearchQuery] = useState<string | null>(null) // non-null → Gmail-routed results shown
+  const [labelPrefix, setLabelPrefix] = useState('Unsub/')
   const [sort, setSort] = useState<SortKey>('volume')
 
   // Inbox / Messages State
@@ -245,18 +251,20 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
   const loadData = useCallback(async () => {
     try {
-      const [scanRes, suggRes, protRes, subRes, filterRes] = await Promise.all([
+      const [scanRes, suggRes, protRes, subRes, filterRes, prefRes] = await Promise.all([
         api.senders().catch((e) => { if (e instanceof ApiError && (e.status === 404 || e.status === 409)) return null; throw e }),
         api.suggestions().catch((e) => { if (e instanceof ApiError && (e.status === 404 || e.status === 409)) return []; throw e }),
         api.protectedList(),
         api.subscriptions().catch((e) => { if (e instanceof ApiError && e.code === 'no_scan') return []; throw e }),
         api.inboxFilters(),
+        api.userPreferences().catch(() => ({} as { labelPrefix?: string })),
       ])
       if (scanRes) setScan(scanRes)
       setSuggestions(suggRes)
       setProtectedList(protRes.protected)
       setSubscriptions(subRes)
       setFilters(filterRes)
+      if (prefRes.labelPrefix) setLabelPrefix(prefRes.labelPrefix)
     } catch (err) {
       handleApiError(err)
     }
@@ -401,6 +409,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const handleFilterSelect = async (filter: Filter | null) => {
     setActiveFilter(filter)
     setActiveDrillDownSender(null)
+    setTagSearchQuery(null)
     setMessages(null)
     setSelectedMessages(new Set())
     setTrashDone(null)
@@ -420,6 +429,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const handleSenderDrillDown = async (sender: Sender) => {
     setActiveDrillDownSender(sender)
     setActiveFilter(null)
+    setTagSearchQuery(null)
     setMessages(null)
     setSelectedMessages(new Set())
     setTrashDone(null)
@@ -433,6 +443,38 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     } finally {
       setMessagesLoading(false)
     }
+  }
+
+  const runTagSearch = async (searchChips: Chip[]) => {
+    setActiveFilter(null)
+    setActiveDrillDownSender(null)
+    setSelectedMessages(new Set())
+    setTrashDone(null)
+    if (needsGmail(searchChips)) {
+      setActiveSearch([])
+      const q = compileGmailQuery(searchChips, labelPrefix)
+      setTagSearchQuery(q)
+      setMessages(null)
+      setMessagesLoading(true)
+      try {
+        const msgs = await api.filterMessages(q)
+        setMessages(msgs)
+      } catch (err) {
+        handleApiError(err)
+        setTagSearchQuery(null)
+      } finally {
+        setMessagesLoading(false)
+      }
+    } else {
+      setTagSearchQuery(null)
+      setActiveSearch(searchChips)
+    }
+  }
+
+  const clearTagSearch = () => {
+    setChips([])
+    setActiveSearch([])
+    setTagSearchQuery(null)
   }
 
   const runTrashMessages = async () => {
@@ -482,14 +524,15 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   }
 
   const runFilterLabel = async () => {
-    if (!activeFilter || !customLabelName.trim()) return
+    const labelQuery = activeFilter?.query ?? tagSearchQuery
+    if (!labelQuery || !customLabelName.trim()) return
     setShowFilterLabelDialog(false)
     setError(null)
     setLabelDone(null)
     setTrashDone(null)
     try {
       const snapshot = await filterLabelJob.start(() =>
-        api.applyFilterLabel(activeFilter.query, customLabelName.trim(), customLabelArchive)
+        api.applyFilterLabel(labelQuery, customLabelName.trim(), customLabelArchive)
       )
       if (snapshot.state === 'error') {
         setError(snapshot.error || 'Labeling failed')
@@ -552,6 +595,8 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     return [...m.entries()].sort((a, b) => b[1] - a[1])
   }, [scan, suggestionMap])
 
+  const categoryList = useMemo(() => categoryCounts.map(([c]) => c), [categoryCounts])
+
   const visibleSenders = useMemo(() => {
     if (!scan) return []
     let list: Sender[] = scan.senders
@@ -559,25 +604,17 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     else if (segment === 'nomethod') list = list.filter((s) => s.method === 'none')
     else if (segment === 'subscriptions') list = list.filter((s) => subMap.has(s.email.toLowerCase()))
     if (category) list = list.filter((s) => suggestionMap.get(s.email)?.category === category)
-    const q = search.trim().toLowerCase()
-    if (q) {
-      list = list.filter(
-        (s) =>
-          (s.name || '').toLowerCase().includes(q) ||
-          s.email.toLowerCase().includes(q) ||
-          (s.latestSubject || '').toLowerCase().includes(q)
-      )
-    }
+    if (activeSearch.length > 0) list = filterSenders(list, suggestionMap, activeSearch)
     const sorted = [...list]
     if (sort === 'volume') sorted.sort((a, b) => b.messageCount - a.messageCount)
     else if (sort === 'name') sorted.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email))
     else if (sort === 'recent') sorted.sort((a, b) => b.latestDate - a.latestDate)
     return sorted
-  }, [scan, segment, category, search, sort, suggestionMap, subMap])
+  }, [scan, segment, category, activeSearch, sort, suggestionMap, subMap])
 
   const showProtectedView = segment === 'protected' && !activeFilter && !activeDrillDownSender
   const rightTitle = SEGMENTS.find((s) => s.key === segment)?.label ?? 'Senders'
-  const isMessageView = !!activeFilter || !!activeDrillDownSender
+  const isMessageView = !!activeFilter || !!activeDrillDownSender || !!tagSearchQuery
 
   return (
     <Flex direction="column" h="100%" minH={0}>
@@ -660,6 +697,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                   setCategory(null)
                   setActiveFilter(null)
                   setActiveDrillDownSender(null)
+                  setTagSearchQuery(null)
                 }}
                 borderRadius="full"
                 flexShrink={0}
@@ -678,6 +716,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                       setCategory(active ? null : cat)
                       setActiveFilter(null)
                       setActiveDrillDownSender(null)
+                      setTagSearchQuery(null)
                     }}
                     bg={active ? color : 'bg.card'}
                     borderColor={active ? color : 'border.subtle'}
@@ -710,17 +749,14 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
               <Card borderRadius="xl">
                 <CardBody p={3}>
-                  <InputGroup size="sm">
-                    <InputLeftElement pointerEvents="none">
-                      <SearchIcon color="gray.400" />
-                    </InputLeftElement>
-                    <Input
-                      placeholder="Search senders…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      borderRadius="md"
-                    />
-                  </InputGroup>
+                  <TagSearchInput
+                    chips={chips}
+                    onChipsChange={setChips}
+                    onSearch={runTagSearch}
+                    onClear={clearTagSearch}
+                    categories={categoryList}
+                    isSearching={messagesLoading && !!tagSearchQuery}
+                  />
                 </CardBody>
               </Card>
 
@@ -737,11 +773,12 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                     return (
                       <Flex
                         key={seg.key}
-                        onClick={() => { 
+                        onClick={() => {
                           setSegment(seg.key)
                           setActiveFilter(null)
                           setActiveDrillDownSender(null)
-                          if (seg.key === 'protected') setCategory(null) 
+                          setTagSearchQuery(null)
+                          if (seg.key === 'protected') setCategory(null)
                         }}
                         align="center"
                         justify="space-between"
@@ -791,10 +828,18 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 <Flex align="center" justify="space-between" px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent">
                   <Box>
                     <Text fontSize="lg" fontWeight={700} color="text.primary">
-                      {activeFilter ? activeFilter.label : activeDrillDownSender!.name || activeDrillDownSender!.email}
+                      {activeFilter
+                        ? activeFilter.label
+                        : activeDrillDownSender
+                          ? activeDrillDownSender.name || activeDrillDownSender.email
+                          : 'Search results'}
                     </Text>
                     <Text fontSize="sm" color="neutral.500" mt={1}>
-                      {activeFilter ? 'Viewing filtered messages' : `Browsing emails from ${activeDrillDownSender!.email}`}
+                      {activeFilter
+                        ? 'Viewing filtered messages'
+                        : activeDrillDownSender
+                          ? `Browsing emails from ${activeDrillDownSender.email}`
+                          : `Messages matching your tag search`}
                     </Text>
                   </Box>
                   <HStack spacing={2}>
@@ -803,33 +848,33 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                         {selectedMessages.size} selected
                       </Tag>
                     )}
-                    {activeFilter && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          colorScheme="brand"
-                          isLoading={filterLabelJob.running}
-                          onClick={() => {
-                            setCustomLabelArchive(false)
-                            setCustomLabelName('')
-                            setShowFilterLabelDialog(true)
-                          }}
-                        >
-                          Label all matching
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          colorScheme="red"
-                          isLoading={filterTrashJob.running}
-                          onClick={() => setConfirmFilterTrash(true)}
-                        >
-                          Trash all matching
-                        </Button>
-                      </>
+                    {(activeFilter || tagSearchQuery) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        colorScheme="brand"
+                        isLoading={filterLabelJob.running}
+                        onClick={() => {
+                          setCustomLabelArchive(false)
+                          setCustomLabelName('')
+                          setShowFilterLabelDialog(true)
+                        }}
+                      >
+                        Label all matching
+                      </Button>
                     )}
-                    <Button size="sm" variant="solid" colorScheme="brand" onClick={() => { setActiveFilter(null); setActiveDrillDownSender(null); setMessages(null); setSelectedMessages(new Set()) }}>
+                    {activeFilter && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        colorScheme="red"
+                        isLoading={filterTrashJob.running}
+                        onClick={() => setConfirmFilterTrash(true)}
+                      >
+                        Trash all matching
+                      </Button>
+                    )}
+                    <Button size="sm" variant="solid" colorScheme="brand" onClick={() => { setActiveFilter(null); setActiveDrillDownSender(null); setTagSearchQuery(null); setMessages(null); setSelectedMessages(new Set()) }}>
                       Close
                     </Button>
                   </HStack>
@@ -837,7 +882,13 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 <SelectableMessageList
                   messages={messages}
                   loading={messagesLoading}
-                  emptyText={activeFilter ? "No messages match this filter." : "No messages found from this sender."}
+                  emptyText={
+                    activeFilter
+                      ? "No messages match this filter."
+                      : activeDrillDownSender
+                        ? "No messages found from this sender."
+                        : "No messages match your tag search."
+                  }
                   selected={selectedMessages}
                   onSelectedChange={setSelectedMessages}
                 />
@@ -1100,14 +1151,18 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
         />
       )}
 
-      {showFilterLabelDialog && activeFilter && (
+      {showFilterLabelDialog && (activeFilter || tagSearchQuery) && (
         <Modal isOpen onClose={() => setShowFilterLabelDialog(false)} size="md" isCentered>
           <ModalOverlay />
           <ModalContent>
             <ModalHeader>Label matching messages</ModalHeader>
             <ModalBody>
               <Text fontSize="sm" mb={4}>
-                Apply a custom label to all emails matching the filter <Text as="strong">"{activeFilter.label}"</Text> (up to 5,000 messages).
+                Apply a custom label to all emails matching {activeFilter ? (
+                  <>the filter <Text as="strong">"{activeFilter.label}"</Text></>
+                ) : (
+                  <Text as="strong">your tag search</Text>
+                )} (up to 5,000 messages).
               </Text>
               <VStack spacing={4} align="stretch">
                 <Box>
