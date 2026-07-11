@@ -9,10 +9,20 @@ import { limited } from '../gmail/rateLimiter.js'
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
-function isPrivateIp(ip) {
+export function isPrivateIp(ip) {
+  if (!ip || typeof ip !== 'string') return true
+  const low = ip.toLowerCase()
   if (net.isIPv6(ip)) {
-    const low = ip.toLowerCase()
-    return low === '::1' || low.startsWith('fc') || low.startsWith('fd') || low.startsWith('fe80')
+    if (low === '::1' || low === '::' || low.startsWith('fc') || low.startsWith('fd') || low.startsWith('fe80')) {
+      return true
+    }
+    if (low.startsWith('::ffff:')) {
+      const v4Part = low.slice(7)
+      if (net.isIPv4(v4Part)) {
+        return isPrivateIp(v4Part)
+      }
+    }
+    return false
   }
   const parts = ip.split('.').map(Number)
   const [a, b] = parts
@@ -22,12 +32,13 @@ function isPrivateIp(ip) {
     a === 0 ||
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
-    (a === 169 && b === 254)
+    (a === 169 && b === 254) ||
+    (a === 100 && b >= 64 && b <= 127)
   )
 }
 
 /** Rejects non-https URLs and hosts that resolve to private/loopback ranges. */
-async function assertSafeUrl(rawUrl) {
+export async function assertSafeUrl(rawUrl) {
   const url = new URL(rawUrl)
   if (url.protocol !== 'https:') throw new Error('one-click URL must be https')
   const host = url.hostname
@@ -41,18 +52,31 @@ async function assertSafeUrl(rawUrl) {
 }
 
 async function oneClickPost(url) {
-  await assertSafeUrl(url)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': BROWSER_UA,
-    },
-    body: 'List-Unsubscribe=One-Click',
-    redirect: 'follow',
-    signal: AbortSignal.timeout(10_000),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  let currentUrl = url
+  for (let hop = 0; hop < 5; hop++) {
+    await assertSafeUrl(currentUrl)
+    const res = await fetch(currentUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': BROWSER_UA,
+      },
+      body: 'List-Unsubscribe=One-Click',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get('location')
+      await res.body?.cancel()
+      if (!location) throw new Error(`HTTP ${res.status} redirect without location`)
+      currentUrl = new URL(location, currentUrl).toString()
+      continue
+    }
+    await res.body?.cancel()
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return
+  }
+  throw new Error('Too many redirects')
 }
 
 async function sendMailtoUnsubscribe(gmail, mailtoUri) {

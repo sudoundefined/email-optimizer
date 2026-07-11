@@ -26,6 +26,13 @@ getDb()
 
 const app = express()
 
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  next()
+})
+
 app.use(cors({
   origin: config.corsOrigin,
   credentials: true,
@@ -39,8 +46,32 @@ app.get('/api/health', (req, res) => res.json({ ok: true }))
 app.use('/', legalRoutes)
 app.use('/api/auth', authRoutes)
 
-// Protected API routes — require JWT cookie + user rate limit
-app.use('/api', authMiddleware, userRateLimiter)
+function normalizeOrigin(urlStr) {
+  return String(urlStr || '').replace(/\/+$/, '').toLowerCase()
+}
+
+function csrfProtection(req, res, next) {
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
+    const origin = req.headers.origin
+    const referer = req.headers.referer
+    const allowed = [normalizeOrigin(config.corsOrigin), normalizeOrigin(config.clientUrl)]
+    if (origin) {
+      const normOrigin = normalizeOrigin(origin)
+      if (!allowed.includes(normOrigin)) {
+        return res.status(403).json({ error: 'CSRF Origin check failed' })
+      }
+    } else if (referer) {
+      const normReferer = normalizeOrigin(referer)
+      if (!allowed.some(a => normReferer === a || normReferer.startsWith(a + '/'))) {
+        return res.status(403).json({ error: 'CSRF Referer check failed' })
+      }
+    }
+  }
+  next()
+}
+
+// Protected API routes — require JWT cookie + CSRF check + user rate limit
+app.use('/api', authMiddleware, csrfProtection, userRateLimiter)
 app.use('/api/user', userRoutes)
 app.use('/api/jobs', jobRoutes)
 app.use('/api', scanRoutes)

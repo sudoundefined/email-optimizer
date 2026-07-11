@@ -10,7 +10,7 @@ const EXPIRY = '7d'
  * @returns {string} - Signed JWT
  */
 export function signToken(userId) {
-  return jwt.sign({ sub: userId }, config.jwtSecret, { expiresIn: EXPIRY })
+  return jwt.sign({ sub: userId }, config.jwtSecret, { algorithm: 'HS256', expiresIn: EXPIRY })
 }
 
 /**
@@ -20,7 +20,7 @@ export function signToken(userId) {
  * @throws If the token is invalid or expired
  */
 export function verifyToken(token) {
-  return jwt.verify(token, config.jwtSecret)
+  return jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] })
 }
 
 /**

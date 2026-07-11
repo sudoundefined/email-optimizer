@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAuthUrl, handleCallback, revokeAndLogout, getUserFromDb } from '../auth/oauthClient.js'
+import { getAuthUrl, getAuthUrlWithState, handleCallback, revokeAndLogout, getUserFromDb } from '../auth/oauthClient.js'
 import { signToken, verifyToken } from '../auth/jwt.js'
 import { COOKIE_NAME } from '../auth/authMiddleware.js'
 import { logActivity } from '../services/auditService.js'
@@ -39,7 +39,15 @@ router.get('/status', (req, res) => {
 
 router.get('/login', (req, res, next) => {
   try {
-    res.redirect(getAuthUrl())
+    const { url, state } = getAuthUrlWithState()
+    res.cookie('oauth_state', state, {
+      httpOnly: true,
+      secure: config.cookieSecure,
+      sameSite: 'lax',
+      domain: config.cookieDomain,
+      maxAge: 10 * 60 * 1000,
+    })
+    res.redirect(url)
   } catch (err) {
     next(err)
   }
@@ -48,10 +56,12 @@ router.get('/login', (req, res, next) => {
 router.get('/callback', async (req, res) => {
   try {
     const { code, state, error } = req.query
+    const cookieState = req.cookies?.oauth_state
+    res.clearCookie('oauth_state')
     if (error) throw new Error(`Google returned: ${error}`)
     if (!code) throw new Error('Missing authorization code')
 
-    const user = await handleCallback(String(code), String(state || ''))
+    const user = await handleCallback(String(code), String(state || ''), cookieState ? String(cookieState) : undefined)
     const jwtToken = signToken(user.userId)
 
     res.cookie(COOKIE_NAME, jwtToken, {

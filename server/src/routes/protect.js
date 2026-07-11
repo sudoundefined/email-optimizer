@@ -17,8 +17,8 @@ router.get('/protect', (req, res, next) => {
 router.post('/protect', (req, res, next) => {
   try {
     const { emails } = req.body || {}
-    if (!Array.isArray(emails) || emails.length === 0) {
-      return res.status(400).json({ error: 'emails must be a non-empty array' })
+    if (!Array.isArray(emails) || emails.length === 0 || emails.length > 5000 || !emails.every(e => typeof e === 'string')) {
+      return res.status(400).json({ error: 'emails must be a non-empty array of strings (max 5000)' })
     }
     protectSenders(req.userId, emails)
     res.json({ ok: true })
@@ -28,8 +28,8 @@ router.post('/protect', (req, res, next) => {
 router.delete('/protect', (req, res, next) => {
   try {
     const { emails } = req.body || {}
-    if (!Array.isArray(emails) || emails.length === 0) {
-      return res.status(400).json({ error: 'emails must be a non-empty array' })
+    if (!Array.isArray(emails) || emails.length === 0 || emails.length > 5000 || !emails.every(e => typeof e === 'string')) {
+      return res.status(400).json({ error: 'emails must be a non-empty array of strings (max 5000)' })
     }
     unprotectSenders(req.userId, emails)
     res.json({ ok: true })

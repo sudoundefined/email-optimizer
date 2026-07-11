@@ -397,12 +397,28 @@ The app is built around **non-destructive, recoverable** actions:
 
 Ordered roughly by value/effort. See [ROADMAP.md](ROADMAP.md) for full context and the shipped-version log. Shipped items are documented in [Shipped features](#shipped-features) above and are not repeated here.
 
-### 🔄 Next (rules & automation)
+### ⚡ Next up (v8 — quick wins, reuse existing infrastructure)
+
+Detailed implementation plan (schemas, endpoints, file-level tasks, tests, acceptance criteria): [docs/PLAN-QUICK-WINS.md](docs/PLAN-QUICK-WINS.md). Build order **1 → 3 → 2 → 4**.
+
+- [ ] **Sender watch list** — mark a sender as "watch" and get alerted in the weekly digest when its volume spikes; new `sender_watches` table + a digest section.
+- [ ] **Storage trend tracking** — snapshot mailbox size per scan into `storage_snapshots`; render a "reclaimed since X" sparkline on the storage dashboard.
+- [ ] **Scheduled auto-clean rules** — per-user recurring rules ("every Sunday, trash promos older than 30 days") combining the retention engine with a generalized scheduler tick; runs reported via the existing audit log.
+- [ ] **Digest one-click act links** — signed, single-use action links in the weekly digest to unsubscribe or keep-latest-N straight from the email.
+
+### 🔄 Next (v9 — rules & automation)
+
+Detailed implementation plan: [docs/PLAN-NEXT.md](docs/PLAN-NEXT.md). Prerequisite: the v8 quick-wins tier ships first (it builds the generic scheduler loop, digest-section plumbing, signed action tokens, and storage snapshots this tier reuses).
 
 - [ ] **Auto-rules engine** — visual IF-THEN builder ("new marketing sender → auto-label + archive", "sender emails again after I unsubscribed → auto-trash + notify"). The shipped [activity audit log](#0a-account--logs-page) provides the per-user unsubscribe history the re-subscribe detector will build on.
 - [ ] **Priority triage (SaneBox-style)** — auto-file low-priority mail to a `Later` label; train by moving senders in/out.
 - [ ] **Snooze** — hide a thread and resurface it at a scheduled time.
 - [ ] **Engagement stats** — never-read report (senders you never open) and per-sender open-rate heatmap, with one-click "unsubscribe from all never-read."
+- [ ] **Unsubscribe verification loop** — 14 days after a one-click unsubscribe, check the metadata cache: did the sender email again? "Still emailing you" badge with an escalation path (Gmail filter → auto-trash).
+- [ ] **Duplicate email detector** — flag duplicates via metadata (same sender + subject + size within a window) and offer batch-trash; no body reads needed.
+- [ ] **Attachment offloader** — for the >5 MB attachments already surfaced by the Storage Reclaimer, offer "download all as ZIP" before trashing; streamed through the server, nothing persisted.
+- [ ] **Gmail filter export** — for senders that ignore unsubscribes, create a native Gmail filter (auto-archive/trash) via the API so cleanup persists even when the app isn't running.
+- [ ] **Inbox health score** — composite 0–100 score (marketing ratio, storage pressure, unread ratio, unsubscribe debt) on the dashboard, tracked weekly in the digest.
 
 ### 🤖 Later (AI-powered — needs Claude API)
 
