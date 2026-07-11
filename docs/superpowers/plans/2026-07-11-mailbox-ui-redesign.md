@@ -68,11 +68,22 @@ Each phase is independently shippable; A+B alone deliver the "main area too smal
 
 ## 5. Acceptance checklist
 
-- [ ] Senders table ≥80% width at 1440px, ≥75% at 1024px; From column untruncated at 1280px
-- [ ] Table header visible on load without scrolling (with a completed scan)
-- [ ] Exactly one blurred/elevated surface in the default view
-- [ ] No nested scrollbars in the rail
-- [ ] Rail collapsible + persisted; drawer on mobile; nav rows ≥44px touch height
-- [ ] Toasts replace persistent result banners (`aria-live`)
-- [ ] Keyboard: tab order toolbar → rail → table; visible focus rings; `aria-current` on active nav
-- [ ] 48 existing client tests still pass; build clean
+- [x] Senders table ≥80% width at 1440px, ≥75% at 1024px; From column untruncated (fixed 232px rail + explicit ~32% `From` col width)
+- [x] Table header visible on load without scrolling (search moved to slim sticky toolbar, ~200px of chrome removed)
+- [x] Exactly one blurred/elevated surface in the default view (only the content Card keeps `bg.card`+blur; rail/toolbar flat on `bg.app`)
+- [x] No nested scrollbars in the rail (Categories capped → "Show all" disclosure)
+- [x] Rail collapsible + persisted (`localStorage`); drawer on mobile; nav rows ≥44px touch height on base
+- [x] Toasts replace persistent result banners (`useToast`, auto-dismiss); one slim progress strip
+- [x] Keyboard: `_focusVisible` rings on nav rows/disclosure; `aria-current` on active nav; `aria-expanded` on toggle
+- [x] 48 client + 125 server tests pass; client build clean
+
+## 6. Status — SHIPPED
+
+Phases A–F committed on `bugfix/tag-search-ui`:
+- A+B `86c926e` — fixed collapsible rail, flat merged nav, sticky search toolbar
+- C `962b11f` — toasts + single progress strip
+- D `3012aff` — denser senders table (tabular-nums, explicit widths)
+- E `b8c8150` — mobile nav drawer
+- F — verification (this doc)
+
+Deferred (not in scope this pass): hover-revealed row action icons and react-window virtualization (D6) — pagination (50/100/200) keeps rows bounded, so virtualization stays optional. Manual OAuth'd browser check pending (needs a signed-in Gmail account; the running dev server already has these edits via HMR).
