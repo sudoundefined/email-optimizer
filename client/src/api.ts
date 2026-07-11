@@ -95,6 +95,7 @@ export const api = {
   groupMessages: (key: string) => request<GroupMessage[]>(`/api/inbox/groups/${key}/messages`),
   allLabels: () => request<GmailLabel[]>('/api/inbox/labels'),
   inboxFilters: () => request<Filter[]>('/api/inbox/filters'),
+  userPreferences: () => request<{ labelPrefix?: string }>('/api/user/preferences'),
   filterMessages: (q: string) => request<GroupMessage[]>(`/api/inbox/filter?q=${encodeURIComponent(q)}`),
   trashFilter: (key: string) =>
     request<{ jobId: string }>(`/api/inbox/filter/${encodeURIComponent(key)}/trash`, { method: 'POST' }),
