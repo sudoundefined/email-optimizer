@@ -1,15 +1,18 @@
-import { useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  Box, Button, HStack, Input, InputGroup, InputLeftElement, List, ListItem,
-  Tag, TagCloseButton, TagLabel, Text, Tooltip, Wrap, WrapItem,
+  Box, Button, Flex, HStack, Input, List, ListItem, Portal,
+  Tag, TagCloseButton, TagLabel, Text, Tooltip,
 } from '@chakra-ui/react'
 import { SearchIcon } from '@chakra-ui/icons'
 import { getSuggestions, parseToken } from '../utils/searchQuery'
 import type { Chip } from '../utils/searchQuery'
 
 /**
- * Tags input for multi-filter search. Controlled: the parent owns `chips`.
+ * Horizontal tags input for multi-filter search. Controlled: the parent owns `chips`.
  * onSearch fires ONLY on Search click / Enter-on-empty-input (spec: explicit trigger).
+ * The suggestion dropdown must not be rendered inside an overflow:auto/hidden
+ * ancestor — it positions absolutely below the field (MailboxTab renders this
+ * component in the full-width top bar for that reason).
  */
 export default function TagSearchInput({
   chips, onChipsChange, onSearch, onClear, categories, isSearching = false,
@@ -23,13 +26,37 @@ export default function TagSearchInput({
 }) {
   const [text, setText] = useState('')
   const [focused, setFocused] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fieldRef = useRef<HTMLDivElement>(null)
+  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null)
 
   const suggestions = useMemo(
     () => (focused ? getSuggestions(text, categories).slice(0, 8) : []),
     [focused, text, categories]
   )
+
+  // The dropdown is portaled to <body> (theme Cards create backdrop-filter
+  // stacking contexts and the tab shell clips overflow), so position it
+  // manually from the field's viewport rect while it is open.
+  useLayoutEffect(() => {
+    if (suggestions.length === 0) { setMenuRect(null); return }
+    const update = () => {
+      const r = fieldRef.current?.getBoundingClientRect()
+      if (r) setMenuRect({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+    // chips/text change the field's wrap height, so re-measure on those too
+  }, [suggestions.length, chips, text])
   const hasInvalid = chips.some((c) => !c.valid)
+
+  const refocus = () => inputRef.current?.focus()
 
   const addChip = (raw: string): Chip[] => {
     const trimmed = raw.trim()
@@ -37,13 +64,16 @@ export default function TagSearchInput({
     const next = [...chips, parseToken(trimmed, categories)]
     onChipsChange(next)
     setText('')
+    setActiveIndex(-1)
+    refocus()
     return next
   }
 
   const pickSuggestion = (s: string) => {
     if (s.endsWith(':')) {
       setText(s)
-      inputRef.current?.focus()
+      setActiveIndex(-1)
+      refocus()
     } else {
       addChip(s)
     }
@@ -55,89 +85,150 @@ export default function TagSearchInput({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'ArrowDown' && suggestions.length > 0) {
       e.preventDefault()
-      if (text.trim()) addChip(text)
-      else if (chips.length > 0 && !hasInvalid) onSearch(chips)
+      setActiveIndex((i) => (i + 1) % suggestions.length)
+    } else if (e.key === 'ArrowUp' && suggestions.length > 0) {
+      e.preventDefault()
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1))
+    } else if (e.key === 'Escape') {
+      setFocused(false)
+      setActiveIndex(-1)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        pickSuggestion(suggestions[activeIndex])
+      } else if (text.trim()) {
+        addChip(text)
+      } else if (chips.length > 0 && !hasInvalid) {
+        onSearch(chips)
+      }
     } else if (e.key === 'Backspace' && !text && chips.length > 0) {
       onChipsChange(chips.slice(0, -1))
     }
   }
 
   return (
-    <Box position="relative">
-      {chips.length > 0 && (
-        <Wrap mb={2} spacing={2}>
-          {chips.map((chip, i) => (
-            <WrapItem key={`${chip.field}:${chip.value}:${i}`}>
-              <Tooltip label={chip.error ?? chip.note} isDisabled={!chip.error && !chip.note} hasArrow>
-                <Tag
-                  size="sm"
-                  borderRadius="full"
-                  fontWeight={600}
-                  colorScheme={chip.valid ? 'brand' : 'red'}
-                  variant={chip.valid ? 'subtle' : 'solid'}
-                >
-                  <TagLabel>{chip.field === 'text' ? chip.value : `${chip.field}:${chip.value}`}</TagLabel>
-                  <TagCloseButton
-                    aria-label={`Remove ${chip.value}`}
-                    onClick={() => onChipsChange(chips.filter((_, j) => j !== i))}
-                  />
-                </Tag>
-              </Tooltip>
-            </WrapItem>
-          ))}
-        </Wrap>
-      )}
-      <InputGroup size="sm">
-        <InputLeftElement pointerEvents="none">
-          <SearchIcon color="gray.400" />
-        </InputLeftElement>
-        <Input
-          ref={inputRef}
-          placeholder="tag:Promotions, from:amazon, is:unread…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 150)}
-          borderRadius="md"
-        />
-      </InputGroup>
-      {suggestions.length > 0 && (
-        <List
-          position="absolute"
-          zIndex={10}
-          mt={1}
-          w="100%"
+    <Flex gap={2} align="flex-start">
+      <Box position="relative" flex={1} minW={0}>
+        <Flex
+          ref={fieldRef}
+          wrap="wrap"
+          align="center"
+          gap={1.5}
+          px={3}
+          py={1.5}
+          minH="40px"
           bg="bg.card"
-          borderRadius="md"
-          boxShadow="md"
           border="1px solid"
           borderColor="border.subtle"
-          maxH="220px"
-          overflowY="auto"
+          borderRadius="xl"
+          cursor="text"
+          transition="border-color 0.15s, box-shadow 0.15s"
+          _focusWithin={{ borderColor: 'brand.500', boxShadow: '0 0 0 1px var(--chakra-colors-brand-500)' }}
+          onClick={refocus}
         >
-          {suggestions.map((s) => (
-            <ListItem
-              key={s}
-              px={3}
-              py={1.5}
-              fontSize="sm"
-              cursor="pointer"
-              _hover={{ bg: 'bg.hover' }}
-              onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s) }}
+          <SearchIcon color="gray.400" boxSize={3.5} flexShrink={0} />
+          {chips.map((chip, i) => (
+            <Tooltip
+              key={`${chip.field}:${chip.value}:${i}`}
+              label={chip.error ?? chip.note}
+              isDisabled={!chip.error && !chip.note}
+              hasArrow
             >
-              {s}
-            </ListItem>
+              <Tag
+                size="sm"
+                borderRadius="full"
+                fontWeight={600}
+                flexShrink={0}
+                colorScheme={chip.valid ? 'brand' : 'red'}
+                variant={chip.valid ? 'subtle' : 'solid'}
+              >
+                <TagLabel>{chip.field === 'text' ? chip.value : `${chip.field}:${chip.value}`}</TagLabel>
+                <TagCloseButton
+                  aria-label={`Remove ${chip.value}`}
+                  onClick={(e) => { e.stopPropagation(); onChipsChange(chips.filter((_, j) => j !== i)) }}
+                />
+              </Tag>
+            </Tooltip>
           ))}
-        </List>
-      )}
-      <HStack mt={2} spacing={2}>
+          <Input
+            ref={inputRef}
+            variant="unstyled"
+            size="sm"
+            flex={1}
+            minW="160px"
+            placeholder="tag:Promotions, from:amazon, is:unread…"
+            value={text}
+            role="combobox"
+            aria-expanded={suggestions.length > 0}
+            aria-controls="tag-search-suggestions"
+            aria-activedescendant={activeIndex >= 0 ? `tag-search-option-${activeIndex}` : undefined}
+            onChange={(e) => { setText(e.target.value); setActiveIndex(-1) }}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+              // Clicking outside commits the pending text as a chip (suggestion
+              // clicks preventDefault on mousedown, so they never reach here).
+              setFocused(false)
+              setActiveIndex(-1)
+              if (text.trim()) {
+                onChipsChange([...chips, parseToken(text.trim(), categories)])
+                setText('')
+              }
+            }}
+          />
+        </Flex>
+        {suggestions.length > 0 && menuRect && (
+          <Portal>
+            <List
+              id="tag-search-suggestions"
+              role="listbox"
+              position="fixed"
+              top={`${menuRect.top}px`}
+              left={`${menuRect.left}px`}
+              w={`${menuRect.width}px`}
+              zIndex="popover"
+              bg="bg.card"
+              backdropFilter="blur(12px)"
+              borderRadius="xl"
+              boxShadow="xl"
+              border="1px solid"
+              borderColor="border.glass"
+              py={1}
+              maxH="260px"
+              overflowY="auto"
+            >
+              {suggestions.map((s, i) => (
+                <ListItem
+                  key={s}
+                  id={`tag-search-option-${i}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                  px={3}
+                  py={1.5}
+                  fontSize="sm"
+                  cursor="pointer"
+                  bg={i === activeIndex ? 'bg.hover' : 'transparent'}
+                  _hover={{ bg: 'bg.hover' }}
+                  onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s) }}
+                >
+                  {s}
+                </ListItem>
+              ))}
+            </List>
+          </Portal>
+        )}
+        {hasInvalid && (
+          <Text fontSize="xs" color="red.400" mt={1}>Fix or remove red filters to search</Text>
+        )}
+      </Box>
+      <HStack spacing={2} pt="2px">
         <Button
-          size="xs"
+          size="sm"
           colorScheme="brand"
           borderRadius="full"
+          fontWeight={600}
           isDisabled={(chips.length === 0 && !text.trim()) || hasInvalid}
           isLoading={isSearching}
           onClick={handleSearchClick}
@@ -145,18 +236,16 @@ export default function TagSearchInput({
           Search
         </Button>
         <Button
-          size="xs"
+          size="sm"
           variant="ghost"
           borderRadius="full"
+          fontWeight={600}
           isDisabled={chips.length === 0 && !text}
           onClick={() => { setText(''); onClear() }}
         >
           Clear
         </Button>
-        {hasInvalid && (
-          <Text fontSize="xs" color="red.400">Fix or remove red filters to search</Text>
-        )}
       </HStack>
-    </Box>
+    </Flex>
   )
 }

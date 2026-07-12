@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import {
-  Button, Select, HStack, Flex, Card, CardBody, Text
+  Button, Select, HStack, Flex, Card, CardBody, Text, IconButton, Tooltip, Spacer
 } from '@chakra-ui/react'
-import { SearchIcon } from '@chakra-ui/icons'
+import { SearchIcon, RepeatIcon } from '@chakra-ui/icons'
 import type { ScanResult } from '../types'
 
 const RANGES = [
@@ -14,12 +14,14 @@ const RANGES = [
 ]
 
 export default function ScanControls({
-  onScan, onCancel, running, scan,
+  onScan, onCancel, running, scan, leftSlot, rightSlot,
 }: {
   onScan: (range: string) => void
   onCancel?: () => void
   running: boolean
   scan: ScanResult | null
+  leftSlot?: ReactNode
+  rightSlot?: ReactNode
 }) {
   const [range, setRange] = useState(scan?.range || RANGES[2].value)
 
@@ -29,6 +31,46 @@ export default function ScanControls({
       setRange(scan.range)
     }
   }, [running, scan?.range])
+
+  // After a scan completes, controls collapse to a slim inline row — the big
+  // card is the primary CTA only until there's data to show. leftSlot/rightSlot
+  // let the parent share this line (nav toggle on the left, view controls right).
+  if (scan && !running) {
+    return (
+      <Flex align="center" gap={3} mb={3} wrap="wrap">
+        {leftSlot}
+        <Select
+          w="150px"
+          size="sm"
+          value={range}
+          onChange={(e) => { setRange(e.target.value); onScan(e.target.value) }}
+          bg="bg.input"
+          borderColor="border.subtle"
+        >
+          {RANGES.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </Select>
+        <Tooltip label="Re-scan mailbox" hasArrow>
+          <IconButton
+            aria-label="Re-scan mailbox"
+            icon={<RepeatIcon />}
+            size="sm"
+            variant="outline"
+            colorScheme="brand"
+            onClick={() => onScan(range)}
+          />
+        </Tooltip>
+        <Text fontSize="xs" color="text.secondary" ml={1}>
+          <Text as="span" fontWeight={700} color="text.primary">{scan.senders.length.toLocaleString()}</Text> senders ·{' '}
+          <Text as="span" fontWeight={700} color="text.primary">{scan.messageCount.toLocaleString()}</Text> emails ·{' '}
+          scanned {new Date(scan.scannedAt).toLocaleString()}
+        </Text>
+        {rightSlot && <Spacer />}
+        {rightSlot}
+      </Flex>
+    )
+  }
 
   return (
     <Card mb={6} bg="brand.100" overflow="visible" boxShadow="none" border="none">
@@ -75,31 +117,6 @@ export default function ScanControls({
               </Button>
             )}
           </HStack>
-
-          {!running && scan && (
-            <HStack spacing={4} ml="auto" wrap="wrap" align="center">
-              <HStack bg="blue.500" borderRadius="xl" px={3} py={2} spacing={2}>
-                <Text color="white" fontWeight={700} fontSize="md" lineHeight={1}>
-                  {scan.senders.length.toLocaleString()}
-                </Text>
-                <Text color="blue.100" fontSize="xs" fontWeight={600} lineHeight={1}>
-                  senders
-                </Text>
-              </HStack>
-              <HStack bg="blue.500" borderRadius="xl" px={3} py={2} spacing={2}>
-                <Text color="white" fontWeight={700} fontSize="md" lineHeight={1}>
-                  {scan.messageCount.toLocaleString()}
-                </Text>
-                <Text color="blue.100" fontSize="xs" fontWeight={600} lineHeight={1}>
-                  emails scanned
-                </Text>
-              </HStack>
-              
-              <Text fontSize="xs" color="brand.700" alignSelf="center">
-                scanned {new Date(scan.scannedAt).toLocaleString()}
-              </Text>
-            </HStack>
-          )}
         </Flex>
       </CardBody>
     </Card>

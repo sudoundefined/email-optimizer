@@ -96,7 +96,7 @@ export default function SenderTable({
         <Table size="sm" variant="simple" style={{ tableLayout: 'fixed' }}>
           <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
             <Tr>
-              <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
+              <Th w="40px" px={4} borderBottom="1px solid" borderColor="border.subtle" py={2.5}>
                 <Checkbox
                   isChecked={allSelected}
                   isIndeterminate={someSelected && !allSelected}
@@ -104,19 +104,19 @@ export default function SenderTable({
                   colorScheme="brand"
                 />
               </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                <Th w={{ base: '30%', xl: '32%' }} borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
                   <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                <Th w="150px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
                   <Flex align="center" gap={2}>Volume <UpDownIcon boxSize={3} color="gray.400" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                <Th w="130px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
                   <Flex align="center" gap={2}>Unsubscribe <UpDownIcon boxSize={3} color="gray.400" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                <Th w="130px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
                   <Flex align="center" gap={2}>Category <UpDownIcon boxSize={3} color="gray.400" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
                   <Flex align="center" gap={2}>Latest subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
                 </Th>
             </Tr>
@@ -131,26 +131,26 @@ export default function SenderTable({
                 <Tr
                   key={s.email}
                   bg="transparent"
-                  _hover={{ bg: 'gray.50' }}
+                  _hover={{ bg: 'bg.hover' }}
                   onClick={() => onDrillDown ? onDrillDown(s) : toggle(s.email)}
                   cursor="pointer"
                   borderBottom="1px solid"
-                  borderColor="gray.100"
+                  borderColor="border.subtle"
                   boxShadow={selected.has(s.email) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
                 >
-                  <Td px={4} onClick={(e) => e.stopPropagation()}>
+                  <Td px={4} py={2} onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       isChecked={selected.has(s.email)}
                       onChange={() => toggle(s.email)}
                       colorScheme="brand"
                     />
                   </Td>
-                  <Td py={4} maxW="280px">
+                  <Td py={2}>
                     <Flex align="center" gap={3}>
-                      <Avatar size="sm" name={s.name || s.email} src="" bg="brand.100" color="brand.800" fontWeight="bold" />
+                      <Avatar size="xs" name={s.name || s.email} src="" bg="brand.100" color="brand.800" fontWeight="bold" />
                       <Box overflow="hidden">
                         <HStack spacing={2} align="center">
-                          <Text fontSize="sm" fontWeight={700} color="text.primary" isTruncated>
+                          <Text fontSize="sm" fontWeight={600} color="text.primary" isTruncated>
                             {s.name || s.email}
                           </Text>
                           {isProtected && (
@@ -165,17 +165,17 @@ export default function SenderTable({
                       </Box>
                     </Flex>
                   </Td>
-                  <Td py={4}>
+                  <Td py={2}>
                     <Tooltip label={`${s.messageCount.toLocaleString()} emails`} placement="top">
                       <Flex align="center" gap={3}>
-                        <Box w="80px" h="8px" bg="blackAlpha.100" borderRadius="full" overflow="hidden">
+                        <Box w="72px" h="8px" bg="blackAlpha.100" borderRadius="full" overflow="hidden">
                           <Box h="100%" bg="brand.500" w={`${Math.max(2, (s.messageCount / maxCount) * 100)}%`} borderRadius="full" />
                         </Box>
-                        <Text fontSize="xs" fontWeight="700" color="neutral.500">{s.messageCount}</Text>
+                        <Text fontSize="xs" fontWeight="700" color="neutral.500" sx={{ fontVariantNumeric: 'tabular-nums' }}>{s.messageCount.toLocaleString()}</Text>
                       </Flex>
                     </Tooltip>
                   </Td>
-                  <Td py={4}>
+                  <Td py={2}>
                     {!chip.plain ? (
                       <Tag size="sm" bg={chip.bg} color="white" fontWeight={700} borderRadius="full" px={3}>
                         {chip.label}
@@ -184,7 +184,7 @@ export default function SenderTable({
                       <Text fontSize="sm" color="neutral.500">None</Text>
                     )}
                   </Td>
-                  <Td py={4}>
+                  <Td py={2}>
                     {suggestion && (
                       <Tag
                         size="sm"
@@ -202,7 +202,7 @@ export default function SenderTable({
                       </Tag>
                     )}
                   </Td>
-                  <Td py={4} maxW="280px">
+                  <Td py={2}>
                     <Text fontSize="sm" color="neutral.500" isTruncated>
                       {s.latestSubject}
                     </Text>
