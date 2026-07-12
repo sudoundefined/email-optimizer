@@ -128,7 +128,7 @@ export default function TagSearchInput({
           _focusWithin={{ borderColor: 'brand.500', boxShadow: '0 0 0 1px var(--chakra-colors-brand-500)' }}
           onClick={refocus}
         >
-          <SearchIcon color="gray.400" boxSize={3.5} flexShrink={0} />
+          <SearchIcon color="text.tertiary" boxSize={3.5} flexShrink={0} />
           {chips.map((chip, i) => (
             <Tooltip
               key={`${chip.field}:${chip.value}:${i}`}

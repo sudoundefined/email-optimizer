@@ -256,7 +256,7 @@ export default function UserProfileModal({
                       >
                         <Flex justify="space-between" align="center">
                           <HStack spacing={2}>
-                            <Badge colorScheme="blue" textTransform="uppercase">
+                            <Badge colorScheme="brand" textTransform="uppercase">
                               {act.action}
                             </Badge>
                           </HStack>

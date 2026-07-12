@@ -9,25 +9,22 @@ import {
   Avatar,
   Button,
   Badge,
-  Divider,
   FormControl,
   FormLabel,
   Input,
   Select,
-  Spinner,
   useToast,
   Icon,
+  Card,
+  CardBody,
   SimpleGrid,
-  InputGroup,
-  InputLeftElement,
-  Tag,
 } from '@chakra-ui/react'
 import {
-  CheckCircleIcon,
-  TimeIcon,
-  SearchIcon,
-  RepeatIcon,
-} from '@chakra-ui/icons'
+  Settings,
+  ShieldCheck,
+  LogOut,
+  Save,
+} from 'lucide-react'
 
 interface AccountPageProps {
   userEmail?: string
@@ -40,57 +37,6 @@ interface UserPreferences {
   labelPrefix?: string
 }
 
-interface ActivityItem {
-  id: number
-  action: string
-  details: Record<string, unknown> | null
-  createdAt: string
-  created_at?: string
-}
-
-function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-  if (isNaN(diffSec)) return ''
-  if (diffSec < 60) return 'Just now'
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} min ago`
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} hr ago`
-  if (diffSec < 604800) return `${Math.floor(diffSec / 86400)} days ago`
-  return date.toLocaleDateString()
-}
-
-function formatAbsoluteTime(dateStr: string): string {
-  if (!dateStr) return 'Unknown date'
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return dateStr
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function getActionColor(action: string): string {
-  switch (action.toLowerCase()) {
-    case 'login':
-      return 'green'
-    case 'logout':
-      return 'gray'
-    case 'scan':
-      return 'blue'
-    case 'unsubscribe':
-      return 'purple'
-    case 'trash':
-      return 'red'
-    case 'label':
-      return 'teal'
-    default:
-      return 'cyan'
-  }
-}
-
 export default function AccountPage({ userEmail, onLogout }: AccountPageProps) {
   const toast = useToast()
   const [preferences, setPreferences] = useState<UserPreferences>({
@@ -100,14 +46,8 @@ export default function AccountPage({ userEmail, onLogout }: AccountPageProps) {
   })
   const [savingPrefs, setSavingPrefs] = useState(false)
 
-  const [activities, setActivities] = useState<ActivityItem[]>([])
-  const [loadingActivities, setLoadingActivities] = useState(true)
-  const [filterAction, setFilterAction] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState<string>('')
-
   useEffect(() => {
     fetchPreferences()
-    fetchActivities()
   }, [])
 
   const fetchPreferences = async () => {
@@ -123,21 +63,6 @@ export default function AccountPage({ userEmail, onLogout }: AccountPageProps) {
       }
     } catch {
       // ignore
-    }
-  }
-
-  const fetchActivities = async () => {
-    setLoadingActivities(true)
-    try {
-      const res = await fetch('/api/user/activity?limit=50', { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
-        setActivities(data.items || [])
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoadingActivities(false)
     }
   }
 
@@ -170,313 +95,169 @@ export default function AccountPage({ userEmail, onLogout }: AccountPageProps) {
     }
   }
 
-  const filteredActivities = activities.filter((act) => {
-    if (filterAction !== 'all' && act.action.toLowerCase() !== filterAction) return false
-    if (!searchQuery.trim()) return true
-    const q = searchQuery.toLowerCase()
-    const matchAction = act.action.toLowerCase().includes(q)
-    const matchDetails = act.details ? JSON.stringify(act.details).toLowerCase().includes(q) : false
-    return matchAction || matchDetails
-  })
-
   return (
-    <Box
-      overflowY="auto"
-      flex={1}
-      maxH="full"
-      pr={2}
-      sx={{
-        '&::-webkit-scrollbar': { width: '8px' },
-        '&::-webkit-scrollbar-thumb': { bg: 'border.subtle', borderRadius: 'full' },
-      }}
-    >
-      <VStack spacing={8} align="stretch" pb={12}>
-        {/* Top Identity & Google Connection Card */}
-      <Box
-        p={6}
-        bg="bg.card"
-        borderRadius="2xl"
-        border="1px solid"
-        borderColor="border.subtle"
-        boxShadow="sm"
-      >
-        <Flex
-          direction={{ base: 'column', md: 'row' }}
-          justify="space-between"
-          align={{ base: 'start', md: 'center' }}
-          gap={4}
-        >
-          <HStack spacing={4}>
-            <Avatar size="lg" name={userEmail || 'User'} bg="brand.500" color="white" />
-            <VStack align="start" spacing={1}>
-              <Heading size="md" color="text.primary">
-                {userEmail}
-              </Heading>
-              <HStack spacing={2}>
-                <Badge colorScheme="green" display="flex" alignItems="center" gap={1} px={2} py={0.5} borderRadius="full">
-                  <Icon as={CheckCircleIcon} boxSize={3} /> Connected to Google
-                </Badge>
-                <Badge colorScheme="blue" variant="subtle" px={2} py={0.5} borderRadius="full">
-                  AES-256-GCM Secured
-                </Badge>
-              </HStack>
-            </VStack>
-          </HStack>
-
-          <Button
-            colorScheme="red"
-            variant="outline"
-            size="sm"
-            onClick={onLogout}
-          >
-            Sign out & revoke access
-          </Button>
-        </Flex>
-      </Box>
-
-      {/* Account Preferences Section */}
-      <Box
-        p={6}
-        bg="bg.card"
-        borderRadius="2xl"
-        border="1px solid"
-        borderColor="border.subtle"
-        boxShadow="sm"
-      >
-        <Heading size="sm" color="text.primary" mb={4}>
-          Scan & Inbox Preferences
+    <Flex direction="column" h="100%" minH={0} pr={1} overflowY="auto">
+      {/* Page Header */}
+      <Box mb={6}>
+        <Heading size="lg" color="text.primary" fontWeight={700} letterSpacing="-0.01em">
+          Account & Preferences
         </Heading>
-        <Text fontSize="xs" color="text.secondary" mb={6}>
-          Configure default scanning parameters applied across your mailbox cleanup tools.
+        <Text fontSize="13px" color="text.secondary" mt={0.5}>
+          Manage your connected Gmail account, scanning defaults, and security settings
         </Text>
-
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
-          <FormControl>
-            <FormLabel fontSize="xs" fontWeight="bold" color="text.secondary">
-              DEFAULT SCAN TIME RANGE
-            </FormLabel>
-            <Select
-              value={preferences.defaultTimeRange || '3m'}
-              onChange={(e) =>
-                setPreferences({ ...preferences, defaultTimeRange: e.target.value })
-              }
-            >
-              <option value="1m">Last 1 month</option>
-              <option value="3m">Last 3 months</option>
-              <option value="6m">Last 6 months</option>
-              <option value="1y">Last 1 year</option>
-            </Select>
-          </FormControl>
-
-          <FormControl>
-            <FormLabel fontSize="xs" fontWeight="bold" color="text.secondary">
-              MAX MESSAGES CAP
-            </FormLabel>
-            <Input
-              type="number"
-              placeholder="5000"
-              value={preferences.scanMaxMessages ?? ''}
-              onChange={(e) =>
-                setPreferences({
-                  ...preferences,
-                  scanMaxMessages: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
-            />
-          </FormControl>
-
-          <FormControl>
-            <FormLabel fontSize="xs" fontWeight="bold" color="text.secondary">
-              GMAIL LABEL PREFIX
-            </FormLabel>
-            <Input
-              placeholder="Unsub/"
-              value={preferences.labelPrefix || 'Unsub/'}
-              onChange={(e) =>
-                setPreferences({ ...preferences, labelPrefix: e.target.value })
-              }
-            />
-          </FormControl>
-        </SimpleGrid>
-
-        <Flex justify="flex-end" mt={6}>
-          <Button
-            colorScheme="brand"
-            onClick={handleSavePreferences}
-            isLoading={savingPrefs}
-            px={6}
-          >
-            Save Preferences
-          </Button>
-        </Flex>
       </Box>
 
-      {/* Activity Audit Log Section */}
-      <Box
-        p={6}
-        bg="bg.card"
-        borderRadius="2xl"
-        border="1px solid"
-        borderColor="border.subtle"
-        boxShadow="sm"
-      >
-        <Flex
-          direction={{ base: 'column', md: 'row' }}
-          justify="space-between"
-          align={{ base: 'start', md: 'center' }}
-          gap={4}
-          mb={6}
-        >
-          <VStack align="start" spacing={1}>
-            <Heading size="sm" color="text.primary">
-              Activity & Audit Log
-            </Heading>
-            <Text fontSize="xs" color="text.secondary">
-              A transparent history of operations performed on your mailbox.
-            </Text>
-          </VStack>
-
-          <HStack spacing={3} w={{ base: 'full', md: 'auto' }}>
-            <InputGroup size="sm" maxW="220px">
-              <InputLeftElement pointerEvents="none">
-                <SearchIcon color="gray.400" />
-              </InputLeftElement>
-              <Input
-                placeholder="Search log details..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                borderRadius="full"
-              />
-            </InputGroup>
-            <Button
-              size="sm"
-              variant="outline"
-              leftIcon={<RepeatIcon />}
-              onClick={fetchActivities}
-              isLoading={loadingActivities}
-            >
-              Refresh
-            </Button>
-          </HStack>
-        </Flex>
-
-        {/* Action Filter Pills */}
-        <HStack spacing={2} overflowX="auto" pb={4} mb={2}>
-          {['all', 'login', 'scan', 'unsubscribe', 'trash', 'label'].map((act) => {
-            const isSelected = filterAction === act
-            return (
-              <Button
-                key={act}
-                size="xs"
-                variant={isSelected ? 'solid' : 'ghost'}
-                colorScheme={isSelected ? 'brand' : 'gray'}
-                borderRadius="full"
-                px={3}
-                textTransform="capitalize"
-                onClick={() => setFilterAction(act)}
-              >
-                {act}
-              </Button>
-            )
-          })}
-        </HStack>
-
-        <Divider mb={4} />
-
-        {/* Log List */}
-        {loadingActivities ? (
-          <Flex justify="center" py={12}>
-            <Spinner color="brand.500" size="lg" />
-          </Flex>
-        ) : filteredActivities.length === 0 ? (
-          <Text color="text.secondary" fontSize="sm" textAlign="center" py={12}>
-            No matching activity records found.
-          </Text>
-        ) : (
-          <VStack
-            spacing={3}
-            align="stretch"
-            maxH="480px"
-            overflowY="auto"
-            pr={2}
-            sx={{
-              '&::-webkit-scrollbar': { width: '6px' },
-              '&::-webkit-scrollbar-thumb': { bg: 'border.subtle', borderRadius: 'full' },
-            }}
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6} alignItems="flex-start">
+        <VStack spacing={6} align="stretch">
+          {/* Profile Overview Card */}
+          <Card
+            borderRadius="card"
+            bg="bg.card"
+            border="1px solid"
+            borderColor="border.subtle"
+            boxShadow="e1"
           >
-            {filteredActivities.map((act) => {
-              const dateStr = act.createdAt || act.created_at || ''
-              const absTime = formatAbsoluteTime(dateStr)
-              const relTime = dateStr ? formatRelativeTime(new Date(dateStr)) : ''
-              const detailsObj = act.details || {}
-              const entries = Object.entries(detailsObj)
-
-              return (
-                <Box
-                  key={act.id}
-                  p={4}
-                  borderRadius="xl"
-                  border="1px solid"
-                  borderColor="border.subtle"
-                  bg="bg.input"
-                  _hover={{ borderColor: 'brand.300' }}
-                  transition="all 0.2s"
-                >
-                  <Flex
-                    direction={{ base: 'column', sm: 'row' }}
-                    justify="space-between"
-                    align={{ base: 'start', sm: 'center' }}
-                    gap={2}
-                    mb={entries.length > 0 ? 2 : 0}
-                  >
-                    <HStack spacing={3}>
-                      <Badge
-                        colorScheme={getActionColor(act.action)}
-                        px={2.5}
-                        py={0.5}
-                        borderRadius="md"
-                        textTransform="uppercase"
-                        fontWeight="bold"
-                        fontSize="xs"
-                      >
-                        {act.action}
-                      </Badge>
-                    </HStack>
-
-                    <HStack spacing={2} color="text.secondary" fontSize="xs">
-                      <Icon as={TimeIcon} />
-                      <Text fontWeight="medium" color="text.primary">
-                        {absTime}
-                      </Text>
-                      {relTime && <Text color="text.secondary">({relTime})</Text>}
-                    </HStack>
-                  </Flex>
-
-                  {entries.length > 0 && (
-                    <Flex wrap="wrap" gap={2} mt={2}>
-                      {entries.map(([key, val]) => (
-                        <Tag
-                          key={key}
-                          size="sm"
-                          variant="subtle"
-                          colorScheme="gray"
-                          borderRadius="md"
-                        >
-                          <Text fontWeight="bold" mr={1}>
-                            {key}:
-                          </Text>
-                          <Text>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</Text>
-                        </Tag>
-                      ))}
-                    </Flex>
-                  )}
+            <CardBody p={6}>
+              <HStack spacing={4} align="center">
+                <Avatar size="lg" name={userEmail || 'User'} bg="brand.500" color="white" />
+                <Box flex={1} minW={0}>
+                  <Text fontSize="18px" fontWeight={700} color="text.primary" isTruncated>
+                    {userEmail || 'Connected Gmail Account'}
+                  </Text>
+                  <HStack spacing={2} mt={1.5}>
+                    <Badge colorScheme="green" variant="subtle" borderRadius="full" px={2.5} py={0.5} fontSize="11px">
+                      Connected
+                    </Badge>
+                    <Badge bg="bg.muted" color="text.secondary" borderRadius="full" px={2.5} py={0.5} fontSize="11px">
+                      OAuth 2.0
+                    </Badge>
+                  </HStack>
                 </Box>
-              )
-            })}
-          </VStack>
-        )}
-      </Box>
-    </VStack>
-    </Box>
+              </HStack>
+            </CardBody>
+          </Card>
+
+          {/* Security & Session Card */}
+          <Card
+            borderRadius="card"
+            bg="bg.card"
+            border="1px solid"
+            borderColor="border.subtle"
+            boxShadow="e1"
+          >
+            <CardBody p={6}>
+              <HStack spacing={2.5} mb={3}>
+                <Icon as={ShieldCheck} boxSize={5} color="brand.500" />
+                <Text fontSize="16px" fontWeight={700} color="text.primary">
+                  Security & Token Privacy
+                </Text>
+              </HStack>
+              <Text fontSize="13px" color="text.secondary" lineHeight="tall" mb={5}>
+                Your OAuth tokens are encrypted at rest using AES-256-GCM. EmailDiet scans only message headers and metadata (`From`, `Subject`, `List-Unsubscribe`) and never stores private email bodies.
+              </Text>
+              <Button
+                size="sm"
+                colorScheme="red"
+                variant="outline"
+                leftIcon={<Icon as={LogOut} boxSize={4} />}
+                onClick={onLogout}
+              >
+                Sign out & Disconnect Session
+              </Button>
+            </CardBody>
+          </Card>
+        </VStack>
+
+        {/* Preferences Card */}
+        <Card
+          borderRadius="card"
+          bg="bg.card"
+          border="1px solid"
+          borderColor="border.subtle"
+          boxShadow="e1"
+        >
+          <CardBody p={6}>
+            <HStack spacing={2.5} mb={4}>
+              <Icon as={Settings} boxSize={5} color="brand.500" />
+              <Text fontSize="16px" fontWeight={700} color="text.primary">
+                Scanning & Labeling Defaults
+              </Text>
+            </HStack>
+
+            <VStack spacing={5} align="stretch">
+              <FormControl>
+                <FormLabel fontSize="13px" fontWeight={600} color="text.primary" mb={1}>
+                  Default Scan Time Range
+                </FormLabel>
+                <Select
+                  size="sm"
+                  borderRadius="md"
+                  borderColor="border.subtle"
+                  bg="bg.app"
+                  value={preferences.defaultTimeRange}
+                  onChange={(e) =>
+                    setPreferences({ ...preferences, defaultTimeRange: e.target.value })
+                  }
+                >
+                  <option value="1m">Last 1 month</option>
+                  <option value="3m">Last 3 months</option>
+                  <option value="6m">Last 6 months</option>
+                  <option value="1y">Last 1 year</option>
+                  <option value="all">All time</option>
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel fontSize="13px" fontWeight={600} color="text.primary" mb={1}>
+                  Max Messages per Scan
+                </FormLabel>
+                <Input
+                  size="sm"
+                  type="number"
+                  borderRadius="md"
+                  borderColor="border.subtle"
+                  bg="bg.app"
+                  value={preferences.scanMaxMessages}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      scanMaxMessages: parseInt(e.target.value, 10) || 1000,
+                    })
+                  }
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel fontSize="13px" fontWeight={600} color="text.primary" mb={1}>
+                  App Label Prefix
+                </FormLabel>
+                <Input
+                  size="sm"
+                  borderRadius="md"
+                  borderColor="border.subtle"
+                  bg="bg.app"
+                  value={preferences.labelPrefix}
+                  onChange={(e) =>
+                    setPreferences({ ...preferences, labelPrefix: e.target.value })
+                  }
+                />
+              </FormControl>
+
+              <Box pt={2}>
+                <Button
+                  size="sm"
+                  colorScheme="brand"
+                  leftIcon={<Icon as={Save} boxSize={4} />}
+                  onClick={handleSavePreferences}
+                  isLoading={savingPrefs}
+                >
+                  Save Preferences
+                </Button>
+              </Box>
+            </VStack>
+          </CardBody>
+        </Card>
+      </SimpleGrid>
+    </Flex>
   )
 }

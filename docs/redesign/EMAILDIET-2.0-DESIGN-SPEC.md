@@ -1,7 +1,7 @@
 # EmailDiet 2.0 — Design Specification
 ### "AI Mailbox Operating System"
 
-**Last updated:** 2026-07-12 · **Status:** APPROVED-PENDING — awaiting sign-off before implementation
+**Last updated:** 2026-07-12 · **Status:** COMPLETED (All non-AI surfaces implemented in Daylight 2.0)
 **Companions:** [FEATURES.md](../../FEATURES.md) · [ARCHITECTURE.md](../../ARCHITECTURE.md) · current theme in `client/src/theme/themes.ts`
 
 ---

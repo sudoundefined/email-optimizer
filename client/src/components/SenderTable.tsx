@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import {
   Table, Thead, Tbody, Tr, Th, Td, TableContainer,
-  Checkbox, Tag, Text, Box, Tooltip, Flex, IconButton, Select, HStack, Avatar
+  Checkbox, Tag, Text, Box, Tooltip, Flex, IconButton, Select, HStack, Avatar, Icon,
 } from '@chakra-ui/react'
 import { CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, UpDownIcon } from '@chakra-ui/icons'
+import { Zap, Mail, Link2 } from 'lucide-react'
 import type { Sender, Suggestion, UnsubMethod } from '../types'
 
-const METHOD_CHIPS: Record<UnsubMethod, { label: string; bg: string; plain?: boolean }> = {
-  oneclick: { label: '⚡ One-click', bg: 'brand.400' },
-  mailto:   { label: '✉ Email',     bg: 'blue.500' },
-  link:     { label: '🔗 Link',      bg: 'gray.400' },
-  none:     { label: 'None',         bg: '', plain: true },
+const METHOD_CHIPS: Record<UnsubMethod, { label: string; bg: string; icon?: ComponentType<any>; plain?: boolean }> = {
+  oneclick: { label: 'One-click', bg: 'brand.500', icon: Zap },
+  mailto:   { label: 'Email',     bg: 'ai.500',   icon: Mail },
+  link:     { label: 'Link',      bg: 'text.tertiary', icon: Link2 },
+  none:     { label: 'None',      bg: '', plain: true },
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -83,7 +84,7 @@ export default function SenderTable({
   if (senders.length === 0) {
     return (
       <Box p={4} textAlign="center">
-        <Text fontSize="sm" color="gray.500">
+        <Text fontSize="sm" color="text.secondary">
           No senders match this filter.
         </Text>
       </Box>
@@ -94,7 +95,7 @@ export default function SenderTable({
     <Flex flex={1} direction="column" minH={0}>
       <TableContainer flex={1} overflowY="auto">
         <Table size="sm" variant="simple" style={{ tableLayout: 'fixed' }}>
-          <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+          <Thead position="sticky" top={0} bg="bg.muted" zIndex={1}>
             <Tr>
               <Th w="40px" px={4} borderBottom="1px solid" borderColor="border.subtle" py={2.5}>
                 <Checkbox
@@ -105,19 +106,19 @@ export default function SenderTable({
                 />
               </Th>
                 <Th w={{ base: '30%', xl: '32%' }} borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th w="150px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Volume <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Volume <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th w="130px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Unsubscribe <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Unsubscribe <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th w="130px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Category <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Category <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Latest subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Latest subject <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
             </Tr>
           </Thead>
@@ -147,7 +148,7 @@ export default function SenderTable({
                   </Td>
                   <Td py={2}>
                     <Flex align="center" gap={3}>
-                      <Avatar size="xs" name={s.name || s.email} src="" bg="brand.100" color="brand.800" fontWeight="bold" />
+                      <Avatar size="xs" name={s.name || s.email} src="" bg="bg.muted" color="text.secondary" fontWeight="bold" />
                       <Box overflow="hidden">
                         <HStack spacing={2} align="center">
                           <Text fontSize="sm" fontWeight={600} color="text.primary" isTruncated>
@@ -177,11 +178,12 @@ export default function SenderTable({
                   </Td>
                   <Td py={2}>
                     {!chip.plain ? (
-                      <Tag size="sm" bg={chip.bg} color="white" fontWeight={700} borderRadius="full" px={3}>
+                      <Tag size="sm" bg={chip.bg} color="white" fontWeight={600} borderRadius="full" px={2.5} gap={1}>
+                        {chip.icon && <Icon as={chip.icon} boxSize={3} />}
                         {chip.label}
                       </Tag>
                     ) : (
-                      <Text fontSize="sm" color="neutral.500">None</Text>
+                      <Text fontSize="sm" color="text.tertiary">None</Text>
                     )}
                   </Td>
                   <Td py={2}>

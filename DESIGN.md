@@ -93,7 +93,8 @@ Single accent per theme: **`brand.500`** for primary actions and selection. No p
 | `LandingPage` | SaaS marketing page + Google OAuth login (unauthenticated view) |
 | `ConnectScreen` | Legacy OAuth login card |
 | `AccountBadge` | User avatar, email, profile trigger, logout |
-| `AccountPage` | Full profile, preferences, activity audit log (dedicated tab) |
+| `AccountPage` | Full profile, scanning preferences & session security |
+| `LogsPage` | Dedicated Activity Audit Log page with search & action filters |
 | `UserProfileModal` | Profile & preferences modal variant |
 | `MailboxTab` | Primary sender management workspace |
 | `ScanControls` | Scan launcher + time range + stats |

@@ -114,9 +114,9 @@ function SelectableMessageList({
     <Flex direction="column" minH={0} h="100%">
     <TableContainer flex={1} overflowY="auto">
       <Table size="sm" variant="simple">
-        <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+        <Thead position="sticky" top={0} bg="bg.muted" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
           <Tr>
-            <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
+            <Th w="40px" px={4} borderBottom="1px solid" borderColor="border.subtle" py={4}>
               <Checkbox
                 isChecked={allSelected}
                 isIndeterminate={someSelected && !allSelected}
@@ -124,14 +124,14 @@ function SelectableMessageList({
                 colorScheme="brand"
               />
             </Th>
-            <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-              <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+            <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+              <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
             </Th>
-            <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-              <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+            <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+              <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
             </Th>
-            <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-              <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+            <Th isNumeric borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+              <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
             </Th>
           </Tr>
         </Thead>
@@ -140,11 +140,11 @@ function SelectableMessageList({
             <Tr
               key={m.id}
               bg="transparent"
-              _hover={{ bg: 'gray.50' }}
+              _hover={{ bg: 'bg.hover' }}
               onClick={() => toggle(m.id)}
               cursor="pointer"
               borderBottom="1px solid"
-              borderColor="gray.100"
+              borderColor="border.subtle"
               boxShadow={selected.has(m.id) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
             >
               <Td px={4} onClick={(e) => e.stopPropagation()}>
@@ -157,7 +157,7 @@ function SelectableMessageList({
               </Td>
               <Td maxW="160px">
                 <Tooltip label={m.from} placement="top-start" hasArrow maxW="400px" whiteSpace="normal">
-                  <Text fontSize="sm" fontWeight={600} color="brand.900" isTruncated>
+                  <Text fontSize="sm" fontWeight={600} color="text.primary" isTruncated>
                     {parseFromHeader(m.from)}
                   </Text>
                 </Tooltip>
@@ -180,17 +180,17 @@ function SelectableMessageList({
       </Table>
     </TableContainer>
     {paginate && (
-      <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="gray.200" bg="gray.50">
+      <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="border.subtle" bg="bg.muted">
         <HStack spacing={4}>
           <HStack>
-            <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+            <Text fontSize="sm" color="text.secondary">Rows per page:</Text>
             <Select size="sm" w="80px" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0) }}>
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={200}>200</option>
             </Select>
           </HStack>
-          <Text fontSize="sm" color="gray.600">
+          <Text fontSize="sm" color="text.secondary">
             {start + 1}-{Math.min(start + rowsPerPage, messages?.length || 0)} of {messages?.length || 0}
           </Text>
           <HStack spacing={1}>
@@ -877,9 +877,9 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
       {unsubSummary && <UnsubscribePanel summary={unsubSummary} />}
 
       {!scan && !scanJob.running && (
-        <Flex direction="column" align="center" textAlign="center" py={20} color="gray.500">
+        <Flex direction="column" align="center" textAlign="center" py={20} color="text.secondary">
           <Icon as={EmailIcon} boxSize={14} opacity={0.5} mb={4} />
-          <Text fontSize="xl" fontWeight={600} color="brand.900" mb={2}>
+          <Text fontSize="xl" fontWeight={600} color="text.primary" mb={2}>
             See who's filling your inbox
           </Text>
           <Text fontSize="sm" maxW="420px">
@@ -949,7 +949,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 display="flex" 
                 flexDir="column" 
                 bg="bg.card" 
-                backdropFilter="blur(12px)"
+                
                 pb={selectedMessages.size > 0 ? "80px" : "0px"}
                 transition="padding-bottom 0.2s"
               >
@@ -1022,7 +1022,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 />
               </Card>
             ) : showProtectedView ? (
-              <Card variant="outline" borderRadius="xl" h="100%" display="flex" flexDir="column" bg="bg.card" backdropFilter="blur(12px)">
+              <Card variant="outline" borderRadius="xl" h="100%" display="flex" flexDir="column" bg="bg.card" >
                 <Box px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent">
                   <Text fontSize="lg" fontWeight={700} color="text.primary">Protected list</Text>
                   <Text fontSize="sm" color="neutral.500" mt={1}>
@@ -1041,7 +1041,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 display="flex"
                 flexDir="column"
                 bg="bg.card"
-                backdropFilter="blur(12px)"
+                
                 pb={selectedSenders.size > 0 ? "80px" : "0px"}
                 transition="padding-bottom 0.2s"
               >
@@ -1250,7 +1250,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
               </Text>
               <VStack spacing={4} align="stretch">
                 <Box>
-                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={1} textTransform="uppercase">
+                  <Text fontSize="xs" fontWeight="bold" color="text.secondary" mb={1} textTransform="uppercase">
                     Label Name
                   </Text>
                   <Input
@@ -1261,7 +1261,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                     borderRadius="md"
                     autoFocus
                   />
-                  <Text fontSize="xs" color="gray.500" mt={1}>
+                  <Text fontSize="xs" color="text.secondary" mt={1}>
                     Note: The label will be prefixed with the app's folder (e.g. Unsub/Promo Clean).
                   </Text>
                 </Box>
@@ -1269,7 +1269,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                   isChecked={customLabelArchive}
                   onChange={(e) => setCustomLabelArchive(e.target.checked)}
                   size="sm"
-                  colorScheme="blue"
+                  colorScheme="brand"
                 >
                   Also archive tagged emails (move out of Inbox)
                 </Checkbox>
@@ -1280,7 +1280,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 Cancel
               </Button>
               <Button
-                colorScheme="blue"
+                colorScheme="brand"
                 size="sm"
                 isDisabled={!customLabelName.trim()}
                 onClick={runFilterLabel}

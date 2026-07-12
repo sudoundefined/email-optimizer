@@ -122,7 +122,7 @@ export default function DigestSettingsDialog({
       <ModalContent>
         <ModalHeader>Weekly digest</ModalHeader>
         <ModalBody>
-          <Text fontSize="sm" color="gray.600" mb={4}>
+          <Text fontSize="sm" color="text.secondary" mb={4}>
             Get a weekly email listing new marketing senders that started emailing you, each with an
             unsubscribe link. The digest is sent from your own Gmail to{' '}
             <Text as="strong">{state?.settings.recipient || accountEmail || 'your account'}</Text>.
@@ -148,7 +148,7 @@ export default function DigestSettingsDialog({
               <FormControl display="flex" alignItems="center" mb={4}>
                 <Switch
                   id="enable-digest"
-                  colorScheme="blue"
+                  colorScheme="brand"
                   isChecked={state.settings.enabled}
                   onChange={(e) => patch({ enabled: e.target.checked })}
                 />
@@ -159,7 +159,7 @@ export default function DigestSettingsDialog({
 
               <HStack spacing={4} mb={4}>
                 <FormControl w="140px">
-                  <FormLabel fontSize="sm" color="gray.600">Day</FormLabel>
+                  <FormLabel fontSize="sm" color="text.secondary">Day</FormLabel>
                   <Select
                     size="sm"
                     value={state.settings.dayOfWeek}
@@ -172,7 +172,7 @@ export default function DigestSettingsDialog({
                   </Select>
                 </FormControl>
                 <FormControl w="110px">
-                  <FormLabel fontSize="sm" color="gray.600">Hour</FormLabel>
+                  <FormLabel fontSize="sm" color="text.secondary">Hour</FormLabel>
                   <Select
                     size="sm"
                     value={state.settings.hour}
@@ -187,7 +187,7 @@ export default function DigestSettingsDialog({
               </HStack>
 
               <FormControl mb={4}>
-                <FormLabel fontSize="sm" color="gray.600">Recipient (blank = your account)</FormLabel>
+                <FormLabel fontSize="sm" color="text.secondary">Recipient (blank = your account)</FormLabel>
                 <Input
                   size="sm"
                   placeholder={accountEmail}
@@ -196,7 +196,7 @@ export default function DigestSettingsDialog({
                 />
               </FormControl>
 
-              <Button size="sm" colorScheme="blue" onClick={save} isLoading={saving} mb={4}>
+              <Button size="sm" colorScheme="brand" onClick={save} isLoading={saving} mb={4}>
                 Save settings
               </Button>
 
@@ -227,7 +227,7 @@ export default function DigestSettingsDialog({
                   {!preview.seeding && preview.newSenders.length > 0 && (
                     <Flex wrap="wrap" gap={2} mt={2}>
                       {preview.newSenders.slice(0, 12).map((s) => (
-                        <Tag key={s.email} size="sm" colorScheme="blue" variant="solid">
+                        <Tag key={s.email} size="sm" colorScheme="brand" variant="solid">
                           {s.name} ({s.messageCount})
                         </Tag>
                       ))}
@@ -242,13 +242,13 @@ export default function DigestSettingsDialog({
               )}
 
               <Box>
-                <Text fontSize="xs" color="gray.500" mb={1}>
+                <Text fontSize="xs" color="text.secondary" mb={1}>
                   Last run: {fmtDate(state.lastRunAt)} · baseline tracks {state.knownSenderCount.toLocaleString()} senders
                 </Text>
                 {state.history.length > 0 && (
                   <Box>
                     {state.history.slice(0, 5).map((h, i) => (
-                      <Text key={i} fontSize="xs" color="gray.500">
+                      <Text key={i} fontSize="xs" color="text.secondary">
                         {fmtDate(h.at)} — {h.error ? `error: ${h.error}` : h.sent ? `sent (${h.newSenders} new)` : `${h.newSenders} new, not sent`}
                       </Text>
                     ))}
@@ -258,7 +258,7 @@ export default function DigestSettingsDialog({
             </>
           )}
         </ModalBody>
-        <ModalFooter bg="gray.50" borderBottomRadius="md">
+        <ModalFooter bg="bg.muted" borderBottomRadius="md">
           <Button onClick={onClose} variant="ghost">Close</Button>
         </ModalFooter>
       </ModalContent>

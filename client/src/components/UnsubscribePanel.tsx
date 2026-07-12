@@ -11,11 +11,11 @@ const STATUS_ICONS = {
 function ResultRow({ r }: { r: UnsubResult }) {
   const status = STATUS_ICONS[r.status]
   return (
-    <ListItem py={2} borderBottom="1px" borderColor="gray.100" display="flex" alignItems="center">
+    <ListItem py={2} borderBottom="1px" borderColor="border.subtle" display="flex" alignItems="center">
       <ListIcon as={status.icon} color={status.color} />
       <Box flex="1" ml={2}>
         <Text fontSize="sm" fontWeight={600}>{r.sender}</Text>
-        <Text fontSize="xs" color="gray.500">{r.detail}</Text>
+        <Text fontSize="xs" color="text.secondary">{r.detail}</Text>
       </Box>
       {r.manualUrl && /^https?:\/\//i.test(r.manualUrl) && (
         <Button size="sm" as="a" href={r.manualUrl} target="_blank" rel="noopener noreferrer" variant="outline">
@@ -37,7 +37,7 @@ export default function UnsubscribePanel({
 }) {
   const results = summary?.results ?? progress?.results ?? []
   return (
-    <Box borderWidth="1px" borderRadius="md" p={4} my={4} bg="white">
+    <Box borderWidth="1px" borderRadius="md" p={4} my={4} bg="bg.card">
       {running && progress && (
         <Text fontSize="sm" fontWeight="bold" mb={2}>
           Unsubscribing… {progress.done} / {progress.total}

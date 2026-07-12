@@ -6,14 +6,9 @@ import {
   Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon
 } from '@chakra-ui/react'
 import EmailLoader from './EmailLoader'
-import { SearchIcon, DeleteIcon, CloseIcon, ArrowBackIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons'
-// Placeholder polygon. Let's use a standard tag icon.
-const TagIcon = (props: any) => (
-  <Icon viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-    <line x1="7" y1="7" x2="7.01" y2="7"></line>
-  </Icon>
-)
+import { SearchIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons'
+import { Tags, Trash2, ArrowLeft, X } from 'lucide-react'
+import StatCard from '../ui/StatCard'
 
 import { api, ApiError } from '../api'
 import { clientCache } from '../cache'
@@ -391,7 +386,7 @@ export default function LabelManager({
       {trashMsgsDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashMsgsDone}</Alert>}
       {trashJob.running && progress && (
         <Box mb={4} p={4} borderRadius="md" bg="orange.50" border="1px solid" borderColor="orange.200">
-          <Text fontSize="xs" color="gray.600" fontWeight={600}>
+          <Text fontSize="xs" color="text.secondary" fontWeight={600}>
             {progress.phase === 'collecting' && `🔍 Collecting emails… ${progress.collected ?? 0}`}
             {progress.phase === 'trashing' && `🗑️ Moving to Trash… ${progress.trashed ?? 0} / ${progress.total ?? '?'}`}
           </Text>
@@ -402,11 +397,11 @@ export default function LabelManager({
       <Grid templateColumns={{ base: '1fr', md: 'repeat(12, 1fr)' }} gap={6} flex={1} minH={0}>
         {/* LEFT PANE — Labels list */}
         <GridItem colSpan={{ base: 12, md: 4, lg: 4 }} minH={0} overflowY={{ md: 'auto' }} pr={{ md: 2 }} display={{ base: selectedLabel ? 'none' : 'block', md: 'block' }}>
-          <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
-            <Flex align="center" justify="space-between" px={4} py={3} bg="transparent" borderBottom="1px" borderColor="border.glass">
-              <HStack spacing={3}>
-                <TagIcon color="brand.600" boxSize={5} />
-                <Text fontSize="sm" fontWeight={600} color="brand.900">Gmail Labels</Text>
+          <Card borderRadius="card" overflow="hidden" boxShadow="e1" border="1px solid" borderColor="border.subtle" bg="bg.card">
+            <Flex align="center" justify="space-between" px={4} py={3.5} bg="bg.card" borderBottom="1px" borderColor="border.subtle">
+              <HStack spacing={2.5}>
+                <Icon as={Tags} color="text.secondary" boxSize={4} />
+                <Text fontSize="15px" fontWeight={600} color="text.primary">Gmail Labels</Text>
               </HStack>
               {labels && (
                 <Tag size="sm" borderRadius="full" bg="bg.accent" color="text.primary" fontWeight={600}>
@@ -419,7 +414,7 @@ export default function LabelManager({
               <HStack mb={4} spacing={2}>
                 <InputGroup size="sm">
                   <InputLeftElement pointerEvents="none">
-                    <SearchIcon color="gray.400" />
+                    <SearchIcon color="text.tertiary" />
                   </InputLeftElement>
                   <Input
                     placeholder="Search labels..."
@@ -436,7 +431,7 @@ export default function LabelManager({
               </HStack>
 
               {filteredLabels.length === 0 ? (
-                <Text fontSize="sm" color="gray.500" py={4} textAlign="center">
+                <Text fontSize="sm" color="text.secondary" py={4} textAlign="center">
                   No labels found.
                 </Text>
               ) : (
@@ -499,38 +494,35 @@ export default function LabelManager({
               display="flex" 
               flexDir="column" 
               bg="bg.card" 
-              backdropFilter="blur(12px)"
+              
               pb={selectedMsgIds.size > 0 ? "80px" : "0px"}
               transition="padding-bottom 0.2s"
             >
-              <Box bgGradient="linear(to-br, brand.600, brand.800)" color="white" px={6} py={6} position="relative" overflow="hidden" borderTopRadius="xl">
-                <Box position="absolute" top="-20px" right="-20px" opacity={0.1}>
-                  <TagIcon boxSize="150px" />
-                </Box>
-                <Flex position="relative" zIndex={1} align="flex-start" justify="space-between" direction={{ base: 'column', sm: 'row' }} gap={4}>
+              <Box bg="bg.card" borderBottom="1px solid" borderColor="border.subtle" px={6} py={5}>
+                <Flex align="flex-start" justify="space-between" direction={{ base: 'column', sm: 'row' }} gap={4}>
                   <Box>
-                    <HStack spacing={3} align="center" mb={2}>
+                    <HStack spacing={3} align="center" mb={1.5}>
                       <IconButton
                         aria-label="Back to labels"
-                        icon={<ArrowBackIcon boxSize={5} />}
+                        icon={<Icon as={ArrowLeft} boxSize={4} />}
                         size="sm"
                         variant="ghost"
-                        color="white"
-                        _hover={{ bg: 'whiteAlpha.200' }}
+                        color="text.secondary"
+                        _hover={{ bg: 'bg.hover' }}
                         onClick={() => setSelectedLabel(null)}
                       />
-                      <Text fontSize="2xl" fontWeight={800}>
+                      <Text fontSize="20px" fontWeight={700} color="text.primary">
                         {prettyLabelName(selectedLabel)}
                       </Text>
                       {selectedLabel.appCreated ? (
-                        <Tag size="sm" bg="whiteAlpha.300" color="white" fontWeight={700} border="1px solid" borderColor="whiteAlpha.400">App-Created</Tag>
+                        <Tag size="sm" colorScheme="brand" variant="subtle" borderRadius="full">App-Created</Tag>
                       ) : selectedLabel.type === 'system' ? (
-                        <Tag size="sm" bg="whiteAlpha.300" color="white" fontWeight={700} border="1px solid" borderColor="whiteAlpha.400">System Label</Tag>
+                        <Tag size="sm" bg="bg.muted" color="text.secondary" borderRadius="full">System</Tag>
                       ) : (
-                        <Tag size="sm" bg="whiteAlpha.300" color="white" fontWeight={700} border="1px solid" borderColor="whiteAlpha.400">User Label</Tag>
+                        <Tag size="sm" bg="bg.muted" color="text.secondary" borderRadius="full">User Label</Tag>
                       )}
                     </HStack>
-                    <Text fontSize="sm" color="whiteAlpha.800">
+                    <Text fontSize="13px" color="text.secondary">
                       {selectedLabel.messagesTotal.toLocaleString()} total emails {selectedLabel.messagesUnread > 0 && `• ${selectedLabel.messagesUnread.toLocaleString()} unread`}
                     </Text>
                   </Box>
@@ -539,12 +531,10 @@ export default function LabelManager({
                   {selectedLabel.id === 'TRASH' && (
                     <Button
                       size="sm"
-                      leftIcon={<DeleteIcon boxSize={3} />}
+                      leftIcon={<Icon as={Trash2} boxSize={4} />}
                       isDisabled={busyId === selectedLabel.id}
                       onClick={() => setConfirmEmptyTrash(true)}
                       colorScheme="red"
-                      bg="red.500"
-                      _hover={{ bg: 'red.600' }}
                     >
                       Empty Trash
                     </Button>
@@ -553,24 +543,22 @@ export default function LabelManager({
                     <HStack spacing={2}>
                       <Button
                         size="sm"
-                        leftIcon={<CloseIcon boxSize={3} />}
+                        leftIcon={<Icon as={X} boxSize={3.5} />}
                         isDisabled={busyId === selectedLabel.id}
                         onClick={() => setConfirmLabelAction({ label: selectedLabel, mode: 'labelOnly' })}
                         variant="outline"
-                        color="white"
-                        borderColor="whiteAlpha.400"
-                        _hover={{ bg: 'whiteAlpha.200' }}
+                        color="text.secondary"
+                        borderColor="border.subtle"
+                        _hover={{ bg: 'bg.hover' }}
                       >
                         Remove Label
                       </Button>
                       <Button
                         size="sm"
-                        leftIcon={<DeleteIcon boxSize={3} />}
+                        leftIcon={<Icon as={Trash2} boxSize={4} />}
                         isDisabled={busyId === selectedLabel.id}
                         onClick={() => setConfirmLabelAction({ label: selectedLabel, mode: 'trashEmails' })}
                         colorScheme="red"
-                        bg="red.500"
-                        _hover={{ bg: 'red.600' }}
                       >
                         Trash + Delete
                       </Button>
@@ -586,29 +574,29 @@ export default function LabelManager({
                 </Flex>
               ) : messages && messages.length === 0 ? (
                 <Box p={8} textAlign="center">
-                  <Text fontSize="sm" color="gray.500">No messages found in this label.</Text>
+                  <Text fontSize="sm" color="text.secondary">No messages found in this label.</Text>
                 </Box>
               ) : messages ? (
                 <TableContainer flex={1} overflowY="auto">
                   <Table size="sm" variant="simple" style={{ tableLayout: 'fixed' }}>
-                    <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+                    <Thead position="sticky" top={0} bg="bg.muted" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
                       <Tr>
-                        <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
+                        <Th w="40px" px={4} borderBottom="1px solid" borderColor="border.subtle" py={4}>
                           <Checkbox
                             isChecked={allSelected || false}
                             isIndeterminate={selectedMsgIds.size > 0 && !allSelected}
                             onChange={toggleAllMessages}
-                            colorScheme="blue"
+                            colorScheme="brand"
                           />
                         </Th>
-                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                          <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                         </Th>
-                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                          <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                         </Th>
-                        <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                          <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        <Th isNumeric borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                         </Th>
                       </Tr>
                     </Thead>
@@ -617,11 +605,11 @@ export default function LabelManager({
                         <Tr
                           key={m.id}
                           bg="transparent"
-                          _hover={{ bg: 'gray.50' }}
+                          _hover={{ bg: 'bg.hover' }}
                           onClick={() => toggleMessage(m.id)}
                           cursor="pointer"
                           borderBottom="1px solid"
-                          borderColor="gray.100"
+                          borderColor="border.subtle"
                           boxShadow={selectedMsgIds.has(m.id) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
                         >
                           <Td px={4}>
@@ -634,18 +622,18 @@ export default function LabelManager({
                           </Td>
                           <Td maxW="180px">
                             <Tooltip label={m.from} placement="top-start" hasArrow maxW="400px" whiteSpace="normal">
-                              <Text fontSize="sm" fontWeight={600} color="brand.900" isTruncated>
+                              <Text fontSize="sm" fontWeight={600} color="text.primary" isTruncated>
                                 {parseFromHeader(m.from)}
                               </Text>
                             </Tooltip>
                           </Td>
                           <Td maxW="280px">
-                            <Text fontSize="sm" color="gray.500" isTruncated>
+                            <Text fontSize="sm" color="text.secondary" isTruncated>
                               {m.subject || '(no subject)'}
                             </Text>
                           </Td>
                           <Td isNumeric whiteSpace="nowrap">
-                            <Text fontSize="xs" color="gray.500">
+                            <Text fontSize="xs" color="text.secondary">
                               {new Date(m.date).toLocaleDateString(undefined, {
                                 month: 'short', day: 'numeric', year: 'numeric',
                               })}
@@ -656,17 +644,17 @@ export default function LabelManager({
                     </Tbody>
                   </Table>
                   {paginate && (
-                    <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="gray.200" bg="gray.50">
+                    <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="border.subtle" bg="bg.muted">
                       <HStack spacing={4}>
                         <HStack>
-                          <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+                          <Text fontSize="sm" color="text.secondary">Rows per page:</Text>
                           <Select size="sm" w="80px" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0) }}>
                             <option value={50}>50</option>
                             <option value={100}>100</option>
                             <option value={200}>200</option>
                           </Select>
                         </HStack>
-                        <Text fontSize="sm" color="gray.600">
+                        <Text fontSize="sm" color="text.secondary">
                           {start + 1}-{Math.min(start + rowsPerPage, messages?.length || 0)} of {messages?.length || 0}
                         </Text>
                         <HStack spacing={1}>
@@ -680,53 +668,63 @@ export default function LabelManager({
               ) : null}
             </Card>
           ) : (
-            <Card variant="outline" borderRadius="xl" h="100%" display="flex" flexDir="column" bg="bg.card" backdropFilter="blur(12px)" p={{ base: 4, md: 8 }} overflowY="auto">
+            <Card variant="outline" borderRadius="xl" h="100%" display="flex" flexDir="column" bg="bg.card"  p={{ base: 4, md: 8 }} overflowY="auto">
               <Text fontSize="2xl" fontWeight={800} color="text.primary" mb={6}>Label Insights</Text>
               
-              <Grid templateColumns={{ base: '1fr', sm: 'repeat(3, 1fr)' }} gap={6} mb={10}>
-                {/* Hero Stat Card 1 */}
-                <Box position="relative" p={6} borderRadius="2xl" bgGradient="linear(to-br, blue.500, blue.700)" color="white" overflow="hidden" boxShadow="0 10px 30px -10px rgba(49, 130, 206, 0.5)">
-                  <Icon as={TagIcon} position="absolute" right="-10%" bottom="-20%" boxSize={32} opacity={0.1} transform="rotate(-15deg)" />
-                  <Text fontSize="sm" fontWeight={600} opacity={0.8} mb={1}>Total Labels</Text>
-                  <Text fontSize="4xl" fontWeight={800} lineHeight="1">{labels?.length || 0}</Text>
-                </Box>
-                {/* Hero Stat Card 2 */}
-                <Box position="relative" p={6} borderRadius="2xl" bgGradient="linear(to-br, brand.400, brand.600)" color="white" overflow="hidden" boxShadow="0 10px 30px -10px rgba(67, 110, 111, 0.5)">
-                  <Icon as={TagIcon} position="absolute" right="-10%" bottom="-20%" boxSize={32} opacity={0.1} transform="rotate(-15deg)" />
-                  <Text fontSize="sm" fontWeight={600} opacity={0.8} mb={1}>App-Created</Text>
-                  <Text fontSize="4xl" fontWeight={800} lineHeight="1">{groupedLabels.app.length}</Text>
-                </Box>
-                {/* Hero Stat Card 3 */}
-                <Box position="relative" p={6} borderRadius="2xl" bgGradient="linear(to-br, purple.400, purple.600)" color="white" overflow="hidden" boxShadow="0 10px 30px -10px rgba(128, 90, 213, 0.5)">
-                  <Icon as={TagIcon} position="absolute" right="-10%" bottom="-20%" boxSize={32} opacity={0.1} transform="rotate(-15deg)" />
-                  <Text fontSize="sm" fontWeight={600} opacity={0.8} mb={1}>User Labels</Text>
-                  <Text fontSize="4xl" fontWeight={800} lineHeight="1">{groupedLabels.user.length}</Text>
-                </Box>
+              <Grid templateColumns={{ base: '1fr', sm: 'repeat(3, 1fr)' }} gap={4} mb={8}>
+                <StatCard
+                  label="Total labels"
+                  value={labels?.length || 0}
+                  accent="text.primary"
+                  icon={<Icon as={Tags} boxSize={4} />}
+                />
+                <StatCard
+                  label="App-created"
+                  value={groupedLabels.app.length}
+                  accent="brand.500"
+                />
+                <StatCard
+                  label="User labels"
+                  value={groupedLabels.user.length}
+                  accent="highlight.500"
+                />
               </Grid>
 
-              <Text fontSize="lg" fontWeight={700} color="text.primary" mb={4}>Largest Labels</Text>
-                <Grid templateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }} gap={5}>
+              <Text fontSize="15px" fontWeight={600} color="text.primary" mb={3}>Largest Labels</Text>
+                <Grid templateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }} gap={4}>
                   {(() => {
                     const sorted = [...(labels || [])].sort((a, b) => b.messagesTotal - a.messagesTotal)
                     const maxTotal = sorted[0]?.messagesTotal || 1
                     return sorted.slice(0, 6).map(l => (
-                      <Card key={l.id} variant="outline" borderRadius="xl" overflow="hidden" cursor="pointer" transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)" _hover={{ boxShadow: '0 12px 24px -10px rgba(0,0,0,0.1)', borderColor: 'brand.400', transform: 'translateY(-4px)' }} onClick={() => setSelectedLabel(l)}>
-                        <Flex align="center" justify="space-between" p={4} bg="bg.glass" borderBottom="1px solid" borderColor="blackAlpha.50">
-                          <HStack spacing={4} overflow="hidden">
-                            <Flex w="40px" h="40px" borderRadius="xl" bg="brand.50" align="center" justify="center" flexShrink={0}>
-                              <TagIcon color="brand.500" boxSize={5} />
+                      <Card
+                        key={l.id}
+                        borderRadius="card"
+                        overflow="hidden"
+                        cursor="pointer"
+                        boxShadow="e1"
+                        border="1px solid"
+                        borderColor="border.subtle"
+                        transition="all 0.2s"
+                        _hover={{ boxShadow: 'e2', borderColor: 'brand.500', transform: 'translateY(-2px)' }}
+                        onClick={() => setSelectedLabel(l)}
+                        bg="bg.card"
+                      >
+                        <Flex align="center" justify="space-between" p={4}>
+                          <HStack spacing={3} overflow="hidden">
+                            <Flex w="36px" h="36px" borderRadius="lg" bg="bg.muted" align="center" justify="center" flexShrink={0}>
+                              <Icon as={Tags} color="brand.500" boxSize={4} />
                             </Flex>
                             <Box overflow="hidden">
-                              <Text fontSize="md" fontWeight={700} color="text.primary" isTruncated>{prettyLabelName(l)}</Text>
-                              <Text fontSize="xs" fontWeight={600} color="neutral.500">{l.type === 'system' ? 'System' : l.appCreated ? 'App-Created' : 'User Label'}</Text>
+                              <Text fontSize="14px" fontWeight={600} color="text.primary" isTruncated>{prettyLabelName(l)}</Text>
+                              <Text fontSize="12px" color="text.tertiary">{l.type === 'system' ? 'System' : l.appCreated ? 'App-Created' : 'User Label'}</Text>
                             </Box>
                           </HStack>
                           <VStack align="flex-end" spacing={0} ml={2} flexShrink={0}>
-                            <Text fontSize="md" fontWeight={800} color="brand.700">{l.messagesTotal.toLocaleString()}</Text>
-                            <Text fontSize="xs" color="neutral.500" fontWeight={500}>emails</Text>
+                            <Text fontSize="14px" fontWeight={700} color="text.primary">{l.messagesTotal.toLocaleString()}</Text>
+                            <Text fontSize="11px" color="text.tertiary">emails</Text>
                           </VStack>
                         </Flex>
-                        <Box h="4px" w="100%" bg="gray.100">
+                        <Box h="4px" w="100%" bg="bg.muted">
                           <Box h="100%" bg="brand.400" w={`${Math.max(2, (l.messagesTotal / maxTotal) * 100)}%`} borderRadius="full" />
                         </Box>
                       </Card>

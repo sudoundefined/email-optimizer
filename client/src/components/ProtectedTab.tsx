@@ -43,7 +43,7 @@ export default function ProtectedTab({ onDisconnected }: { onDisconnected: () =>
   }
 
   if (list === null && !error) {
-    return <Text fontSize="sm" color="gray.500">Loading protected senders…</Text>
+    return <Text fontSize="sm" color="text.secondary">Loading protected senders…</Text>
   }
 
   return (
@@ -55,9 +55,9 @@ export default function ProtectedTab({ onDisconnected }: { onDisconnected: () =>
         </Alert>
       )}
       {list && list.length === 0 && (
-        <Flex direction="column" align="center" textAlign="center" py={10} color="gray.500">
+        <Flex direction="column" align="center" textAlign="center" py={10} color="text.secondary">
           <Icon as={WarningTwoIcon} boxSize={12} opacity={0.5} mb={4} />
-          <Text fontSize="xl" fontWeight={600} color="gray.900" mb={2}>
+          <Text fontSize="xl" fontWeight={600} color="text.primary" mb={2}>
             No protected senders yet
           </Text>
           <Text fontSize="sm" maxW="420px">
@@ -67,29 +67,29 @@ export default function ProtectedTab({ onDisconnected }: { onDisconnected: () =>
         </Flex>
       )}
       {list && list.length > 0 && (
-        <TableContainer border="1px" borderColor="gray.200" borderRadius="md" bg="white">
+        <TableContainer border="1px" borderColor="border.subtle" borderRadius="md" bg="bg.card">
           <Table size="sm">
-            <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+            <Thead position="sticky" top={0} bg="bg.muted" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
               <Tr>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                  <Flex align="center" gap={2}>Email <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex align="center" gap={2}>Email <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                  <Flex align="center" gap={2}>Reason <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex align="center" gap={2}>Reason <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                  <Flex align="center" gap={2}>Added <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex align="center" gap={2}>Added <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" py={4}></Th>
+                <Th borderBottom="1px solid" borderColor="border.subtle" py={4}></Th>
               </Tr>
             </Thead>
             <Tbody>
               {pageRows.map((p) => (
                 <Tr
                   key={p.email}
-                  _hover={{ bg: 'gray.50' }}
+                  _hover={{ bg: 'bg.hover' }}
                   borderBottom="1px solid"
-                  borderColor="gray.100"
+                  borderColor="border.subtle"
                 >
                   <Td px={4}>
                     <Text fontSize="sm" fontWeight={500}>{p.email}</Text>
@@ -98,11 +98,11 @@ export default function ProtectedTab({ onDisconnected }: { onDisconnected: () =>
                     {p.reason.startsWith('auto:') ? (
                       <Tag size="sm" borderRadius="full" px={3} bg="blue.50" color="blue.600" fontWeight={700}>Auto</Tag>
                     ) : (
-                      <Tag size="sm" borderRadius="full" px={3} bg="gray.100" color="gray.600" fontWeight={700}>Manual</Tag>
+                      <Tag size="sm" borderRadius="full" px={3} bg="bg.muted" color="text.secondary" fontWeight={700}>Manual</Tag>
                     )}
                   </Td>
                   <Td px={4}>
-                    <Text fontSize="xs" color="gray.500" fontWeight={600}>
+                    <Text fontSize="xs" color="text.secondary" fontWeight={600}>
                       {new Date(p.addedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Text>
                   </Td>
@@ -117,17 +117,17 @@ export default function ProtectedTab({ onDisconnected }: { onDisconnected: () =>
           </Table>
           
           {paginate && (
-            <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="gray.200" bg="gray.50">
+            <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="border.subtle" bg="bg.muted">
               <HStack spacing={4}>
                 <HStack>
-                  <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+                  <Text fontSize="sm" color="text.secondary">Rows per page:</Text>
                   <Select size="sm" w="80px" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0) }}>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
                     <option value={200}>200</option>
                   </Select>
                 </HStack>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.secondary">
                   {start + 1}-{Math.min(start + rowsPerPage, list?.length || 0)} of {list?.length || 0}
                 </Text>
                 <HStack spacing={1}>
