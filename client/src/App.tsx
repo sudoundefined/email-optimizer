@@ -20,6 +20,7 @@ import AccountPage from './components/AccountPage'
 import LogsPage from './components/LogsPage'
 import DigestSettingsDialog from './components/DigestSettingsDialog'
 import UserProfileModal from './components/UserProfileModal'
+import { CommandPaletteModal } from './components/CommandPaletteModal'
 import { useAppTheme, type AppTheme } from './theme/ThemeContext'
 
 const TABS = [
@@ -44,6 +45,7 @@ export default function App() {
   const auth = useAuth()
   const [tab, setTab] = useState<TabValue>('dashboard')
   const [digestOpen, setDigestOpen] = useState(false)
+  const [cmdOpen, setCmdOpen] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const profileModal = useDisclosure()
   const { colorMode, toggleColorMode } = useColorMode()
@@ -58,6 +60,17 @@ export default function App() {
   useEffect(() => {
     setCacheInfo(null)
   }, [tab])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCmdOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   if (auth.loading) {
     return (
@@ -341,6 +354,12 @@ export default function App() {
         onClose={profileModal.onClose}
         userEmail={auth.status.email}
         onLogout={auth.logout}
+      />
+
+      <CommandPaletteModal
+        isOpen={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        onNavigateTab={(t) => setTab(t as TabValue)}
       />
     </Flex>
   )

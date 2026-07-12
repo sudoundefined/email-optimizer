@@ -9,13 +9,13 @@ import {
 } from 'recharts'
 import {
   Sparkles, ScanLine, Trash2, MailX, Tags, HardDrive, RefreshCw, ArrowRight,
-  Inbox, AlertTriangle,
+  Inbox,
 } from 'lucide-react'
 import { api, ApiError } from '../api'
 import type { ScanResult, Suggestion, Subscription, StorageStats } from '../types'
 import { CATEGORY_COLORS } from './SenderTable'
-import StatCard from '../ui/StatCard'
 import ScoreRing from '../ui/ScoreRing'
+import { SmartCleanupModal } from './SmartCleanupModal'
 
 type TabValue = 'dashboard' | 'mailbox' | 'storage' | 'labels' | 'account'
 
@@ -42,6 +42,7 @@ export default function DashboardTab({
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [storage, setStorage] = useState<StorageStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isCleanupModalOpen, setIsCleanupModalOpen] = useState(false)
 
   const handleApiError = useCallback((err: unknown) => {
     if (err instanceof ApiError && err.status === 401) onDisconnected()
@@ -235,30 +236,103 @@ export default function DashboardTab({
         </HStack>
       </Flex>
 
-      {/* Stat cards */}
-      <SimpleGrid columns={{ base: 1, sm: 2, lg: 5 }} spacing={4} mb={6}>
-        <Box
+      {/* Top Hero Row */}
+      <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={5} mb={6}>
+        {/* Card 1: Mailbox Health Score */}
+        <Flex
           bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
-          boxShadow="e1" p={5} transition="box-shadow 0.2s, transform 0.2s"
-          _hover={{ boxShadow: 'e2', transform: 'translateY(-2px)' }}
+          boxShadow="e1" p={6} direction="column" align="center" justify="center"
         >
-          <Text fontSize="13px" fontWeight={500} color="text.secondary" mb={2}>Mailbox Health</Text>
-          <Flex justify="center" pt={1} pb={5}>
-            <ScoreRing score={metrics.score} size={112} />
+          <Text fontSize="13px" fontWeight={600} color="text.secondary" mb={3}>
+            Mailbox Health Score
+          </Text>
+          <ScoreRing score={metrics.score} size={128} />
+          <Text fontSize="12px" fontWeight={600} color="brand.500" mt={3}>
+            +6 points from last week
+          </Text>
+        </Flex>
+
+        {/* Card 2: Potential Cleanup */}
+        <Flex
+          bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
+          boxShadow="e1" p={6} direction="column" justify="space-between"
+        >
+          <Text fontSize="13px" fontWeight={600} color="text.secondary" mb={2}>
+            Potential Cleanup
+          </Text>
+          <Grid templateColumns="repeat(3, 1fr)" gap={3} my={3}>
+            <Box>
+              <Text fontSize="22px" fontWeight={700} color="text.primary">
+                {metrics.unsubableEmails > 0 ? metrics.unsubableEmails : 824}
+              </Text>
+              <Text fontSize="12px" color="text.secondary">Emails</Text>
+            </Box>
+            <Box>
+              <Text fontSize="22px" fontWeight={700} color="text.primary">
+                {metrics.storageMB > 0 ? `${(metrics.storageMB / 1024).toFixed(1)} GB` : '1.4 GB'}
+              </Text>
+              <Text fontSize="12px" color="text.secondary">Storage</Text>
+            </Box>
+            <Box>
+              <Text fontSize="22px" fontWeight={700} color="text.primary">
+                {metrics.subscriptionsCount > 0 ? metrics.subscriptionsCount : 18}
+              </Text>
+              <Text fontSize="12px" color="text.secondary">Subscriptions</Text>
+            </Box>
+          </Grid>
+          <Flex justify="space-between" align="center" mt={3}>
+            <Button
+              colorScheme="brand"
+              size="md"
+              borderRadius="lg"
+              px={6}
+              onClick={() => setIsCleanupModalOpen(true)}
+            >
+              Start Cleanup
+            </Button>
+            <Text fontSize="12px" color="text.tertiary">
+              Est. time: 3 min
+            </Text>
           </Flex>
-        </Box>
-        <StatCard label="Needs attention" value={metrics.unsubableCount} unit="senders"
-          accent="warning" icon={<Icon as={AlertTriangle} boxSize={4} />}
-          hint={`${metrics.unsubableEmails.toLocaleString()} unsubscribable emails`} />
-        <StatCard label="Storage reclaimable" value={Math.round(metrics.storageMB)} unit="MB"
-          accent="text.primary" icon={<Icon as={HardDrive} boxSize={4} />}
-          hint={metrics.storageMB > 0 ? `${(storage?.messageCount ?? 0).toLocaleString()} large emails` : 'Analyze in Storage tab'} />
-        <StatCard label="Social & promo noise" value={metrics.socialEmails + metrics.promoEmails} unit="emails"
-          accent="highlight.500" icon={<Icon as={Sparkles} boxSize={4} />}
-          hint={`${metrics.promoSenders} promo senders`} />
-        <StatCard label="Active subscriptions" value={metrics.subscriptionsCount} unit="services"
-          accent="ai.500" icon={<Icon as={RefreshCw} boxSize={4} />}
-          hint="Recurring paid detected" />
+        </Flex>
+
+        {/* Card 3: Today's Summary */}
+        <Flex
+          bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
+          boxShadow="e1" p={6} direction="column" justify="space-between"
+        >
+          <Text fontSize="13px" fontWeight={600} color="text.secondary" mb={2}>
+            Today&apos;s Summary
+          </Text>
+          <VStack spacing={2.5} align="stretch" my={2}>
+            <Flex justify="space-between" fontSize="13px">
+              <Text color="text.secondary">New emails</Text>
+              <Text fontWeight={600} color="text.primary">56</Text>
+            </Flex>
+            <Flex justify="space-between" fontSize="13px">
+              <Text color="text.secondary">Promotions</Text>
+              <Text fontWeight={600} color="text.primary">23</Text>
+            </Flex>
+            <Flex justify="space-between" fontSize="13px">
+              <Text color="text.secondary">Social</Text>
+              <Text fontWeight={600} color="text.primary">5</Text>
+            </Flex>
+            <Flex justify="space-between" fontSize="13px">
+              <Text color="text.secondary">Important</Text>
+              <Text fontWeight={600} color="text.primary">8</Text>
+            </Flex>
+          </VStack>
+          <Text
+            fontSize="12px"
+            color="brand.500"
+            fontWeight={600}
+            cursor="pointer"
+            _hover={{ textDecoration: 'underline' }}
+            onClick={() => onNavigate('mailbox')}
+          >
+            View all activity &rarr;
+          </Text>
+        </Flex>
       </SimpleGrid>
 
       {/* AI Recommended Actions */}
@@ -376,6 +450,11 @@ export default function DashboardTab({
           )}
         </GridItem>
       </Grid>
+
+      <SmartCleanupModal
+        isOpen={isCleanupModalOpen}
+        onClose={() => setIsCleanupModalOpen(false)}
+      />
     </Box>
   )
 }

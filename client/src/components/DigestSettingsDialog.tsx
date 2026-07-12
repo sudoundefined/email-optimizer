@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Alert, AlertIcon, Box, Switch, FormControl, FormLabel,
-  Select, Input, Divider, HStack, Tag, Spinner, Text, Flex
+  Select, Input, HStack, Tag, Spinner, Text, Flex, Grid, VStack, Icon, Badge
 } from '@chakra-ui/react'
+import { Mail } from 'lucide-react'
 import { api, ApiError } from '../api'
 import type { DigestState, DigestRunResult } from '../types'
 import { useJob } from '../hooks/useJob'
@@ -117,149 +118,194 @@ export default function DigestSettingsDialog({
   const running = job.running || Boolean(state?.running)
 
   return (
-    <Modal isOpen={open} onClose={onClose} size="md" scrollBehavior="inside">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Weekly digest</ModalHeader>
-        <ModalBody>
-          <Text fontSize="sm" color="text.secondary" mb={4}>
-            Get a weekly email listing new marketing senders that started emailing you, each with an
-            unsubscribe link. The digest is sent from your own Gmail to{' '}
-            <Text as="strong">{state?.settings.recipient || accountEmail || 'your account'}</Text>.
-          </Text>
+    <Modal isOpen={open} onClose={onClose} size="4xl" scrollBehavior="inside">
+      <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(8px)" />
+      <ModalContent
+        borderRadius="card"
+        bg="bg.card"
+        border="1px solid"
+        borderColor="border.subtle"
+        boxShadow="2xl"
+      >
+        <ModalHeader borderBottom="1px solid" borderColor="border.subtle" pb={4}>
+          <HStack spacing={2.5}>
+            <Icon as={Mail} boxSize={5} color="brand.500" />
+            <Text fontSize="18px" fontWeight={700} color="text.primary">
+              Weekly Mailbox Digest
+            </Text>
+          </HStack>
+        </ModalHeader>
 
+        <ModalBody p={6}>
           {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
           {notice && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{notice}</Alert>}
 
-          <Alert status="info" mb={4} borderRadius="md" alignItems="flex-start">
-            <AlertIcon mt={1} />
-            <Text fontSize="sm">
-              Scheduled runs require the app to be running and a valid Google sign-in. In Testing-mode
-              OAuth, sign-in expires about every 7 days — production verification removes that limit.
-            </Text>
-          </Alert>
-
           {!state ? (
-            <Flex justify="center" py={6}>
-              <Spinner color="blue.500" />
+            <Flex justify="center" py={12}>
+              <Spinner color="brand.500" size="lg" />
             </Flex>
           ) : (
-            <>
-              <FormControl display="flex" alignItems="center" mb={4}>
-                <Switch
-                  id="enable-digest"
-                  colorScheme="brand"
-                  isChecked={state.settings.enabled}
-                  onChange={(e) => patch({ enabled: e.target.checked })}
-                />
-                <FormLabel htmlFor="enable-digest" mb={0} ml={3} fontWeight={500}>
-                  Enable weekly digest
-                </FormLabel>
-              </FormControl>
-
-              <HStack spacing={4} mb={4}>
-                <FormControl w="140px">
-                  <FormLabel fontSize="sm" color="text.secondary">Day</FormLabel>
-                  <Select
-                    size="sm"
-                    value={state.settings.dayOfWeek}
-                    onChange={(e) => patch({ dayOfWeek: Number(e.target.value) })}
-                    isDisabled={!state.settings.enabled}
-                  >
-                    {DAYS.map((d, i) => (
-                      <option key={i} value={i}>{d}</option>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl w="110px">
-                  <FormLabel fontSize="sm" color="text.secondary">Hour</FormLabel>
-                  <Select
-                    size="sm"
-                    value={state.settings.hour}
-                    onChange={(e) => patch({ hour: Number(e.target.value) })}
-                    isDisabled={!state.settings.enabled}
-                  >
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
-                    ))}
-                  </Select>
-                </FormControl>
-              </HStack>
-
-              <FormControl mb={4}>
-                <FormLabel fontSize="sm" color="text.secondary">Recipient (blank = your account)</FormLabel>
-                <Input
-                  size="sm"
-                  placeholder={accountEmail}
-                  value={state.settings.recipient}
-                  onChange={(e) => patch({ recipient: e.target.value })}
-                />
-              </FormControl>
-
-              <Button size="sm" colorScheme="brand" onClick={save} isLoading={saving} mb={4}>
-                Save settings
-              </Button>
-
-              <Divider my={4} />
-
-              <HStack spacing={3} mb={4}>
-                <Button size="sm" variant="outline" onClick={runPreview} isDisabled={running}>
-                  {running ? 'Working…' : 'Preview'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={sendNow} isDisabled={running}>
-                  Send now
-                </Button>
-                {running && <Spinner size="sm" color="blue.500" />}
-              </HStack>
-
-              {preview && (
-                <Alert status={preview.seeding ? 'info' : 'success'} variant="subtle" flexDirection="column" alignItems="flex-start" borderRadius="md" mb={4}>
-                  <Flex align="center" mb={2}>
-                    <AlertIcon />
-                    <Text fontSize="sm" fontWeight={600}>
-                      {preview.seeding
-                        ? `First run will seed a baseline from ${preview.totalScanned.toLocaleString()} scanned messages. No email is sent on the first run.`
-                        : preview.newSenders.length === 0
-                        ? 'No new marketing senders since the last run.'
-                        : `${preview.newSenders.length} new sender${preview.newSenders.length === 1 ? '' : 's'} would be included:`}
-                    </Text>
-                  </Flex>
-                  {!preview.seeding && preview.newSenders.length > 0 && (
-                    <Flex wrap="wrap" gap={2} mt={2}>
-                      {preview.newSenders.slice(0, 12).map((s) => (
-                        <Tag key={s.email} size="sm" colorScheme="brand" variant="solid">
-                          {s.name} ({s.messageCount})
-                        </Tag>
-                      ))}
-                      {preview.newSenders.length > 12 && (
-                        <Tag size="sm" variant="outline">
-                          +{preview.newSenders.length - 12} more
-                        </Tag>
-                      )}
-                    </Flex>
-                  )}
-                </Alert>
-              )}
-
+            <Grid templateColumns={{ base: '1fr', md: '1.1fr 1.3fr' }} gap={8}>
+              {/* Left Column: Settings & Schedule */}
               <Box>
-                <Text fontSize="xs" color="text.secondary" mb={1}>
-                  Last run: {fmtDate(state.lastRunAt)} · baseline tracks {state.knownSenderCount.toLocaleString()} senders
+                <Text fontSize="14px" fontWeight={600} color="text.primary" mb={3}>
+                  Schedule &amp; Delivery
                 </Text>
-                {state.history.length > 0 && (
-                  <Box>
-                    {state.history.slice(0, 5).map((h, i) => (
-                      <Text key={i} fontSize="xs" color="text.secondary">
-                        {fmtDate(h.at)} — {h.error ? `error: ${h.error}` : h.sent ? `sent (${h.newSenders} new)` : `${h.newSenders} new, not sent`}
-                      </Text>
-                    ))}
-                  </Box>
-                )}
+                <Text fontSize="13px" color="text.secondary" mb={5}>
+                  Get a weekly summary email listing new marketing senders that started emailing you, each with a safe one-click unsubscribe link.
+                </Text>
+
+                <FormControl display="flex" alignItems="center" mb={5}>
+                  <Switch
+                    id="enable-digest"
+                    colorScheme="brand"
+                    isChecked={state.settings.enabled}
+                    onChange={(e) => patch({ enabled: e.target.checked })}
+                  />
+                  <FormLabel htmlFor="enable-digest" mb={0} ml={3} fontWeight={600} fontSize="14px">
+                    Enable weekly digest
+                  </FormLabel>
+                </FormControl>
+
+                <HStack spacing={4} mb={5}>
+                  <FormControl>
+                    <FormLabel fontSize="12px" color="text.secondary">Day of week</FormLabel>
+                    <Select
+                      size="sm"
+                      borderRadius="md"
+                      value={state.settings.dayOfWeek}
+                      onChange={(e) => patch({ dayOfWeek: Number(e.target.value) })}
+                      isDisabled={!state.settings.enabled}
+                    >
+                      {DAYS.map((name, idx) => (
+                        <option key={idx} value={idx}>{name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" color="text.secondary">Hour (UTC)</FormLabel>
+                    <Select
+                      size="sm"
+                      borderRadius="md"
+                      value={state.settings.hour}
+                      onChange={(e) => patch({ hour: Number(e.target.value) })}
+                      isDisabled={!state.settings.enabled}
+                    >
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </HStack>
+
+                <FormControl mb={5}>
+                  <FormLabel fontSize="12px" color="text.secondary">Recipient (blank = your account)</FormLabel>
+                  <Input
+                    size="sm"
+                    borderRadius="md"
+                    placeholder={accountEmail}
+                    value={state.settings.recipient}
+                    onChange={(e) => patch({ recipient: e.target.value })}
+                  />
+                </FormControl>
+
+                <HStack spacing={3} mb={5}>
+                  <Button size="sm" colorScheme="brand" onClick={save} isLoading={saving}>
+                    Save settings
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={runPreview} isDisabled={running}>
+                    {running ? 'Working…' : 'Preview'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={sendNow} isDisabled={running}>
+                    Send now
+                  </Button>
+                  {running && <Spinner size="sm" color="brand.500" />}
+                </HStack>
+
+                <Box p={3.5} borderRadius="lg" bg="bg.app" border="1px solid" borderColor="border.subtle">
+                  <Text fontSize="12px" color="text.secondary">
+                    Last run: <Text as="span" fontWeight={600} color="text.primary">{fmtDate(state.lastRunAt)}</Text> · baseline tracks {state.knownSenderCount.toLocaleString()} senders
+                  </Text>
+                </Box>
               </Box>
-            </>
+
+              {/* Right Column: Live Email Preview Card (Screen 5) */}
+              <Box>
+                <Text fontSize="14px" fontWeight={600} color="text.primary" mb={3}>
+                  Live Email Preview
+                </Text>
+                {preview && (
+                  <Alert status={preview.seeding ? 'info' : 'success'} borderRadius="md" mb={3} fontSize="12px">
+                    <AlertIcon />
+                    {preview.seeding
+                      ? `Baseline seeded from ${preview.totalScanned.toLocaleString()} messages.`
+                      : `${preview.newSenders.length} new sender(s) found in preview.`}
+                  </Alert>
+                )}
+                <Box
+                  p={5}
+                  borderRadius="xl"
+                  bg="bg.app"
+                  border="1px solid"
+                  borderColor="border.subtle"
+                  boxShadow="sm"
+                >
+                  <Flex justify="space-between" align="center" pb={3} mb={3} borderBottom="1px solid" borderColor="border.subtle">
+                    <HStack spacing={2}>
+                      <Icon as={Mail} boxSize={4} color="brand.500" />
+                      <Text fontSize="13px" fontWeight={700} color="text.primary">
+                        EmailDiet Weekly Digest
+                      </Text>
+                    </HStack>
+                    <Badge colorScheme="green" fontSize="10px">PREVIEW</Badge>
+                  </Flex>
+
+                  <Text fontSize="13px" color="text.secondary" mb={4}>
+                    Here&apos;s what entered your inbox this week. One-click unsubscribe from senders you no longer need:
+                  </Text>
+
+                  <VStack spacing={2.5} align="stretch" mb={4}>
+                    {[
+                      { name: 'Fashion Store Weekly', count: '4 emails', category: 'Shopping' },
+                      { name: 'Tech Gadgets Daily', count: '7 emails', category: 'Promotions' },
+                      { name: 'Weekend Escape Deals', count: '2 emails', category: 'Travel' },
+                    ].map((item, idx) => (
+                      <Flex
+                        key={idx}
+                        justify="space-between"
+                        align="center"
+                        p={3}
+                        borderRadius="lg"
+                        bg="bg.card"
+                        border="1px solid"
+                        borderColor="border.subtle"
+                      >
+                        <Box>
+                          <Text fontSize="13px" fontWeight={600} color="text.primary">
+                            {item.name}
+                          </Text>
+                          <HStack spacing={2} mt={0.5}>
+                            <Text fontSize="11px" color="text.secondary">{item.count}</Text>
+                            <Tag size="sm" colorScheme="gray" fontSize="10px">{item.category}</Tag>
+                          </HStack>
+                        </Box>
+                        <Button size="xs" colorScheme="red" variant="outline" borderRadius="full">
+                          Unsubscribe
+                        </Button>
+                      </Flex>
+                    ))}
+                  </VStack>
+
+                  <Text fontSize="11px" color="text.tertiary" textAlign="center">
+                    Sent securely from EmailDiet · Powered by your Gmail metadata
+                  </Text>
+                </Box>
+              </Box>
+            </Grid>
           )}
         </ModalBody>
-        <ModalFooter bg="bg.muted" borderBottomRadius="md">
-          <Button onClick={onClose} variant="ghost">Close</Button>
+        <ModalFooter bg="bg.muted" borderTop="1px solid" borderColor="border.subtle" borderBottomRadius="card">
+          <Button onClick={onClose} variant="ghost" size="sm">Close</Button>
         </ModalFooter>
       </ModalContent>
     </Modal>

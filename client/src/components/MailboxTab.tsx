@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box, Button, Card, Tag, TagLabel, TagCloseButton, useToast,
-  Grid, GridItem, Input, Progress,
+  Grid, GridItem, Input, Progress, Badge,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
   Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, useDisclosure,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
 import { EmailIcon, HamburgerIcon, SearchIcon, CloseIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
+import { MailX, Trash2 } from 'lucide-react'
 import { exportToExcel } from '../utils/exportExcel'
 import { api, ApiError } from '../api'
 import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription, Filter, GroupMessage } from '../types'
@@ -1290,6 +1291,59 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
             </ModalFooter>
           </ModalContent>
         </Modal>
+      )}
+
+      {/* Floating Bottom Bulk Action Bar (Screen 2) */}
+      {selectedSenders.size > 0 && (
+        <Box
+          position="fixed"
+          bottom="28px"
+          left="50%"
+          transform="translateX(-50%)"
+          zIndex={100}
+          bg="bg.card"
+          border="1px solid"
+          borderColor="border.subtle"
+          borderRadius="full"
+          boxShadow="2xl"
+          px={6}
+          py={3}
+        >
+          <HStack spacing={4} align="center">
+            <Badge colorScheme="green" borderRadius="full" px={3} py={1} fontSize="12px" fontWeight={700}>
+              {selectedSenders.size} selected
+            </Badge>
+            <Button
+              size="sm"
+              colorScheme="brand"
+              borderRadius="full"
+              leftIcon={<Icon as={MailX} boxSize={3.5} />}
+              onClick={runUnsubscribe}
+              isLoading={unsubJob.running}
+            >
+              Unsubscribe
+            </Button>
+            <Button
+              size="sm"
+              colorScheme="red"
+              variant="outline"
+              borderRadius="full"
+              leftIcon={<Icon as={Trash2} boxSize={3.5} />}
+              onClick={() => setConfirmSenderTrash(true)}
+            >
+              Trash
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              borderRadius="full"
+              fontSize="12px"
+              onClick={() => setSelectedSenders(new Set())}
+            >
+              Clear
+            </Button>
+          </HStack>
+        </Box>
       )}
     </Flex>
   )

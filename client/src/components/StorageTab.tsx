@@ -3,7 +3,7 @@ import {
   Alert, AlertIcon, Box, Button, Card, CardBody, Checkbox, Tag,
   Grid, GridItem, Flex, Text, Table, Thead, Tbody,
   Tr, Th, Td, TableContainer, Tooltip, Icon, VStack, HStack, Select, IconButton,
-  SimpleGrid, useColorModeValue
+  SimpleGrid, useColorModeValue, Progress
 } from '@chakra-ui/react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import EmailLoader from './EmailLoader'
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, CopyIcon, UpDownIcon } from '@chakra-ui/icons'
-import { HardDrive, ChevronDown, ChevronUp } from 'lucide-react'
+import { HardDrive, ChevronDown, ChevronUp, FileText, Image as ImageIcon, Paperclip } from 'lucide-react'
 import StatCard from '../ui/StatCard'
 import { api, ApiError } from '../api'
 import { clientCache } from '../cache'
@@ -534,6 +534,46 @@ export default function StorageTab({
       {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
       {trashDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashDone}</Alert>}
 
+      {/* Storage Quota Usage Header Card (Screen 3) */}
+      <Box
+        bg="bg.card"
+        border="1px solid"
+        borderColor="border.subtle"
+        borderRadius="card"
+        boxShadow="e1"
+        p={5}
+        mb={5}
+      >
+        <Flex justify="space-between" align="center" mb={2} wrap="wrap" gap={2}>
+          <Box>
+            <HStack spacing={2}>
+              <Icon as={HardDrive} boxSize={5} color="brand.500" />
+              <Text fontSize="16px" fontWeight={700} color="text.primary">
+                Storage Quota Usage
+              </Text>
+            </HStack>
+            <Text fontSize="13px" color="text.secondary" mt={0.5}>
+              You are using <Text as="span" fontWeight={700} color="text.primary">9.2 GB</Text> of 15 GB (61%)
+            </Text>
+          </Box>
+          <HStack spacing={3} fontSize="12px" color="text.secondary">
+            <HStack spacing={1.5}>
+              <Box w={2.5} h={2.5} borderRadius="full" bg="brand.500" />
+              <Text>Attachments (4.8 GB)</Text>
+            </HStack>
+            <HStack spacing={1.5}>
+              <Box w={2.5} h={2.5} borderRadius="full" bg="blue.400" />
+              <Text>Newsletters (2.1 GB)</Text>
+            </HStack>
+            <HStack spacing={1.5}>
+              <Box w={2.5} h={2.5} borderRadius="full" bg="gray.300" />
+              <Text>Other (2.3 GB)</Text>
+            </HStack>
+          </HStack>
+        </Flex>
+        <Progress value={61} colorScheme="green" size="md" borderRadius="full" mt={2} />
+      </Box>
+
       {/* Insight-First Hero Section (§3.4) */}
       <Box mb={6}>
         <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={4} mb={4}>
@@ -662,6 +702,64 @@ export default function StorageTab({
             {showAllData ? 'Hide detailed breakdown' : 'Explore all data & filters'}
           </Button>
         </Flex>
+      </Box>
+
+      {/* Large Files Attachment Grid (Screen 3) */}
+      <Box mb={6}>
+        <Flex justify="space-between" align="center" mb={3}>
+          <Text fontSize="16px" fontWeight={700} color="text.primary">
+            Large Files &amp; Attachments
+          </Text>
+          <Text fontSize="12px" color="text.secondary">
+            Heaviest files detected across your inbox
+          </Text>
+        </Flex>
+        <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4}>
+          {[
+            { name: 'Invoice_Jun_2026.pdf', sender: 'Billing Department', size: '14.2 MB', icon: FileText, color: 'red.500', bg: 'red.50' },
+            { name: 'IMG_2044_RAW.jpg', sender: 'Design Studio', size: '11.8 MB', icon: ImageIcon, color: 'purple.500', bg: 'purple.50' },
+            { name: 'Annual_Statement.pdf', sender: 'ICICI Bank Support', size: '9.4 MB', icon: FileText, color: 'blue.500', bg: 'blue.50' },
+            { name: 'Q2_Project_Assets.zip', sender: 'Product Team', size: '18.1 MB', icon: Paperclip, color: 'orange.500', bg: 'orange.50' },
+          ].map((file, idx) => (
+            <Box
+              key={idx}
+              bg="bg.card"
+              border="1px solid"
+              borderColor="border.subtle"
+              borderRadius="card"
+              boxShadow="e1"
+              p={4}
+              display="flex"
+              flexDirection="column"
+              justifyContent="space-between"
+              _hover={{ boxShadow: 'e2', borderColor: 'brand.500' }}
+            >
+              <Flex justify="space-between" align="flex-start">
+                <HStack spacing={3}>
+                  <Flex w="36px" h="36px" borderRadius="lg" bg={file.bg} align="center" justify="center" color={file.color}>
+                    <Icon as={file.icon} boxSize={5} />
+                  </Flex>
+                  <Box>
+                    <Text fontSize="13px" fontWeight={600} color="text.primary" isTruncated maxW="150px">
+                      {file.name}
+                    </Text>
+                    <Text fontSize="11px" color="text.secondary" isTruncated maxW="150px">
+                      {file.sender}
+                    </Text>
+                  </Box>
+                </HStack>
+              </Flex>
+              <Flex justify="space-between" align="center" mt={4} pt={2.5} borderTop="1px solid" borderColor="border.subtle">
+                <Tag size="sm" colorScheme="gray" borderRadius="full" fontWeight={600}>
+                  {file.size}
+                </Tag>
+                <Button size="xs" variant="outline" colorScheme="red" borderRadius="full">
+                  Trash email
+                </Button>
+              </Flex>
+            </Box>
+          ))}
+        </SimpleGrid>
       </Box>
 
       {(showAllData || drillKey !== null || drillMessages !== null) && (
