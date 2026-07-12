@@ -212,6 +212,10 @@ export const daylightTheme = extendTheme({
       500: '#8B5CF6', 600: '#7c3aed', 700: '#6d28d9', 800: '#5b21b6', 900: '#4c1d95',
     },
     accent: { 50: '#fdfbf7', 100: '#F6F7F5', 200: '#e5e7eb' },
+    neutral: {
+      50: '#F9FAFB', 100: '#F3F4F6', 200: '#E5E7EB', 300: '#D1D5DB', 400: '#9CA3AF',
+      500: '#6B7280', 600: '#4B5563', 700: '#374151', 800: '#1F2937', 900: '#111827',
+    },
   },
   semanticTokens: {
     colors: {
