@@ -106,6 +106,143 @@ const baseComponents = {
   }
 }
 
+// ─── EmailDiet 2.0 "Daylight" — premium AI-productivity light theme ───────────
+// Spec: docs/redesign/EMAILDIET-2.0-DESIGN-SPEC.md §1. Green is a verb (actions/
+// success only); AI blue marks machine-generated content; blur only on floating
+// layers; opaque white cards on a warm-white canvas; neutral shadows.
+const INTER = "'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+
+const daylightComponents = {
+  Button: {
+    baseStyle: { fontWeight: 600, borderRadius: '12px' },
+    defaultProps: { colorScheme: 'brand' },
+  },
+  Card: {
+    baseStyle: {
+      container: {
+        borderRadius: '18px',
+        boxShadow: 'e1',
+        border: '1px solid',
+        borderColor: 'border.subtle',
+        bg: 'bg.card',
+        // opaque — no backdropFilter (blur is reserved for floating layers)
+      },
+    },
+  },
+  Modal: {
+    baseStyle: {
+      dialog: {
+        borderRadius: '20px',
+        bg: 'bg.card',
+        boxShadow: 'e3',
+        border: '1px solid',
+        borderColor: 'border.subtle',
+      },
+    },
+  },
+  Input: {
+    defaultProps: { focusBorderColor: 'brand.500' },
+    variants: {
+      outline: {
+        field: {
+          borderRadius: '12px',
+          bg: 'bg.input',
+          borderColor: 'border.subtle',
+          _hover: { borderColor: 'border.strong' },
+        },
+      },
+    },
+  },
+  Select: {
+    defaultProps: { focusBorderColor: 'brand.500' },
+    variants: {
+      outline: {
+        field: {
+          borderRadius: '12px',
+          bg: 'bg.input',
+          borderColor: 'border.subtle',
+          _hover: { borderColor: 'border.strong' },
+        },
+      },
+    },
+  },
+  Tabs: {
+    baseStyle: { tab: { fontWeight: 600, borderRadius: '10px' } },
+    variants: {
+      'soft-rounded': {
+        tab: {
+          borderRadius: '10px',
+          fontWeight: 600,
+          color: 'text.secondary',
+          _selected: { color: 'text.primary', bg: 'bg.muted' },
+        },
+      },
+    },
+    defaultProps: { variant: 'soft-rounded' },
+  },
+  Tag: {
+    baseStyle: { container: { fontWeight: 600, borderRadius: 'full' } },
+  },
+}
+
+export const daylightTheme = extendTheme({
+  config,
+  fonts: { heading: INTER, body: INTER, mono: "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace" },
+  radii: { card: '18px', panel: '20px', control: '12px' },
+  shadows: {
+    e1: '0 1px 2px rgba(17,24,39,0.05)',
+    e2: '0 4px 12px rgba(17,24,39,0.08)',
+    e3: '0 12px 32px rgba(17,24,39,0.12)',
+    outline: '0 0 0 2px rgba(139,92,246,0.55)', // lavender focus ring
+  },
+  colors: {
+    // Emerald — the action/success color. brand.500 is the one primary green.
+    brand: {
+      50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 300: '#6ee7b7', 400: '#34d399',
+      500: '#15803D', 600: '#166534', 700: '#14532d', 800: '#0f3d22', 900: '#0a2c18',
+    },
+    // Royal blue — anything AI-generated.
+    ai: {
+      50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+      500: '#2563EB', 600: '#1d4ed8', 700: '#1e40af', 800: '#1e3a8a', 900: '#172554',
+    },
+    // Lavender — selection, focus, tertiary chart accent.
+    highlight: {
+      50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe', 300: '#c4b5fd', 400: '#a78bfa',
+      500: '#8B5CF6', 600: '#7c3aed', 700: '#6d28d9', 800: '#5b21b6', 900: '#4c1d95',
+    },
+    accent: { 50: '#fdfbf7', 100: '#F6F7F5', 200: '#e5e7eb' },
+  },
+  semanticTokens: {
+    colors: {
+      'bg.app': { default: '#FCFCFA', _dark: '#0F1115' },
+      'bg.card': { default: '#FFFFFF', _dark: '#16181D' },
+      'bg.glass': { default: 'rgba(255,255,255,0.72)', _dark: 'rgba(22,24,29,0.72)' },
+      'bg.muted': { default: '#F6F7F5', _dark: '#1C1F26' },
+      'bg.input': { default: '#FFFFFF', _dark: '#1C1F26' },
+      'bg.accent': { default: '#F0FDF4', _dark: 'rgba(34,197,94,0.12)' }, // faint emerald wash for active nav/selection
+      'bg.tray': { default: '#111827', _dark: '#000000' },
+      'bg.hover': { default: '#F6F7F5', _dark: 'rgba(255,255,255,0.06)' },
+      'text.primary': { default: '#111827', _dark: '#F3F4F6' },
+      'text.secondary': { default: '#6B7280', _dark: '#9CA3AF' },
+      'text.tertiary': { default: '#9CA3AF', _dark: '#6B7280' },
+      'text.inverse': { default: '#FFFFFF', _dark: '#FFFFFF' },
+      'border.subtle': { default: '#E9ECEF', _dark: 'rgba(255,255,255,0.08)' },
+      'border.strong': { default: '#D1D5DB', _dark: 'rgba(255,255,255,0.16)' },
+      'border.glass': { default: 'rgba(233,236,239,0.6)', _dark: 'rgba(255,255,255,0.08)' },
+      'brand.icon': { default: '#15803D', _dark: '#22C55E' },
+      'ai.solid': { default: '#2563EB', _dark: '#3B82F6' },
+    },
+  },
+  styles: {
+    global: {
+      body: { bg: 'bg.app', color: 'text.primary' },
+      '*::selection': { bg: 'rgba(139,92,246,0.18)' },
+    },
+  },
+  components: daylightComponents,
+})
+
 export const botanicalTheme = extendTheme({
   config,
   fonts: { heading: SF, body: SF, mono: SF_MONO },

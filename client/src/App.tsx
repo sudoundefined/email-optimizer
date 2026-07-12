@@ -4,48 +4,43 @@ import {
   DrawerOverlay, DrawerContent, DrawerBody,
   IconButton, Heading, Spinner, Tooltip, HStack, useColorMode, Button, Image
 } from '@chakra-ui/react'
+import { HamburgerIcon, SunIcon, MoonIcon, RepeatIcon } from '@chakra-ui/icons'
 import {
-  EmailIcon, SettingsIcon, HamburgerIcon, SunIcon, MoonIcon, RepeatIcon
-} from '@chakra-ui/icons'
+  LayoutDashboard, Mail, HardDrive, Tags, ScrollText, CalendarClock, Palette,
+} from 'lucide-react'
 
 import { useAuth } from './hooks/useAuth'
 import LandingPage from './components/LandingPage'
 import AccountBadge from './components/AccountBadge'
+import DashboardTab from './components/DashboardTab'
 import MailboxTab from './components/MailboxTab'
 import StorageTab from './components/StorageTab'
 import LabelManager from './components/LabelManager'
 import AccountPage from './components/AccountPage'
 import DigestSettingsDialog from './components/DigestSettingsDialog'
 import UserProfileModal from './components/UserProfileModal'
-import { useAppTheme } from './theme/ThemeContext'
-
-const StorageIcon = (props: any) => (
-  <Icon viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-    <line x1="12" y1="22.08" x2="12" y2="12"></line>
-  </Icon>
-)
-
-const LabelIcon = (props: any) => (
-  <Icon viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-    <circle cx="7" cy="7" r="2"></circle>
-  </Icon>
-)
+import { useAppTheme, type AppTheme } from './theme/ThemeContext'
 
 const TABS = [
-  { value: 'mailbox', label: 'Mailbox', icon: EmailIcon, blurb: 'Clean up senders and messages' },
-  { value: 'storage', label: 'Storage', icon: StorageIcon, blurb: 'Reclaim space from large emails' },
-  { value: 'labels',  label: 'Labels',  icon: LabelIcon, blurb: 'Manage your app-created labels' },
-  { value: 'account', label: 'Account & Logs', icon: SettingsIcon, blurb: 'Preferences, security settings & activity audit log' },
+  { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, blurb: 'Your mailbox health at a glance' },
+  { value: 'mailbox', label: 'Mailbox', icon: Mail, blurb: 'Clean up senders and messages' },
+  { value: 'storage', label: 'Storage', icon: HardDrive, blurb: 'Reclaim space from large emails' },
+  { value: 'labels',  label: 'Labels',  icon: Tags, blurb: 'Manage your app-created labels' },
+  { value: 'account', label: 'Account & Logs', icon: ScrollText, blurb: 'Preferences, security settings & activity audit log' },
 ] as const
 
 type TabValue = (typeof TABS)[number]['value']
 
+const THEME_CYCLE: Record<AppTheme, AppTheme> = {
+  daylight: 'botanical', botanical: 'espresso', espresso: 'daylight',
+}
+const THEME_LABEL: Record<AppTheme, string> = {
+  daylight: 'Daylight', botanical: 'Botanical', espresso: 'Espresso',
+}
+
 export default function App() {
   const auth = useAuth()
-  const [tab, setTab] = useState<TabValue>('mailbox')
+  const [tab, setTab] = useState<TabValue>('dashboard')
   const [digestOpen, setDigestOpen] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const profileModal = useDisclosure()
@@ -66,7 +61,7 @@ export default function App() {
     return (
       <Flex minH="100vh" align="center" justify="center">
         <VStack spacing={4}>
-          <Flex w="80px" h="80px" borderRadius="3xl" bg="white" align="center" justify="center" boxShadow="0 20px 40px -10px rgba(10, 45, 46, 0.2)" overflow="hidden">
+          <Flex w="80px" h="80px" borderRadius="20px" bg="bg.card" align="center" justify="center" boxShadow="e2" overflow="hidden">
             <Image src="/logo.png" alt="EmailDiet Logo" w="100%" h="100%" objectFit="cover" />
           </Flex>
           <Spinner color="brand.500" size="xl" thickness="4px" />
@@ -78,22 +73,23 @@ export default function App() {
   if (!auth.status?.connected) return <LandingPage />
 
   const active = TABS.find(t => t.value === tab)!
+  const firstName = auth.status.email?.split('@')[0]?.split(/[._]/)[0]
+  const userName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1) : undefined
 
   const SidebarContent = () => (
-    <Flex 
-      direction="column" 
-      h="full" 
-      bg="bg.card" 
-      backdropFilter="blur(20px)" 
-      borderRadius={{ md: '3xl' }}
-      boxShadow={{ md: '0 20px 40px -10px rgba(0,0,0, 0.1)' }}
-      border={{ md: '1px solid' }}
-      borderColor={{ md: 'border.glass' }}
+    <Flex
+      direction="column"
+      h="full"
+      bg="bg.card"
+      borderRadius={{ md: '20px' }}
+      boxShadow={{ md: 'e2' }}
+      border="1px solid"
+      borderColor="border.subtle"
       py={6}
     >
       {/* Brand */}
-      <HStack px={6} mb={10} spacing={3}>
-        <Flex w="36px" h="36px" borderRadius="xl" bg="white" align="center" justify="center" boxShadow="sm" overflow="hidden">
+      <HStack px={5} mb={8} spacing={3}>
+        <Flex w="34px" h="34px" borderRadius="10px" bg="bg.card" align="center" justify="center" boxShadow="e1" border="1px solid" borderColor="border.subtle" overflow="hidden">
           <Image src="/logo.png" alt="EmailDiet Logo" w="100%" h="100%" objectFit="cover" />
         </Flex>
         <Heading size="md" color="text.primary" letterSpacing="-0.02em" fontWeight={700}>
@@ -102,29 +98,30 @@ export default function App() {
       </HStack>
 
       {/* Nav Items */}
-      <VStack spacing={2} align="stretch" px={4}>
+      <VStack spacing={1} align="stretch" px={3}>
         {TABS.map(t => {
           const isActive = tab === t.value
           return (
             <Flex
               key={t.value}
               as="button"
-              onClick={() => {
-                setTab(t.value)
-                onClose()
-              }}
+              onClick={() => { setTab(t.value); onClose() }}
               align="center"
-              px={4}
-              py={3}
-              borderRadius="full"
-              bg={isActive ? 'brand.500' : 'transparent'}
-              color={isActive ? 'white' : 'text.secondary'}
+              position="relative"
+              px={3}
+              h="44px"
+              borderRadius="12px"
+              bg={isActive ? 'bg.accent' : 'transparent'}
+              color={isActive ? 'brand.500' : 'text.secondary'}
               fontWeight={isActive ? 600 : 500}
-              _hover={{ bg: isActive ? 'brand.600' : 'bg.hover', color: isActive ? 'white' : 'text.primary' }}
-              transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+              _hover={{ bg: isActive ? 'bg.accent' : 'bg.hover', color: isActive ? 'brand.500' : 'text.primary' }}
+              transition="all 0.15s ease-out"
             >
-              <Icon as={t.icon} mr={3} boxSize={5} />
-              <Text>{t.label}</Text>
+              {isActive && (
+                <Box position="absolute" left="-12px" top="10px" bottom="10px" w="3px" borderRadius="full" bg="brand.500" />
+              )}
+              <Icon as={t.icon} mr={3} boxSize={5} strokeWidth={isActive ? 2.25 : 2} />
+              <Text fontSize="15px">{t.label}</Text>
             </Flex>
           )
         })}
@@ -133,38 +130,39 @@ export default function App() {
       <Spacer />
 
       {/* Bottom Section */}
-      <VStack spacing={2} align="stretch" px={4} pt={6}>
+      <VStack spacing={1} align="stretch" px={3} pt={6}>
         <Flex
           as="button"
           onClick={() => setDigestOpen(true)}
           align="center"
-          px={4}
-          py={3}
-          borderRadius="full"
+          px={3}
+          h="44px"
+          borderRadius="12px"
           color="text.secondary"
           _hover={{ bg: 'bg.hover', color: 'text.primary' }}
-          transition="all 0.2s"
+          transition="all 0.15s"
         >
-          <Icon as={SettingsIcon} mr={3} boxSize={5} />
-          <Text fontWeight={500}>Weekly Digest</Text>
+          <Icon as={CalendarClock} mr={3} boxSize={5} />
+          <Text fontWeight={500} fontSize="15px">Weekly Digest</Text>
         </Flex>
         <Flex
           as="button"
-          onClick={() => setTheme(activeThemeName === 'botanical' ? 'espresso' : 'botanical')}
+          onClick={() => setTheme(THEME_CYCLE[activeThemeName])}
           align="center"
-          px={4}
-          py={3}
-          borderRadius="full"
+          px={3}
+          h="44px"
+          borderRadius="12px"
           color="text.secondary"
           _hover={{ bg: 'bg.hover', color: 'text.primary' }}
-          transition="all 0.2s"
+          transition="all 0.15s"
         >
-          <Text fontWeight={500}>{activeThemeName === 'botanical' ? '🌿 Botanical Theme' : '☕ Espresso Theme'}</Text>
+          <Icon as={Palette} mr={3} boxSize={5} />
+          <Text fontWeight={500} fontSize="15px">{THEME_LABEL[activeThemeName]} theme</Text>
         </Flex>
       </VStack>
 
-      <Flex mt="auto" w="full" pt={4} justify="center" align="center" direction="column">
-        <Text fontSize="xs" color="gray.400">
+      <Flex mt={5} w="full" justify="center" align="center">
+        <Text fontSize="xs" color="text.tertiary">
           &copy; {new Date().getFullYear()} EmailDiet.
         </Text>
       </Flex>
@@ -172,9 +170,9 @@ export default function App() {
   )
 
   return (
-    <Flex h="100vh" p={{ base: 0, md: 6 }} gap={6}>
-      {/* Desktop Floating Dock */}
-      <Box display={{ base: 'none', md: 'block' }} w="260px" flexShrink={0} position="sticky" top={6} h="calc(100vh - 48px)">
+    <Flex h="100vh" p={{ base: 0, md: 5 }} gap={5} maxW="1600px" mx="auto">
+      {/* Desktop Sidebar */}
+      <Box display={{ base: 'none', md: 'block' }} w="240px" flexShrink={0} position="sticky" top={5} h="calc(100vh - 40px)">
         <SidebarContent />
       </Box>
 
@@ -183,7 +181,7 @@ export default function App() {
         <DrawerOverlay backdropFilter="blur(4px)" />
         <DrawerContent maxW="280px" bg="transparent" boxShadow="none">
           <DrawerBody p={4} h="100vh">
-             <Box h="full" bg="bg.card" borderRadius="3xl" backdropFilter="blur(20px)" overflow="hidden">
+             <Box h="full" bg="bg.card" borderRadius="20px" overflow="hidden">
                <SidebarContent />
              </Box>
           </DrawerBody>
@@ -191,22 +189,21 @@ export default function App() {
       </Drawer>
 
       {/* Main Content Card */}
-      <Flex 
-        flex={1} 
-        direction="column" 
-        minW={0} 
+      <Flex
+        flex={1}
+        direction="column"
+        minW={0}
         minH={0}
         bg="bg.card"
-        backdropFilter="blur(20px)"
-        borderRadius={{ base: 0, md: '3xl' }}
-        boxShadow={{ md: '0 20px 40px -10px rgba(0,0,0, 0.1)' }}
-        border={{ md: '1px solid' }}
-        borderColor={{ md: 'border.glass' }}
+        borderRadius={{ base: 0, md: '20px' }}
+        boxShadow={{ md: 'e2' }}
+        border="1px solid"
+        borderColor="border.subtle"
         overflow="hidden"
       >
         {/* Top bar */}
         <Flex
-          h="72px"
+          h="64px"
           align="center"
           px={6}
           borderBottom="1px"
@@ -222,15 +219,15 @@ export default function App() {
             mr={4}
             color="text.primary"
           />
-          <Heading size="lg" fontWeight={700} color="text.primary" display={{ base: 'none', sm: 'block' }} letterSpacing="-0.02em">
+          <Heading size="md" fontWeight={700} color="text.primary" display={{ base: 'none', sm: 'block' }} letterSpacing="-0.02em">
             {active.label}
           </Heading>
-          <Text fontSize="md" color="text.secondary" ml={4} display={{ base: 'none', lg: 'block' }} fontWeight={500}>
+          <Text fontSize="sm" color="text.secondary" ml={4} display={{ base: 'none', lg: 'block' }} fontWeight={500}>
             {active.blurb}
           </Text>
           <Spacer />
-          <HStack spacing={4}>
-            <Tooltip label="Toggle Dark Mode" hasArrow>
+          <HStack spacing={2}>
+            <Tooltip label="Toggle dark mode" hasArrow>
               <IconButton
                 aria-label="Toggle dark mode"
                 icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -239,17 +236,6 @@ export default function App() {
                 borderRadius="full"
                 _hover={{ color: 'text.primary', bg: 'bg.hover' }}
                 onClick={toggleColorMode}
-              />
-            </Tooltip>
-            <Tooltip label="Weekly digest settings" hasArrow>
-              <IconButton
-                aria-label="Settings"
-                icon={<SettingsIcon />}
-                variant="ghost"
-                color="text.secondary"
-                borderRadius="full"
-                _hover={{ color: 'text.primary', bg: 'bg.hover' }}
-                onClick={() => setDigestOpen(true)}
               />
             </Tooltip>
             <AccountBadge
@@ -263,46 +249,46 @@ export default function App() {
 
         {/* Cache Info Banner */}
         {cacheInfo && (
-          <Flex 
+          <Flex
             flexShrink={0}
-            direction={{ base: 'column', md: 'row' }} 
-            justify="space-between" 
-            align={{ base: 'stretch', md: 'center' }} 
+            direction={{ base: 'column', md: 'row' }}
+            justify="space-between"
+            align={{ base: 'stretch', md: 'center' }}
             mx={6}
             mt={4}
-            p={4} 
-            bg="brand.100" 
-            borderRadius="2xl" 
-            border="1px solid" 
-            borderColor="brand.300"
+            p={4}
+            bg="bg.accent"
+            borderRadius="14px"
+            border="1px solid"
+            borderColor="border.subtle"
           >
             <HStack spacing={3}>
-              <Flex 
-                w="36px" h="36px" borderRadius="xl" bg="brand.500" align="center" justify="center" boxShadow="sm"
+              <Flex
+                w="36px" h="36px" borderRadius="10px" bg="brand.500" align="center" justify="center" boxShadow="e1"
                 color="white"
               >
-                {tab === 'storage' ? <StorageIcon boxSize={5} /> : <LabelIcon boxSize={5} />}
+                {tab === 'storage' ? <Icon as={HardDrive} boxSize={5} /> : <Icon as={Tags} boxSize={5} />}
               </Flex>
               <VStack align="start" spacing={0.5}>
                 {cacheInfo.stats ? (
                   <>
-                    <Text fontSize="sm" fontWeight={700} color="brand.800">
+                    <Text fontSize="sm" fontWeight={700} color="text.primary">
                       Reclaimable Storage: {cacheInfo.stats.totalMB.toLocaleString()} MB
                     </Text>
-                    <Text fontSize="xs" color="brand.700" fontWeight={500}>
+                    <Text fontSize="xs" color="text.secondary" fontWeight={500}>
                       across {cacheInfo.stats.messageCount.toLocaleString()} large emails (&gt; 250 KB).{' '}
-                      {cacheInfo.timestamp 
+                      {cacheInfo.timestamp
                         ? `Auto-refreshing in ${Math.floor(cacheInfo.secondsUntilRefresh / 60)}m ${cacheInfo.secondsUntilRefresh % 60}s.`
                         : 'Loading analysis...'}
                     </Text>
                   </>
                 ) : (
                   <>
-                    <Text fontSize="sm" fontWeight={700} color="brand.800">
+                    <Text fontSize="sm" fontWeight={700} color="text.primary">
                       {tab === 'storage' ? 'Storage Analysis (emails > 250 KB)' : 'Gmail Labels Manager'}
                     </Text>
-                    <Text fontSize="xs" color="brand.700" fontWeight={500}>
-                      {cacheInfo.timestamp 
+                    <Text fontSize="xs" color="text.secondary" fontWeight={500}>
+                      {cacheInfo.timestamp
                         ? `Showing cached data from ${new Date(cacheInfo.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}. Auto-refreshing in ${Math.floor(cacheInfo.secondsUntilRefresh / 60)}m ${cacheInfo.secondsUntilRefresh % 60}s.`
                         : 'Loading analysis...'}
                     </Text>
@@ -310,13 +296,13 @@ export default function App() {
                 )}
               </VStack>
             </HStack>
-            <Button 
-              size="sm" 
-              colorScheme="blue" 
-              onClick={cacheInfo.onRefresh} 
+            <Button
+              size="sm"
+              colorScheme="brand"
+              onClick={cacheInfo.onRefresh}
               leftIcon={<RepeatIcon />}
               px={5}
-              borderRadius="full"
+              borderRadius="control"
             >
               Refresh Cache
             </Button>
@@ -325,13 +311,14 @@ export default function App() {
 
         {/* Tab Content */}
         <Flex
-          p={tab === 'mailbox' ? { base: 3, md: 5 } : { base: 4, md: 8 }}
-          overflowY={tab === 'account' ? 'auto' : 'hidden'}
+          p={tab === 'mailbox' ? { base: 3, md: 5 } : { base: 4, md: 7 }}
+          overflowY={tab === 'account' || tab === 'dashboard' ? 'auto' : 'hidden'}
           overflowX="hidden"
           flex={1}
           direction="column"
           minH={0}
         >
+          {tab === 'dashboard' && <DashboardTab onDisconnected={auth.markDisconnected} onNavigate={setTab} userName={userName} />}
           {tab === 'mailbox' && <MailboxTab onDisconnected={auth.markDisconnected} />}
           {tab === 'storage' && <StorageTab onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
           {tab === 'labels'  && <LabelManager onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
