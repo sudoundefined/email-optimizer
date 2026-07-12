@@ -2,10 +2,17 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import {
   Alert, AlertIcon, Box, Button, Card, CardBody, Checkbox, Tag,
   Grid, GridItem, Flex, Text, Table, Thead, Tbody,
-  Tr, Th, Td, TableContainer, Tooltip, Icon, VStack, HStack, Select, IconButton
+  Tr, Th, Td, TableContainer, Tooltip, Icon, VStack, HStack, Select, IconButton,
+  SimpleGrid, useColorModeValue
 } from '@chakra-ui/react'
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, CartesianGrid
+} from 'recharts'
 import EmailLoader from './EmailLoader'
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, CopyIcon, UpDownIcon } from '@chakra-ui/icons'
+import { HardDrive, ChevronDown, ChevronUp } from 'lucide-react'
+import StatCard from '../ui/StatCard'
 import { api, ApiError } from '../api'
 import { clientCache } from '../cache'
 import type { StorageAttachment, StorageDrillMessage, StorageStats, StorageYear, StorageSizeBand } from '../types'
@@ -230,6 +237,7 @@ export default function StorageTab({
   const [drillKey, setDrillKey] = useState<DrillKey>(null)
   const [drillMessages, setDrillMessages] = useState<StorageDrillMessage[] | null>(null)
   const [drillLoading, setDrillLoading] = useState(false)
+  const [showAllData, setShowAllData] = useState(false)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -380,6 +388,7 @@ export default function StorageTab({
   }, [cacheTimestamp, secondsUntilRefresh, onCacheInfo, stats])
 
   const openDrill = async (by: 'sender' | 'month' | 'year' | 'size', value: string) => {
+    setShowAllData(true)
     if (drillKey?.by === by && drillKey.value === value) {
       setDrillKey(null)
       setDrillMessages(null)
@@ -454,6 +463,41 @@ export default function StorageTab({
     }
   }
 
+  const gridStroke = useColorModeValue('#EEF0F2', 'rgba(255,255,255,0.06)')
+
+  const largestSender = useMemo(() => {
+    return stats && stats.senders && stats.senders.length > 0
+      ? [...stats.senders].sort((a, b) => b.totalMB - a.totalMB)[0]
+      : null
+  }, [stats])
+
+  const oldestYear = useMemo(() => {
+    return stats && stats.years && stats.years.length > 0
+      ? [...stats.years].sort((a, b) => Number(a.year) - Number(b.year))[0]
+      : null
+  }, [stats])
+
+  const topSendersChart = useMemo(() => {
+    return (stats?.senders || []).slice(0, 8).map((s) => ({
+      name: parseFromHeader(s.name || s.email),
+      email: s.email,
+      mb: s.totalMB,
+      count: s.messageCount,
+    }))
+  }, [stats])
+
+  const sizeDonutData = useMemo(() => {
+    const palette = ['#15803D', '#2563EB', '#8B5CF6', '#F59E0B']
+    return (stats?.sizes || [])
+      .filter((s) => s.totalMB > 0)
+      .map((s, idx) => ({
+        name: s.label,
+        value: s.totalMB,
+        count: s.messageCount,
+        color: palette[idx % palette.length]
+      }))
+  }, [stats])
+
   if (loading) {
     return (
       <Flex direction="column" align="center" justify="center" py={16}>
@@ -486,9 +530,142 @@ export default function StorageTab({
       : ''
 
   return (
-    <Flex direction="column" h="100%" minH={0}>
+    <Flex direction="column" h="100%" minH={0} pr={1} overflowY="auto">
       {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
       {trashDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashDone}</Alert>}
+
+      {/* Insight-First Hero Section (§3.4) */}
+      <Box mb={6}>
+        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={4} mb={4}>
+          <StatCard
+            label="Total recoverable"
+            value={Math.round(stats.totalMB)}
+            unit="MB"
+            hint={`${stats.messageCount.toLocaleString()} large emails`}
+            accent="brand.500"
+            icon={<Icon as={HardDrive} boxSize={4} />}
+          />
+          <StatCard
+            label="Largest sender"
+            value={largestSender ? Math.round(largestSender.totalMB) : 0}
+            unit="MB"
+            hint={largestSender ? parseFromHeader(largestSender.name || largestSender.email) : 'None'}
+            accent="ai.500"
+          />
+          <StatCard
+            label="Oldest heavy year"
+            value={oldestYear ? Number(oldestYear.year) : 0}
+            animate={false}
+            hint={oldestYear ? `${Math.round(oldestYear.totalMB)} MB in ${oldestYear.messageCount} emails` : 'None'}
+            accent="highlight.500"
+          />
+        </SimpleGrid>
+
+        <Grid templateColumns={{ base: '1fr', lg: '1fr 1.6fr' }} gap={4} mb={4}>
+          <GridItem
+            bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
+            boxShadow="e1" p={5}
+          >
+            <Text fontSize="15px" fontWeight={600} color="text.primary" mb={1}>Storage by size category</Text>
+            <Text fontSize="13px" color="text.tertiary" mb={3}>Distribution across file size bands</Text>
+            {sizeDonutData.length === 0 ? (
+              <Flex h="210px" align="center" justify="center">
+                <Text fontSize="13px" color="text.tertiary">No size categories recorded.</Text>
+              </Flex>
+            ) : (
+              <Flex align="center" gap={4} direction={{ base: 'column', sm: 'row' }}>
+                <Box w="140px" h="170px" flexShrink={0}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={sizeDonutData} dataKey="value" nameKey="name"
+                        innerRadius={44} outerRadius={66} paddingAngle={2} stroke="none"
+                      >
+                        {sizeDonutData.map((d) => (
+                          <Cell key={d.name} fill={d.color} />
+                        ))}
+                      </Pie>
+                      <RTooltip
+                        contentStyle={{ borderRadius: 12, border: '1px solid var(--chakra-colors-border-subtle)', boxShadow: 'var(--chakra-shadows-e2)', fontSize: 13 }}
+                        formatter={(v, n) => [`${Number(v).toLocaleString()} MB`, String(n)]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+                <VStack align="stretch" spacing={2.5} flex={1}>
+                  {sizeDonutData.map((d) => (
+                    <Flex key={d.name} align="center" justify="space-between" fontSize="13px">
+                      <HStack spacing={2}>
+                        <Box w={2.5} h={2.5} borderRadius="sm" bg={d.color} />
+                        <Text color="text.secondary" isTruncated>{d.name}</Text>
+                      </HStack>
+                      <Text fontWeight={600} color="text.primary">{d.value.toLocaleString()} MB</Text>
+                    </Flex>
+                  ))}
+                </VStack>
+              </Flex>
+            )}
+          </GridItem>
+
+          <GridItem
+            bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
+            boxShadow="e1" p={5}
+          >
+            <Flex justify="space-between" align="center" mb={1}>
+              <Text fontSize="15px" fontWeight={600} color="text.primary">Top senders by storage</Text>
+              <Text fontSize="xs" color="text.tertiary">Click a bar to inspect</Text>
+            </Flex>
+            <Text fontSize="13px" color="text.tertiary" mb={3}>Heavy senders taking up mailbox quota</Text>
+            {topSendersChart.length === 0 ? (
+              <Flex h="210px" align="center" justify="center">
+                <Text fontSize="13px" color="text.tertiary">No senders found.</Text>
+              </Flex>
+            ) : (
+              <Box h="200px">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={topSendersChart}
+                    margin={{ top: 0, right: 16, left: 30, bottom: 0 }}
+                  >
+                    <CartesianGrid stroke={gridStroke} horizontal={false} />
+                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--chakra-colors-text-tertiary)' }} unit=" MB" />
+                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--chakra-colors-text-secondary)' }} width={95} />
+                    <RTooltip
+                      contentStyle={{ borderRadius: 12, border: '1px solid var(--chakra-colors-border-subtle)', boxShadow: 'var(--chakra-shadows-e2)', fontSize: 13 }}
+                      formatter={(v) => [`${Number(v).toLocaleString()} MB`, 'Storage']}
+                    />
+                    <Bar
+                      dataKey="mb"
+                      fill="var(--chakra-colors-brand-500)"
+                      radius={[0, 6, 6, 0]}
+                      cursor="pointer"
+                      onClick={(data: any) => {
+                        if (data && data.email) openDrill('sender', data.email)
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </GridItem>
+        </Grid>
+
+        <Flex justify="flex-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            rightIcon={<Icon as={showAllData ? ChevronUp : ChevronDown} boxSize={4} />}
+            onClick={() => setShowAllData(v => !v)}
+            color="text.secondary"
+          >
+            {showAllData ? 'Hide detailed breakdown' : 'Explore all data & filters'}
+          </Button>
+        </Flex>
+      </Box>
+
+      {(showAllData || drillKey !== null || drillMessages !== null) && (
+        <Box>
 
       {/* Horizontal Size Bands */}
       {(stats.sizes ?? []).length > 0 && !(stats.sizes ?? []).every(s => s.messageCount === 0) && (
@@ -835,6 +1012,8 @@ export default function StorageTab({
         </Box>
         </GridItem>
       </Grid>
+      </Box>
+      )}
 
       {confirmTrash && (
         <ConfirmDialog

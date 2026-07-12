@@ -9,57 +9,51 @@ import {
   SimpleGrid,
   Icon,
   Badge,
-  useColorModeValue,
   Container,
   Card,
   CardBody,
   Divider,
   Image,
 } from '@chakra-ui/react'
-import {
-  LockIcon,
-  StarIcon,
-  RepeatIcon,
-  SunIcon,
-  MoonIcon,
-} from '@chakra-ui/icons'
 import { useColorMode } from '@chakra-ui/color-mode'
-
-const StorageSvgIcon = (props: any) => (
-  <Icon viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-    <line x1="12" y1="22.08" x2="12" y2="12" />
-  </Icon>
-)
+import {
+  Sparkles,
+  HardDrive,
+  ShieldCheck,
+  Zap,
+  Moon,
+  Sun,
+  MailCheck,
+  ArrowRight,
+} from 'lucide-react'
 
 const FEATURES = [
   {
     title: 'Bulk One-Click Unsubscribe',
     description:
       'Instantly unsubscribe from dozens of newsletters and promotional senders using standard RFC 8058 one-click headers.',
-    icon: StarIcon,
+    icon: Zap,
     badge: 'Instant',
   },
   {
     title: 'Smart Storage Reclaimer',
     description:
       'Identify large attachments (>10MB) and old promotional blasts eating into your 15GB Google account storage quota.',
-    icon: StorageSvgIcon,
+    icon: HardDrive,
     badge: 'Space Saver',
   },
   {
     title: 'Keep-Latest Retention Rules',
     description:
-      'Automatically retain only the 5 newest shipping updates or weekly coupons from high-volume senders and archive the rest.',
-    icon: RepeatIcon,
+      'Automatically retain only the newest updates or weekly digests from high-volume senders and archive or trash the rest.',
+    icon: MailCheck,
     badge: 'Automated',
   },
   {
     title: '100% Safe & Recoverable',
     description:
-      'Never permanently deletes your emails. All removed messages are placed in your standard Gmail Trash for 30 days.',
-    icon: LockIcon,
+      'Never permanently deletes your emails. All removed messages are placed in standard Gmail Trash for 30 days.',
+    icon: ShieldCheck,
     badge: 'Risk-Free',
   },
 ]
@@ -84,106 +78,112 @@ const STEPS = [
 
 export default function LandingPage() {
   const { colorMode, toggleColorMode } = useColorMode()
-  const bg = useColorModeValue('gray.50', 'gray.900')
-  const cardBg = useColorModeValue('white', 'gray.800')
-  const textColor = useColorModeValue('gray.600', 'gray.300')
-  const headingColor = useColorModeValue('gray.900', 'white')
-  const borderCol = useColorModeValue('gray.200', 'gray.700')
 
   return (
-    <Box bg={bg} minH="100vh" transition="background 0.2s">
+    <Box bg="bg.app" minH="100vh" transition="background 0.2s">
       {/* Top Navbar */}
       <Box
         as="nav"
         borderBottom="1px solid"
-        borderColor={borderCol}
-        bg={cardBg}
-        py={4}
+        borderColor="border.subtle"
+        bg="bg.card"
+        py={3.5}
         px={{ base: 4, md: 8 }}
         position="sticky"
         top={0}
         zIndex={10}
-        boxShadow="sm"
+        boxShadow="e1"
       >
         <Flex maxW="1200px" mx="auto" align="center" justify="space-between">
           <HStack spacing={3}>
             <Flex
               w="36px"
               h="36px"
-              borderRadius="xl"
-              bg="white"
+              borderRadius="lg"
+              bg="bg.card"
               align="center"
               justify="center"
-              boxShadow="sm"
+              boxShadow="e1"
+              border="1px solid"
+              borderColor="border.subtle"
               overflow="hidden"
             >
-              <Image src="/logo.png" alt="EmailDiet Logo" w="100%" h="100%" objectFit="cover" />
+              <Image src="/logo.png" alt="EmailDiet Logo" w="85%" h="85%" objectFit="contain" />
             </Flex>
-            <Heading size="md" color={headingColor} fontWeight={700} letterSpacing="-0.02em">
+            <Heading size="md" color="text.primary" fontWeight={700} letterSpacing="-0.02em">
               EmailDiet
             </Heading>
           </HStack>
 
-          <HStack spacing={4}>
+          <HStack spacing={3}>
             <Button
               size="sm"
               variant="ghost"
               onClick={toggleColorMode}
               aria-label="Toggle Color Mode"
+              color="text.secondary"
+              _hover={{ bg: 'bg.hover' }}
             >
-              {colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+              <Icon as={colorMode === 'light' ? Moon : Sun} boxSize={4} />
             </Button>
             <Button
               as="a"
               href="/api/auth/login"
               colorScheme="brand"
               size="sm"
-              px={6}
+              px={5}
               borderRadius="full"
               fontWeight={600}
             >
-              Sign in with Google
+              <HStack spacing={2}>
+                <Box w={2} h={2} borderRadius="full" bg="#22C55E" />
+                <Text>Sign in with Google</Text>
+              </HStack>
             </Button>
           </HStack>
         </Flex>
       </Box>
 
       {/* Hero Section */}
-      <Container maxW="1100px" pt={{ base: 12, md: 20 }} pb={16} textAlign="center">
+      <Container maxW="1100px" pt={{ base: 12, md: 16 }} pb={14} textAlign="center">
         <VStack spacing={6}>
           <Badge
             colorScheme="brand"
-            px={3}
+            variant="subtle"
+            px={3.5}
             py={1}
             borderRadius="full"
             fontSize="xs"
-            fontWeight="bold"
+            fontWeight={600}
             textTransform="uppercase"
             letterSpacing="wider"
           >
-            ✨ The Smart Multi-User Gmail Optimizer
+            <HStack spacing={1.5}>
+              <Icon as={Sparkles} boxSize={3.5} />
+              <Text>The Smart Multi-User Gmail Optimizer</Text>
+            </HStack>
           </Badge>
 
           <Heading
             as="h1"
             fontSize={{ base: '3xl', md: '5xl', lg: '6xl' }}
             fontWeight={800}
-            color={headingColor}
+            color="text.primary"
             lineHeight="1.15"
             maxW="850px"
           >
             Put Your Gmail Inbox on a{' '}
-            <Text as="span" color="blue.500">
+            <Text as="span" color="brand.500">
               High-Performance Diet
             </Text>
           </Heading>
 
-          <Text fontSize={{ base: 'md', md: 'xl' }} color={textColor} maxW="680px">
+          <Text fontSize={{ base: 'md', md: 'lg' }} color="text.secondary" maxW="660px">
             Unsubscribe from newsletters in bulk, reclaim gigabytes of storage from bloated emails,
             and keep your inbox organized without ever risking accidental permanent deletions.
           </Text>
 
-          <HStack spacing={4} pt={4}>
+          <HStack spacing={4} pt={2}>
             <Button
               as="a"
               href="/api/auth/login"
@@ -193,45 +193,98 @@ export default function LandingPage() {
               py={7}
               borderRadius="full"
               fontSize="md"
-              fontWeight={700}
-              boxShadow="0 10px 25px -5px rgba(49, 130, 206, 0.4)"
-              _hover={{ transform: 'translateY(-2px)', boxShadow: '0 15px 30px -5px rgba(49, 130, 206, 0.5)' }}
+              fontWeight={600}
+              rightIcon={<Icon as={ArrowRight} boxSize={5} />}
+              boxShadow="e2"
+              _hover={{ transform: 'translateY(-2px)', boxShadow: 'e3' }}
             >
-              Connect Gmail — Free
+              <HStack spacing={2.5}>
+                <Box w={2.5} h={2.5} borderRadius="full" bg="#22C55E" />
+                <Text>Connect Gmail — Free</Text>
+              </HStack>
             </Button>
           </HStack>
 
-          <Text fontSize="xs" color={textColor}>
+          <Text fontSize="xs" color="text.tertiary">
             Official Google OAuth • AES-256 Encrypted • Zero Permanent Deletion
           </Text>
+
+          {/* Interactive Preview Illustration Card (§3.8) */}
+          <Card
+            w="100%"
+            maxW="780px"
+            mt={8}
+            bg="bg.card"
+            border="1px solid"
+            borderColor="border.subtle"
+            borderRadius="card"
+            boxShadow="e2"
+            overflow="hidden"
+            textAlign="left"
+          >
+            <Box bg="bg.muted" px={5} py={3} borderBottom="1px solid" borderColor="border.subtle">
+              <HStack justify="space-between">
+                <HStack spacing={2}>
+                  <Box w={3} h={3} borderRadius="full" bg="#EF4444" opacity={0.8} />
+                  <Box w={3} h={3} borderRadius="full" bg="#F59E0B" opacity={0.8} />
+                  <Box w={3} h={3} borderRadius="full" bg="#22C55E" opacity={0.8} />
+                  <Text fontSize="xs" fontWeight={600} color="text.secondary" ml={2}>
+                    EmailDiet Workspace Preview
+                  </Text>
+                </HStack>
+                <Badge bg="bg.accent" color="text.primary" fontSize="11px" fontFamily="mono" px={2.5} py={0.5} borderRadius="md">
+                  Cleaned 14,230 emails — saved 4.2 GB
+                </Badge>
+              </HStack>
+            </Box>
+            <CardBody p={6}>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                <Box p={4} bg="bg.app" borderRadius="lg" border="1px solid" borderColor="border.subtle">
+                  <Text fontSize="xs" color="text.tertiary" fontWeight={600} mb={1}>RECLAIMABLE STORAGE</Text>
+                  <Text fontSize="22px" fontWeight={700} color="text.primary">4.2 GB</Text>
+                  <Text fontSize="11px" color="text.secondary" mt={0.5}>Across 1,840 heavy attachments</Text>
+                </Box>
+                <Box p={4} bg="bg.app" borderRadius="lg" border="1px solid" borderColor="border.subtle">
+                  <Text fontSize="xs" color="text.tertiary" fontWeight={600} mb={1}>NEWSLETTERS DETECTED</Text>
+                  <Text fontSize="22px" fontWeight={700} color="text.primary">128 Senders</Text>
+                  <Text fontSize="11px" color="#15803D" fontWeight={600} mt={0.5}>One-click unsubscribe ready</Text>
+                </Box>
+                <Box p={4} bg="bg.app" borderRadius="lg" border="1px solid" borderColor="border.subtle">
+                  <Text fontSize="xs" color="text.tertiary" fontWeight={600} mb={1}>MAILBOX HEALTH</Text>
+                  <Text fontSize="22px" fontWeight={700} color="text.primary">98.4%</Text>
+                  <Text fontSize="11px" color="text.secondary" mt={0.5}>Protected senders verified</Text>
+                </Box>
+              </SimpleGrid>
+            </CardBody>
+          </Card>
         </VStack>
       </Container>
 
       {/* Stats Ribbon */}
-      <Box bg={cardBg} borderY="1px solid" borderColor={borderCol} py={8}>
+      <Box bg="bg.card" borderY="1px solid" borderColor="border.subtle" py={8}>
         <Container maxW="1000px">
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8} textAlign="center">
             <Box>
-              <Heading size="lg" color="blue.500">
+              <Heading size="lg" color="brand.500">
                 100%
               </Heading>
-              <Text fontSize="sm" color={textColor} fontWeight={500} mt={1}>
+              <Text fontSize="sm" color="text.secondary" fontWeight={500} mt={1}>
                 Recoverable via Gmail Trash
               </Text>
             </Box>
             <Box>
-              <Heading size="lg" color="blue.500">
+              <Heading size="lg" color="brand.500">
                 AES-256
               </Heading>
-              <Text fontSize="sm" color={textColor} fontWeight={500} mt={1}>
+              <Text fontSize="sm" color="text.secondary" fontWeight={500} mt={1}>
                 Authenticated At-Rest Token Encryption
               </Text>
             </Box>
             <Box>
-              <Heading size="lg" color="blue.500">
+              <Heading size="lg" color="brand.500">
                 0 bytes
               </Heading>
-              <Text fontSize="sm" color={textColor} fontWeight={500} mt={1}>
+              <Text fontSize="sm" color="text.secondary" fontWeight={500} mt={1}>
                 Email Body Content Ever Read or Stored
               </Text>
             </Box>
@@ -242,48 +295,48 @@ export default function LandingPage() {
       {/* Features Grid */}
       <Container maxW="1100px" py={16}>
         <VStack spacing={3} textAlign="center" mb={12}>
-          <Heading size="xl" color={headingColor}>
+          <Heading size="xl" color="text.primary">
             Everything You Need for a Clean Inbox
           </Heading>
-          <Text color={textColor}>
+          <Text color="text.secondary">
             Designed for privacy, speed, and safety.
           </Text>
         </VStack>
 
-        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}>
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
           {FEATURES.map((feat) => (
             <Card
               key={feat.title}
-              bg={cardBg}
-              borderRadius="2xl"
+              bg="bg.card"
+              borderRadius="card"
               border="1px solid"
-              borderColor={borderCol}
-              boxShadow="sm"
-              _hover={{ boxShadow: 'md', borderColor: 'blue.400' }}
+              borderColor="border.subtle"
+              boxShadow="e1"
+              _hover={{ boxShadow: 'e2', borderColor: 'brand.500' }}
               transition="all 0.2s"
             >
-              <CardBody p={8}>
+              <CardBody p={7}>
                 <Flex justify="space-between" align="start" mb={4}>
                   <Flex
-                    w="48px"
-                    h="48px"
-                    borderRadius="xl"
-                    bg="blue.50"
-                    color="blue.500"
+                    w="44px"
+                    h="44px"
+                    borderRadius="lg"
+                    bg="bg.muted"
+                    color="brand.500"
                     align="center"
                     justify="center"
                   >
-                    <Icon as={feat.icon} boxSize={6} />
+                    <Icon as={feat.icon} boxSize={5} />
                   </Flex>
-                  <Badge colorScheme="brand" borderRadius="full" px={3} py={1}>
+                  <Badge colorScheme="brand" variant="subtle" borderRadius="full" px={3} py={1}>
                     {feat.badge}
                   </Badge>
                 </Flex>
 
-                <Heading size="md" mb={2} color={headingColor}>
+                <Heading size="md" mb={2} color="text.primary">
                   {feat.title}
                 </Heading>
-                <Text color={textColor} fontSize="sm" lineHeight="tall">
+                <Text color="text.secondary" fontSize="sm" lineHeight="tall">
                   {feat.description}
                 </Text>
               </CardBody>
@@ -293,25 +346,25 @@ export default function LandingPage() {
       </Container>
 
       {/* How It Works Section */}
-      <Box bg={cardBg} py={16} borderY="1px solid" borderColor={borderCol}>
+      <Box bg="bg.card" py={16} borderY="1px solid" borderColor="border.subtle">
         <Container maxW="1000px">
           <VStack spacing={3} textAlign="center" mb={12}>
-            <Heading size="xl" color={headingColor}>
+            <Heading size="xl" color="text.primary">
               How EmailDiet Works
             </Heading>
-            <Text color={textColor}>Three simple steps to take back control.</Text>
+            <Text color="text.secondary">Three simple steps to take back control.</Text>
           </VStack>
 
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8}>
             {STEPS.map((s) => (
               <Box key={s.number} textAlign="left" p={4}>
-                <Text fontSize="4xl" fontWeight={900} color="blue.500" mb={2}>
+                <Text fontSize="4xl" fontWeight={900} color="brand.500" mb={2}>
                   {s.number}
                 </Text>
-                <Heading size="md" mb={2} color={headingColor}>
+                <Heading size="md" mb={2} color="text.primary">
                   {s.title}
                 </Heading>
-                <Text fontSize="sm" color={textColor}>
+                <Text fontSize="sm" color="text.secondary">
                   {s.desc}
                 </Text>
               </Box>
@@ -323,20 +376,20 @@ export default function LandingPage() {
       {/* Footer */}
       <Box py={10} textAlign="center">
         <Container maxW="1100px">
-          <Divider mb={8} borderColor={borderCol} />
+          <Divider mb={8} borderColor="border.subtle" />
           <Flex
             direction={{ base: 'column', md: 'row' }}
             justify="space-between"
             align="center"
             fontSize="xs"
-            color={textColor}
+            color="text.tertiary"
           >
             <Text>&copy; {new Date().getFullYear()} EmailDiet. All rights reserved.</Text>
             <HStack spacing={6} mt={{ base: 4, md: 0 }}>
-              <Box as="a" href="/privacy" _hover={{ color: 'blue.500' }}>
+              <Box as="a" href="/privacy" _hover={{ color: 'text.primary' }}>
                 Privacy Policy
               </Box>
-              <Box as="a" href="/terms" _hover={{ color: 'blue.500' }}>
+              <Box as="a" href="/terms" _hover={{ color: 'text.primary' }}>
                 Terms of Service
               </Box>
             </HStack>

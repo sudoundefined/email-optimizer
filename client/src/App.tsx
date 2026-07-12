@@ -6,7 +6,7 @@ import {
 } from '@chakra-ui/react'
 import { HamburgerIcon, SunIcon, MoonIcon, RepeatIcon } from '@chakra-ui/icons'
 import {
-  LayoutDashboard, Mail, HardDrive, Tags, ScrollText, CalendarClock, Palette,
+  LayoutDashboard, Mail, HardDrive, Tags, User, History, CalendarClock, Palette,
 } from 'lucide-react'
 
 import { useAuth } from './hooks/useAuth'
@@ -17,6 +17,7 @@ import MailboxTab from './components/MailboxTab'
 import StorageTab from './components/StorageTab'
 import LabelManager from './components/LabelManager'
 import AccountPage from './components/AccountPage'
+import LogsPage from './components/LogsPage'
 import DigestSettingsDialog from './components/DigestSettingsDialog'
 import UserProfileModal from './components/UserProfileModal'
 import { useAppTheme, type AppTheme } from './theme/ThemeContext'
@@ -26,7 +27,8 @@ const TABS = [
   { value: 'mailbox', label: 'Mailbox', icon: Mail, blurb: 'Clean up senders and messages' },
   { value: 'storage', label: 'Storage', icon: HardDrive, blurb: 'Reclaim space from large emails' },
   { value: 'labels',  label: 'Labels',  icon: Tags, blurb: 'Manage your app-created labels' },
-  { value: 'account', label: 'Account & Logs', icon: ScrollText, blurb: 'Preferences, security settings & activity audit log' },
+  { value: 'account', label: 'Account', icon: User, blurb: 'Preferences, security & connected account' },
+  { value: 'logs',    label: 'Activity Log', icon: History, blurb: 'Immutable audit trail of scans & cleanups' },
 ] as const
 
 type TabValue = (typeof TABS)[number]['value']
@@ -323,6 +325,7 @@ export default function App() {
           {tab === 'storage' && <StorageTab onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
           {tab === 'labels'  && <LabelManager onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
           {tab === 'account' && <AccountPage userEmail={auth.status.email} onLogout={auth.logout} />}
+          {tab === 'logs' && <LogsPage />}
         </Flex>
       </Flex>
 
