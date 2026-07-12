@@ -1269,7 +1269,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                   isChecked={customLabelArchive}
                   onChange={(e) => setCustomLabelArchive(e.target.checked)}
                   size="sm"
-                  colorScheme="blue"
+                  colorScheme="brand"
                 >
                   Also archive tagged emails (move out of Inbox)
                 </Checkbox>
@@ -1280,7 +1280,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 Cancel
               </Button>
               <Button
-                colorScheme="blue"
+                colorScheme="brand"
                 size="sm"
                 isDisabled={!customLabelName.trim()}
                 onClick={runFilterLabel}

@@ -283,6 +283,7 @@ export const botanicalTheme = extendTheme({
       'text.inverse': { default: 'white', _dark: 'white' },
       'border.glass': { default: 'whiteAlpha.600', _dark: 'whiteAlpha.200' },
       'border.subtle': { default: 'blackAlpha.200', _dark: 'whiteAlpha.200' },
+      'border.strong': { default: 'blackAlpha.300', _dark: 'whiteAlpha.400' },
       'brand.icon': { default: '#3E7B4C', _dark: '#A8D8B9' },
     }
   },
@@ -333,6 +334,7 @@ export const espressoTheme = extendTheme({
       'text.inverse': { default: 'white', _dark: 'white' },
       'border.glass': { default: 'whiteAlpha.600', _dark: 'whiteAlpha.200' },
       'border.subtle': { default: 'blackAlpha.200', _dark: 'whiteAlpha.200' },
+      'border.strong': { default: 'blackAlpha.300', _dark: 'whiteAlpha.400' },
       'brand.icon': { default: '#6E4C3E', _dark: '#E7B475' },
     }
   },

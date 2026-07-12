@@ -73,7 +73,7 @@ export default function ScanControls({
   }
 
   return (
-    <Card mb={6} bg="brand.100" overflow="visible" boxShadow="none" border="none">
+    <Card mb={6} bg="bg.muted" overflow="visible" boxShadow="none" border="1px solid" borderColor="border.subtle">
       <CardBody p={{ base: 4, sm: 6 }}>
         <Flex align="center" gap={4} wrap="wrap">
           <HStack spacing={4} flex={1}>
@@ -87,9 +87,9 @@ export default function ScanControls({
                 onScan(newRange);
               }}
               isDisabled={running}
-              bg="white"
-              borderColor="brand.300"
-              _hover={{ borderColor: 'brand.400' }}
+              bg="bg.input"
+              borderColor="border.subtle"
+              _hover={{ borderColor: 'border.strong' }}
             >
               {RANGES.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -97,7 +97,7 @@ export default function ScanControls({
             </Select>
 
             <Button
-              colorScheme="blue"
+              colorScheme="brand"
               leftIcon={<SearchIcon />}
               onClick={() => onScan(range)}
               isDisabled={running}
