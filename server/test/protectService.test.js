@@ -1,13 +1,8 @@
-import { describe, it, before, after } from 'node:test'
+import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import fs from 'node:fs/promises'
-import path from 'node:path'
-
-const TEST_PATH = path.join(import.meta.dirname, '..', 'data', 'test-protected-senders.json')
-
+import { getDb } from '../src/db/db.js'
 import {
   PROTECTED_DOMAINS,
-  PROTECTED_SUBJECT_KEYWORDS,
   matchesDomainHeuristic,
   matchesSubjectHeuristic,
   autoProtectFromScan,
@@ -15,16 +10,19 @@ import {
   protectSenders,
   unprotectSenders,
   isProtected,
-  _setPathForTest,
 } from '../src/services/protectService.js'
 
+const TEST_USER = 'test-protect-user'
+
 describe('protectService', () => {
-  before(async () => {
-    _setPathForTest(TEST_PATH)
-    try { await fs.unlink(TEST_PATH) } catch {}
+  before(() => {
+    const db = getDb()
+    db.prepare('INSERT OR IGNORE INTO users (id, email) VALUES (?, ?)').run(TEST_USER, 'testprotect@x.com')
   })
-  after(async () => {
-    try { await fs.unlink(TEST_PATH) } catch {}
+
+  beforeEach(() => {
+    const db = getDb()
+    db.prepare('DELETE FROM protected_senders WHERE user_id = ?').run(TEST_USER)
   })
 
   it('PROTECTED_DOMAINS includes known banks and government', () => {
@@ -57,23 +55,23 @@ describe('protectService', () => {
     assert.ok(!emails.includes('news@randomshop.com'), 'should not flag random shop')
   })
 
-  it('protectSenders + listProtected + isProtected round-trip', async () => {
-    await protectSenders(['a@test.com', 'b@test.com'])
-    const list = await listProtected()
+  it('protectSenders + listProtected + isProtected round-trip', () => {
+    protectSenders(TEST_USER, ['a@test.com', 'b@test.com'])
+    const list = listProtected(TEST_USER)
     assert.equal(list.length, 2)
-    assert.ok(await isProtected('a@test.com'))
-    assert.ok(!(await isProtected('c@test.com')))
+    assert.ok(isProtected(TEST_USER, 'a@test.com'))
+    assert.ok(!isProtected(TEST_USER, 'c@test.com'))
   })
 
-  it('unprotectSenders removes entries', async () => {
-    await protectSenders(['x@test.com', 'y@test.com'])
-    await unprotectSenders(['x@test.com'])
-    assert.ok(!(await isProtected('x@test.com')))
-    assert.ok(await isProtected('y@test.com'))
+  it('unprotectSenders removes entries', () => {
+    protectSenders(TEST_USER, ['x@test.com', 'y@test.com'])
+    unprotectSenders(TEST_USER, ['x@test.com'])
+    assert.ok(!isProtected(TEST_USER, 'x@test.com'))
+    assert.ok(isProtected(TEST_USER, 'y@test.com'))
   })
 
-  it('isProtected is case-insensitive', async () => {
-    await protectSenders(['Case@Test.COM'])
-    assert.ok(await isProtected('case@test.com'))
+  it('isProtected is case-insensitive', () => {
+    protectSenders(TEST_USER, ['Case@Test.COM'])
+    assert.ok(isProtected(TEST_USER, 'case@test.com'))
   })
 })

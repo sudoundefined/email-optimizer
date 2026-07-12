@@ -56,7 +56,8 @@ export function buildDigestHtml({ newSenders = [], accountEmail = '', appUrl = '
       const email = escapeHtml(s.email)
       const count = escapeHtml(String(s.messageCount))
       const methodLabel = escapeHtml(METHOD_LABEL[s.method] || s.method)
-      const action = s.unsubUrl
+      const isSafeUrl = s.unsubUrl && /^https?:\/\//i.test(s.unsubUrl)
+      const action = isSafeUrl
         ? `<a href="${escapeHtml(s.unsubUrl)}" style="color:#2563eb;text-decoration:none;font-weight:600">Unsubscribe</a>`
         : `<span style="color:#64748b">${methodLabel}</span>`
       return `<tr>
@@ -70,7 +71,8 @@ export function buildDigestHtml({ newSenders = [], accountEmail = '', appUrl = '
     })
     .join('\n')
 
-  const appLink = appUrl
+  const isSafeAppUrl = appUrl && /^https?:\/\//i.test(appUrl)
+  const appLink = isSafeAppUrl
     ? `<p style="margin:16px 0 0"><a href="${escapeHtml(appUrl)}" style="color:#2563eb">Open Email Optimizer</a> to unsubscribe or trash in bulk.</p>`
     : ''
 

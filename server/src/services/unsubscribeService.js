@@ -1,5 +1,6 @@
 import net from 'node:net'
 import dns from 'node:dns/promises'
+import https from 'node:https'
 import { getGmail } from '../gmail/client.js'
 import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { requireScan } from '../store/scanCache.js'
@@ -9,10 +10,20 @@ import { limited } from '../gmail/rateLimiter.js'
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
-function isPrivateIp(ip) {
+export function isPrivateIp(ip) {
+  if (!ip || typeof ip !== 'string') return true
+  const low = ip.toLowerCase()
   if (net.isIPv6(ip)) {
-    const low = ip.toLowerCase()
-    return low === '::1' || low.startsWith('fc') || low.startsWith('fd') || low.startsWith('fe80')
+    if (low === '::1' || low === '::' || low.startsWith('fc') || low.startsWith('fd') || low.startsWith('fe80')) {
+      return true
+    }
+    if (low.startsWith('::ffff:')) {
+      const v4Part = low.slice(7)
+      if (net.isIPv4(v4Part)) {
+        return isPrivateIp(v4Part)
+      }
+    }
+    return false
   }
   const parts = ip.split('.').map(Number)
   const [a, b] = parts
@@ -22,37 +33,109 @@ function isPrivateIp(ip) {
     a === 0 ||
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
-    (a === 169 && b === 254)
+    (a === 169 && b === 254) ||
+    (a === 100 && b >= 64 && b <= 127)
   )
 }
 
-/** Rejects non-https URLs and hosts that resolve to private/loopback ranges. */
-async function assertSafeUrl(rawUrl) {
+/**
+ * Rejects non-https URLs and hosts that resolve to private/loopback ranges.
+ * Returns the validated `{ address, family }` (the literal itself for IP-literal
+ * hosts) so the caller can pin the actual TCP connection to this exact address
+ * instead of letting the HTTP client re-resolve the hostname later — re-resolving
+ * is what opens the DNS-rebinding TOCTOU window (see M1 in the security report).
+ */
+export async function assertSafeUrl(rawUrl) {
   const url = new URL(rawUrl)
   if (url.protocol !== 'https:') throw new Error('one-click URL must be https')
   const host = url.hostname
-  if (net.isIP(host)) {
+  const literalFamily = net.isIP(host)
+  if (literalFamily) {
     if (isPrivateIp(host)) throw new Error('URL resolves to a private address')
-    return
+    return { address: host, family: literalFamily }
   }
   if (/^localhost$/i.test(host)) throw new Error('URL resolves to a private address')
-  const { address } = await dns.lookup(host)
+  const { address, family } = await dns.lookup(host)
   if (isPrivateIp(address)) throw new Error('URL resolves to a private address')
+  return { address, family }
+}
+
+/**
+ * Builds a `dns.lookup`-shaped resolver that always answers with the single,
+ * already-validated `address`/`family` — used as the `lookup` option on an
+ * outbound request so the socket can only ever connect to the address
+ * `assertSafeUrl` checked, regardless of what the hostname resolves to by the
+ * time the connection is actually opened. `options.all` is honored because
+ * Node's happy-eyeballs connect logic requests the array form.
+ * Defense in depth: re-checks `isPrivateIp` here too, in case this is ever
+ * called with an address that skipped `assertSafeUrl`.
+ */
+export function pinnedLookup(address, family) {
+  return (hostname, options, callback) => {
+    if (isPrivateIp(address)) {
+      callback(new Error('URL resolves to a private address'))
+      return
+    }
+    if (options && options.all) {
+      callback(null, [{ address, family }])
+    } else {
+      callback(null, address, family)
+    }
+  }
+}
+
+/**
+ * POSTs the one-click body with the connection pinned to `address`/`family`.
+ * `hostname` (from the URL) is still what's sent as the Host header and used
+ * for TLS SNI/certificate verification — only the DNS resolution step is
+ * overridden, so this doesn't affect which cert the server needs to present.
+ */
+function pinnedHttpsPost(targetUrl, address, family) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(targetUrl)
+    const body = 'List-Unsubscribe=One-Click'
+    const req = https.request(
+      {
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: `${url.pathname}${url.search}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(body),
+          'User-Agent': BROWSER_UA,
+        },
+        lookup: pinnedLookup(address, family),
+        // Don't pool/reuse keep-alive sockets across hosts: each call gets its own
+        // freshly-validated connection instead of possibly reusing one opened for
+        // a different pinned address under the same hostname:port pool key.
+        agent: false,
+        signal: AbortSignal.timeout(10_000),
+      },
+      (res) => {
+        res.resume() // discard the body, same intent as the previous res.body?.cancel()
+        resolve({ status: res.statusCode, location: res.headers.location })
+      }
+    )
+    req.on('error', reject)
+    req.end(body)
+  })
 }
 
 async function oneClickPost(url) {
-  await assertSafeUrl(url)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': BROWSER_UA,
-    },
-    body: 'List-Unsubscribe=One-Click',
-    redirect: 'follow',
-    signal: AbortSignal.timeout(10_000),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  let currentUrl = url
+  for (let hop = 0; hop < 5; hop++) {
+    const { address, family } = await assertSafeUrl(currentUrl)
+    const res = await pinnedHttpsPost(currentUrl, address, family)
+    if (res.status >= 300 && res.status < 400) {
+      if (!res.location) throw new Error(`HTTP ${res.status} redirect without location`)
+      currentUrl = new URL(res.location, currentUrl).toString()
+      continue
+    }
+    if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`)
+    return
+  }
+  throw new Error('Too many redirects')
 }
 
 async function sendMailtoUnsubscribe(gmail, mailtoUri) {
@@ -115,10 +198,10 @@ export async function unsubscribeSender(gmail, sender) {
 }
 
 /** Job runner: unsubscribe from the given sender emails with concurrency 4. */
-export async function runUnsubscribe({ senderEmails }, emit) {
+export async function runUnsubscribe(userId, { senderEmails }, emit) {
   return withAuthErrorHandling(async () => {
-    const scan = requireScan()
-    const gmail = await getGmail()
+    const scan = requireScan(userId)
+    const gmail = await getGmail(userId)
 
     const senders = senderEmails
       .map((e) => scan.senders.get(String(e).toLowerCase()))
@@ -155,5 +238,5 @@ export async function runUnsubscribe({ senderEmails }, emit) {
       results,
     }
     return summary
-  })
+  }, userId)
 }

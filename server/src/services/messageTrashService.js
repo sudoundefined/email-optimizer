@@ -15,9 +15,9 @@ function chunk(arr, size) {
  * For small batches (<= 1000) this is synchronous; for large batches the caller
  * should use a job. Returns { trashed: number }.
  */
-export async function trashMessages(messageIds, emit) {
+export async function trashMessages(userId, messageIds, emit) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     const ids = [...new Set(messageIds)]
     let trashed = 0
 
@@ -39,15 +39,15 @@ export async function trashMessages(messageIds, emit) {
     }
 
     return { trashed: ids.length }
-  })
+  }, userId)
 }
 
 /**
  * Permanently delete all messages currently in the Trash.
  */
-export async function emptyTrash(emit) {
+export async function emptyTrash(userId, emit) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     let deleted = 0
     let pageToken = undefined
 
@@ -76,5 +76,5 @@ export async function emptyTrash(emit) {
     } while (pageToken)
 
     return { deleted }
-  })
+  }, userId)
 }

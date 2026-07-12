@@ -1,36 +1,23 @@
-import fs from 'node:fs/promises'
-import { config } from '../config.js'
+import { getDb } from '../db/db.js'
 
-/** Registry of Gmail label ids created by this app: [{id, name, createdAt}] */
+/** Registry of Gmail label ids created by this app, per user. */
 
-async function read() {
-  try {
-    return JSON.parse(await fs.readFile(config.labelRegistryPath, 'utf8'))
-  } catch {
-    return []
-  }
+export function listRegistered(userId) {
+  const db = getDb()
+  return db.prepare(
+    'SELECT gmail_id as id, label_name as name, created_at as createdAt FROM label_registry WHERE user_id = ? ORDER BY created_at'
+  ).all(userId)
 }
 
-async function write(entries) {
-  await fs.mkdir(config.dataDir, { recursive: true })
-  const tmp = config.labelRegistryPath + '.tmp'
-  await fs.writeFile(tmp, JSON.stringify(entries, null, 2), 'utf8')
-  await fs.rename(tmp, config.labelRegistryPath)
+export function registerLabel(userId, { id, name }) {
+  const db = getDb()
+  db.prepare(`
+    INSERT OR IGNORE INTO label_registry (user_id, label_name, gmail_id)
+    VALUES (?, ?, ?)
+  `).run(userId, name, id)
 }
 
-export async function listRegistered() {
-  return read()
-}
-
-export async function registerLabel({ id, name }) {
-  const entries = await read()
-  if (!entries.some((e) => e.id === id)) {
-    entries.push({ id, name, createdAt: new Date().toISOString() })
-    await write(entries)
-  }
-}
-
-export async function unregisterLabel(id) {
-  const entries = await read()
-  await write(entries.filter((e) => e.id !== id))
+export function unregisterLabel(userId, id) {
+  const db = getDb()
+  db.prepare('DELETE FROM label_registry WHERE user_id = ? AND gmail_id = ?').run(userId, id)
 }

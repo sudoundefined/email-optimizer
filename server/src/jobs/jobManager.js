@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { EventEmitter } from 'node:events'
 
 const jobs = new Map()
-const MAX_FINISHED = 20
+const MAX_FINISHED = 50
 
 function isFinished(j) {
   return j.state === 'done' || j.state === 'error' || j.state === 'cancelled'
@@ -17,16 +17,14 @@ function pruneFinished() {
 }
 
 /**
- * Starts an async job. runner receives (emit, signal): emit(progress) streams
- * progress, and signal is an AbortSignal that fires when the job is cancelled.
- * Its return value becomes the job result.
- * Returns the job record {id, name, state, progress, result, error}.
+ * Starts an async job scoped to a userId.
  */
-export function createJob(name, runner) {
+export function createJob(userId, name, runner) {
   const id = crypto.randomUUID()
   const controller = new AbortController()
   const job = {
     id,
+    userId,
     name,
     state: 'running',
     progress: null,
@@ -63,10 +61,10 @@ export function createJob(name, runner) {
   return job
 }
 
-/** Request cancellation of a running job. Returns true if it was running. */
-export function cancelJob(id) {
+/** Request cancellation of a running job. */
+export function cancelJob(userId, id) {
   const job = jobs.get(id)
-  if (!job || job.state !== 'running') return false
+  if (!job || job.userId !== userId || job.state !== 'running') return false
   job.state = 'cancelled'
   job.error = 'cancelled'
   job.controller.abort()
@@ -74,12 +72,14 @@ export function cancelJob(id) {
   return true
 }
 
-export function getJob(id) {
-  return jobs.get(id) || null
+export function getJob(userId, id) {
+  const job = jobs.get(id)
+  if (!job || (userId && job.userId !== userId)) return null
+  return job
 }
 
-export function isJobRunning(name) {
-  return [...jobs.values()].some((j) => j.name === name && j.state === 'running')
+export function isJobRunning(userId, name) {
+  return [...jobs.values()].some((j) => j.userId === userId && j.name === name && j.state === 'running')
 }
 
 export function jobSnapshot(job) {

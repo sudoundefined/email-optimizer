@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Alert, AlertIcon, Box, Button, Card, CardBody, Tag,
-  Grid, GridItem, Input, InputGroup, InputLeftElement, Progress,
+  Box, Button, Card, Tag, TagLabel, TagCloseButton, useToast,
+  Grid, GridItem, Input, Progress,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
+  Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, useDisclosure,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
-import { EmailIcon, SearchIcon, StarIcon, CopyIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons'
+import { EmailIcon, HamburgerIcon, SearchIcon, CloseIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
+import { exportToExcel } from '../utils/exportExcel'
 import { api, ApiError } from '../api'
 import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription, Filter, GroupMessage } from '../types'
 import { useJob } from '../hooks/useJob'
@@ -17,19 +19,39 @@ import UnsubscribePanel from './UnsubscribePanel'
 import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
 import ProtectedTab from './ProtectedTab'
-import FilterToolbar from './FilterToolbar'
-import { useAutoClearAlert } from '../hooks/useAutoClearAlert'
+import MailboxNav, { SEGMENTS } from './MailboxNav'
+import type { Segment } from './MailboxNav'
+import TagSearchInput from './TagSearchInput'
+import { compileGmailQuery, filterSenders, needsGmail } from '../utils/searchQuery'
+import type { Chip } from '../utils/searchQuery'
+/**
+ * Bridges message-state (set all over the action handlers) to transient toasts:
+ * fire once when a message lands, then clear the state immediately so banners
+ * never pile up above the table (mailbox redesign phase C).
+ */
+function useStatusToast(
+  message: string | null,
+  clear: (v: string | null) => void,
+  status: 'success' | 'error' | 'warning'
+) {
+  const toast = useToast()
+  useEffect(() => {
+    if (!message) return
+    toast({
+      description: message,
+      status,
+      duration: status === 'error' ? 8000 : 6000,
+      isClosable: true,
+      position: 'top-right',
+      variant: 'subtle',
+    })
+    clear(null)
+    // toast/clear are stable; fire only on message change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message])
+}
 
-type Segment = 'all' | 'unsub' | 'nomethod' | 'subscriptions' | 'protected'
 type SortKey = 'volume' | 'name' | 'recent'
-
-const SEGMENTS: { key: Segment; label: string; blurb: string }[] = [
-  { key: 'all', label: 'All senders', blurb: 'Everything from your scan' },
-  { key: 'unsub', label: 'With unsubscribe', blurb: 'One-click, email, or link' },
-  { key: 'nomethod', label: 'No method', blurb: 'No unsubscribe detected' },
-  { key: 'subscriptions', label: 'Subscriptions', blurb: 'Recurring paid services' },
-  { key: 'protected', label: 'Protected list', blurb: 'Shielded from bulk actions' },
-]
 
 function parseFromHeader(from: string): string {
   const m = from.match(/^\s*"?([^"<]*)"?\s*<.*>$/)
@@ -198,16 +220,35 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const [protectedList, setProtectedList] = useState<ProtectedSender[]>([])
   const [protectionWarning, setProtectionWarning] = useState<string | null>(null)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [showFilterLabelDialog, setShowFilterLabelDialog] = useState(false)
+  const [customLabelName, setCustomLabelName] = useState('')
+  const [customLabelArchive, setCustomLabelArchive] = useState(false)
+  const [labelDone, setLabelDone] = useState<string | null>(null)
 
-  useAutoClearAlert(error, setError)
-  useAutoClearAlert(trashDone, setTrashDone)
-  useAutoClearAlert(keepDone, setKeepDone)
-  useAutoClearAlert(protectionWarning, setProtectionWarning)
+  useStatusToast(error, setError, 'error')
+  useStatusToast(trashDone, setTrashDone, 'success')
+  useStatusToast(keepDone, setKeepDone, 'success')
+  useStatusToast(protectionWarning, setProtectionWarning, 'warning')
+  useStatusToast(labelDone, setLabelDone, 'success')
 
   const [segment, setSegment] = useState<Segment>('all')
   const [category, setCategory] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [chips, setChips] = useState<Chip[]>([])            // being edited in the input
+  const [appliedChips, setAppliedChips] = useState<Chip[]>([]) // submitted set, shown as removable tags outside the bar
+  const [activeSearch, setActiveSearch] = useState<Chip[]>([]) // applied on last Search click
+  const [tagSearchQuery, setTagSearchQuery] = useState<string | null>(null) // non-null → Gmail-routed results shown
+  const [labelPrefix, setLabelPrefix] = useState('Unsub/')
   const [sort, setSort] = useState<SortKey>('volume')
+  const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('mailbox-nav-collapsed') === '1')
+  const mobileNav = useDisclosure()
+  const searchBar = useDisclosure()
+
+  const toggleNavCollapsed = () => {
+    setNavCollapsed((v) => {
+      localStorage.setItem('mailbox-nav-collapsed', v ? '0' : '1')
+      return !v
+    })
+  }
 
   // Inbox / Messages State
   const [filters, setFilters] = useState<Filter[]>([])
@@ -226,6 +267,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const keepJob = useJob()
   const trashMessageJob = useJob()
   const filterTrashJob = useJob()
+  const filterLabelJob = useJob()
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -238,18 +280,20 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
   const loadData = useCallback(async () => {
     try {
-      const [scanRes, suggRes, protRes, subRes, filterRes] = await Promise.all([
+      const [scanRes, suggRes, protRes, subRes, filterRes, prefRes] = await Promise.all([
         api.senders().catch((e) => { if (e instanceof ApiError && (e.status === 404 || e.status === 409)) return null; throw e }),
         api.suggestions().catch((e) => { if (e instanceof ApiError && (e.status === 404 || e.status === 409)) return []; throw e }),
         api.protectedList(),
         api.subscriptions().catch((e) => { if (e instanceof ApiError && e.code === 'no_scan') return []; throw e }),
         api.inboxFilters(),
+        api.userPreferences().catch(() => ({} as { labelPrefix?: string })),
       ])
       if (scanRes) setScan(scanRes)
       setSuggestions(suggRes)
       setProtectedList(protRes.protected)
       setSubscriptions(subRes)
       setFilters(filterRes)
+      if (prefRes.labelPrefix) setLabelPrefix(prefRes.labelPrefix)
     } catch (err) {
       handleApiError(err)
     }
@@ -394,6 +438,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const handleFilterSelect = async (filter: Filter | null) => {
     setActiveFilter(filter)
     setActiveDrillDownSender(null)
+    setTagSearchQuery(null)
     setMessages(null)
     setSelectedMessages(new Set())
     setTrashDone(null)
@@ -413,6 +458,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
   const handleSenderDrillDown = async (sender: Sender) => {
     setActiveDrillDownSender(sender)
     setActiveFilter(null)
+    setTagSearchQuery(null)
     setMessages(null)
     setSelectedMessages(new Set())
     setTrashDone(null)
@@ -425,6 +471,65 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
       setActiveDrillDownSender(null)
     } finally {
       setMessagesLoading(false)
+    }
+  }
+
+  const runTagSearch = async (searchChips: Chip[]) => {
+    setActiveFilter(null)
+    setActiveDrillDownSender(null)
+    setSelectedMessages(new Set())
+    setTrashDone(null)
+    // Record the submitted set (shown as removable tags) and close the bar.
+    setAppliedChips(searchChips)
+    searchBar.onClose()
+    if (needsGmail(searchChips)) {
+      setActiveSearch([])
+      const q = compileGmailQuery(searchChips, labelPrefix)
+      setTagSearchQuery(q)
+      setMessages(null)
+      setMessagesLoading(true)
+      try {
+        const msgs = await api.filterMessages(q)
+        setMessages(msgs)
+      } catch (err) {
+        handleApiError(err)
+        setTagSearchQuery(null)
+      } finally {
+        setMessagesLoading(false)
+      }
+    } else {
+      setTagSearchQuery(null)
+      setActiveSearch(searchChips)
+    }
+  }
+
+  const clearTagSearch = () => {
+    setChips([])
+    setAppliedChips([])
+    setActiveSearch([])
+    setTagSearchQuery(null)
+  }
+
+  // Remove one applied filter tag: re-run the search with the rest, or clear
+  // entirely when it was the last one.
+  const removeAppliedChip = (index: number) => {
+    const next = appliedChips.filter((_, i) => i !== index)
+    setChips(next)
+    if (next.length === 0) {
+      clearTagSearch()
+    } else {
+      runTagSearch(next)
+    }
+  }
+
+  // Editing the chip list. Removing the last chip while a search is applied is
+  // treated as Clear — the full list returns without a second explicit Search.
+  const handleChipsChange = (next: Chip[]) => {
+    setChips(next)
+    if (next.length === 0 && (activeSearch.length > 0 || tagSearchQuery)) {
+      setAppliedChips([])
+      setActiveSearch([])
+      setTagSearchQuery(null)
     }
   }
 
@@ -469,6 +574,31 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
       setMessages([])
       setSelectedMessages(new Set())
       await loadData()
+    } catch (err) {
+      handleApiError(err)
+    }
+  }
+
+  const runFilterLabel = async () => {
+    const labelQuery = activeFilter?.query ?? tagSearchQuery
+    if (!labelQuery || !customLabelName.trim()) return
+    setShowFilterLabelDialog(false)
+    setError(null)
+    setLabelDone(null)
+    setTrashDone(null)
+    try {
+      const snapshot = await filterLabelJob.start(() =>
+        api.applyFilterLabel(labelQuery, customLabelName.trim(), customLabelArchive)
+      )
+      if (snapshot.state === 'error') {
+        setError(snapshot.error || 'Labeling failed')
+      } else {
+        const r = snapshot.result as { labeled: number; total: number; capped?: boolean }
+        const cappedNote = r.capped ? ' (capped at 5,000)' : ''
+        setLabelDone(`Successfully applied label to ${r.labeled.toLocaleString()} messages${cappedNote}.`)
+        setCustomLabelName('')
+        await loadData()
+      }
     } catch (err) {
       handleApiError(err)
     }
@@ -521,6 +651,8 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     return [...m.entries()].sort((a, b) => b[1] - a[1])
   }, [scan, suggestionMap])
 
+  const categoryList = useMemo(() => categoryCounts.map(([c]) => c), [categoryCounts])
+
   const visibleSenders = useMemo(() => {
     if (!scan) return []
     let list: Sender[] = scan.senders
@@ -528,54 +660,216 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     else if (segment === 'nomethod') list = list.filter((s) => s.method === 'none')
     else if (segment === 'subscriptions') list = list.filter((s) => subMap.has(s.email.toLowerCase()))
     if (category) list = list.filter((s) => suggestionMap.get(s.email)?.category === category)
-    const q = search.trim().toLowerCase()
-    if (q) {
-      list = list.filter(
-        (s) =>
-          (s.name || '').toLowerCase().includes(q) ||
-          s.email.toLowerCase().includes(q) ||
-          (s.latestSubject || '').toLowerCase().includes(q)
-      )
-    }
+    if (activeSearch.length > 0) list = filterSenders(list, suggestionMap, activeSearch)
     const sorted = [...list]
     if (sort === 'volume') sorted.sort((a, b) => b.messageCount - a.messageCount)
     else if (sort === 'name') sorted.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email))
     else if (sort === 'recent') sorted.sort((a, b) => b.latestDate - a.latestDate)
     return sorted
-  }, [scan, segment, category, search, sort, suggestionMap, subMap])
+  }, [scan, segment, category, activeSearch, sort, suggestionMap, subMap])
 
   const showProtectedView = segment === 'protected' && !activeFilter && !activeDrillDownSender
   const rightTitle = SEGMENTS.find((s) => s.key === segment)?.label ?? 'Senders'
-  const isMessageView = !!activeFilter || !!activeDrillDownSender
+  const isMessageView = !!activeFilter || !!activeDrillDownSender || !!tagSearchQuery
+
+  const handleCategorySelect = (cat: string | null) => {
+    setCategory(cat)
+    setActiveFilter(null)
+    setActiveDrillDownSender(null)
+    setTagSearchQuery(null)
+  }
+
+  const handleSegmentSelect = (seg: Segment) => {
+    setSegment(seg)
+    setActiveFilter(null)
+    setActiveDrillDownSender(null)
+    setTagSearchQuery(null)
+    if (seg === 'protected') setCategory(null)
+  }
 
   return (
-    <Flex direction="column" h="100%" minH={0}>
-      <ScanControls onScan={runScan} onCancel={scanJob.cancel} running={scanJob.running} scan={scan} />
+    <Flex direction="column" h="100%" minH={0} position="relative">
+      <ScanControls
+        onScan={runScan}
+        onCancel={scanJob.cancel}
+        running={scanJob.running}
+        scan={scan}
+        leftSlot={scan && !scanJob.running ? (
+          <HStack spacing={1}>
+            <Tooltip label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'} hasArrow>
+              <IconButton
+                aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+                aria-expanded={!navCollapsed}
+                icon={<HamburgerIcon />}
+                size="sm"
+                variant="ghost"
+                display={{ base: 'none', md: 'inline-flex' }}
+                onClick={toggleNavCollapsed}
+              />
+            </Tooltip>
+            <IconButton
+              aria-label="Open navigation"
+              icon={<HamburgerIcon />}
+              size="sm"
+              variant="ghost"
+              display={{ base: 'inline-flex', md: 'none' }}
+              onClick={mobileNav.onOpen}
+            />
+            <Tooltip label="Search senders & messages" hasArrow>
+              <IconButton
+                aria-label="Search"
+                aria-expanded={searchBar.isOpen}
+                icon={<SearchIcon />}
+                size="sm"
+                variant={appliedChips.length > 0 ? 'solid' : 'ghost'}
+                colorScheme={appliedChips.length > 0 ? 'brand' : 'gray'}
+                onClick={() => {
+                  if (!searchBar.isOpen && appliedChips.length > 0) setChips(appliedChips)
+                  searchBar.onToggle()
+                }}
+              />
+            </Tooltip>
+          </HStack>
+        ) : undefined}
+        rightSlot={scan && !scanJob.running && !isMessageView && !showProtectedView ? (
+          <HStack spacing={2} flexShrink={0}>
+            <Tag size="sm" variant="outline" borderRadius="full">{rightTitle} · {visibleSenders.length.toLocaleString()}</Tag>
+            {category && (
+              <Tag size="sm" borderRadius="full" bg={`${CATEGORY_COLORS[category] ?? '#AEAEB2'}20`} color={CATEGORY_COLORS[category] ?? '#8E8E93'}>
+                {category}
+              </Tag>
+            )}
+            {selectedSenders.size > 0 && (
+              <Tag size="sm" colorScheme="brand" borderRadius="full">{selectedSenders.size} selected</Tag>
+            )}
+            <Select
+              size="sm"
+              w="150px"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              bg="bg.input"
+            >
+              <option value="volume">Sort: Most emails</option>
+              <option value="name">Sort: Name (A–Z)</option>
+              <option value="recent">Sort: Most recent</option>
+            </Select>
+            <Tooltip label="Export to Excel" hasArrow>
+              <IconButton
+                aria-label="Export to Excel"
+                icon={<DownloadIcon />}
+                size="sm"
+                variant="outline"
+                colorScheme="brand"
+                isDisabled={visibleSenders.length === 0}
+                onClick={() => {
+                  const toExport = selectedSenders.size > 0
+                    ? visibleSenders.filter((s) => selectedSenders.has(s.email))
+                    : visibleSenders
+                  exportToExcel(toExport)
+                }}
+              />
+            </Tooltip>
+          </HStack>
+        ) : undefined}
+      />
+
+      {/* Applied search filters — removable tags shown outside the search bar */}
+      {scan && !scanJob.running && appliedChips.length > 0 && (
+        <Flex align="center" gap={2} wrap="wrap" mb={3}>
+          <Text fontSize="xs" color="text.secondary" fontWeight={600} mr={1}>Filters:</Text>
+          {appliedChips.map((chip, i) => (
+            <Tag
+              key={`${chip.field}:${chip.value}:${i}`}
+              size="sm"
+              borderRadius="full"
+              fontWeight={600}
+              colorScheme={chip.valid ? 'brand' : 'red'}
+              variant="subtle"
+            >
+              <TagLabel>{chip.field === 'text' ? chip.value : `${chip.field}:${chip.value}`}</TagLabel>
+              <TagCloseButton aria-label={`Remove ${chip.field === 'text' ? chip.value : `${chip.field}:${chip.value}`} filter`} onClick={() => removeAppliedChip(i)} />
+            </Tag>
+          ))}
+          <Button size="xs" variant="ghost" colorScheme="brand" borderRadius="full" onClick={clearTagSearch}>
+            Clear all
+          </Button>
+        </Flex>
+      )}
+
+      {/* Floating multi-filter search bar — opened by the toolbar search icon */}
+      {scan && !scanJob.running && searchBar.isOpen && (
+        <Box
+          position="absolute"
+          top={{ base: '52px', md: '44px' }}
+          left={0}
+          right={0}
+          zIndex="popover"
+          bg="bg.card"
+          backdropFilter="blur(12px)"
+          border="1px solid"
+          borderColor="border.glass"
+          borderRadius="xl"
+          boxShadow="xl"
+          p={3}
+        >
+          <Flex align="center" gap={2}>
+            <Box flex={1} minW={0}>
+              <TagSearchInput
+                chips={chips}
+                onChipsChange={handleChipsChange}
+                onSearch={(c) => { runTagSearch(c) }}
+                onClear={clearTagSearch}
+                categories={categoryList}
+                isSearching={messagesLoading && !!tagSearchQuery}
+              />
+            </Box>
+            <Tooltip label="Close search" hasArrow>
+              <IconButton
+                aria-label="Close search"
+                icon={<CloseIcon boxSize={2.5} />}
+                size="sm"
+                variant="ghost"
+                onClick={searchBar.onClose}
+              />
+            </Tooltip>
+          </Flex>
+        </Box>
+      )}
       
-      {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
-      {trashDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashDone}</Alert>}
-      {keepDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{keepDone}</Alert>}
-      {protectionWarning && <Alert status="warning" mb={4} borderRadius="md"><AlertIcon />{protectionWarning}</Alert>}
-
-      {trashSenderJob.running && trashProgress && (
-        <Box mb={4}>
-          <Text fontSize="xs" color="gray.500">
-            Moving to Trash… {trashProgress.trashed ?? 0} / {trashProgress.total ?? '?'} emails
-          </Text>
-          <Progress size="sm" colorScheme="blue" value={trashProgress.total ? (trashProgress.trashed! / trashProgress.total) * 100 : undefined} mt={1} borderRadius="md" isIndeterminate={!trashProgress.total} />
-        </Box>
-      )}
-
-      {keepJob.running && (
-        <Box mb={4}>
-          <Text fontSize="xs" color="gray.500">
-            {keepProgress?.phase === 'trashing'
-              ? `Keeping latest, trashing older… ${keepProgress.trashed ?? 0} / ${keepProgress.total ?? '?'} emails`
-              : `Scanning sender history… ${keepProgress?.listed ?? 0} found`}
-          </Text>
-          <Progress size="sm" colorScheme="blue" value={keepProgress?.total ? (keepProgress.trashed! / keepProgress.total) * 100 : undefined} mt={1} borderRadius="md" isIndeterminate={!keepProgress?.total} />
-        </Box>
-      )}
+      {/* Single slim progress strip — one long-running bulk job at a time (phase C) */}
+      {(() => {
+        const labelP = filterLabelJob.job?.progress as { phase?: string; labeled?: number; total?: number } | null
+        const strip = filterLabelJob.running
+          ? {
+              text: labelP?.phase === 'listing'
+                ? 'Scanning matching emails…'
+                : `Applying custom label… ${labelP?.labeled ?? 0} / ${labelP?.total ?? '?'}`,
+              pct: labelP?.total ? ((labelP.labeled || 0) / labelP.total) * 100 : undefined,
+            }
+          : trashSenderJob.running && trashProgress
+            ? {
+                text: `Moving to Trash… ${trashProgress.trashed ?? 0} / ${trashProgress.total ?? '?'} emails`,
+                pct: trashProgress.total ? ((trashProgress.trashed ?? 0) / trashProgress.total) * 100 : undefined,
+              }
+            : keepJob.running
+              ? {
+                  text: keepProgress?.phase === 'trashing'
+                    ? `Keeping latest, trashing older… ${keepProgress.trashed ?? 0} / ${keepProgress.total ?? '?'} emails`
+                    : `Scanning sender history… ${keepProgress?.listed ?? 0} found`,
+                  pct: keepProgress?.total ? ((keepProgress.trashed ?? 0) / keepProgress.total) * 100 : undefined,
+                }
+              : null
+        if (!strip) return null
+        return (
+          <Flex align="center" gap={3} mb={3} px={3} py={2} borderRadius="lg" bg="bg.accent" role="status">
+            <Text fontSize="xs" fontWeight={600} color="text.secondary" flexShrink={0}>{strip.text}</Text>
+            <Progress
+              size="xs" colorScheme="brand" flex={1} borderRadius="full"
+              value={strip.pct} isIndeterminate={strip.pct === undefined}
+            />
+          </Flex>
+        )
+      })()}
 
       {unsubJob.running && unsubJob.job?.progress != null && (
         <UnsubscribePanel progress={unsubJob.job.progress as never} running />
@@ -601,137 +895,51 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
 
       {scan && !scanJob.running && (
         <>
-          {!showProtectedView && categoryCounts.length > 0 && (
-            <Flex 
-              overflowX="auto" 
-              py={4} 
-              mb={2}
-              gap={3} 
-              sx={{ '&::-webkit-scrollbar': { display: 'none' } }}
-            >
-              <Button
-                size="sm"
-                variant={category === null && !isMessageView ? 'solid' : 'outline'}
-                colorScheme={category === null && !isMessageView ? 'brand' : 'gray'}
-                onClick={() => {
-                  setCategory(null)
-                  setActiveFilter(null)
-                  setActiveDrillDownSender(null)
-                }}
-                borderRadius="full"
-                flexShrink={0}
-              >
-                All categories
-              </Button>
-              {categoryCounts.map(([cat, count]) => {
-                const active = category === cat && !isMessageView
-                const color = CATEGORY_COLORS[cat] ?? '#AEAEB2'
-                return (
-                  <Button
-                    key={cat}
-                    size="sm"
-                    variant={active ? 'solid' : 'outline'}
-                    onClick={() => {
-                      setCategory(active ? null : cat)
-                      setActiveFilter(null)
-                      setActiveDrillDownSender(null)
-                    }}
-                    bg={active ? color : 'bg.card'}
-                    borderColor={active ? color : 'border.subtle'}
-                    color={active ? 'white' : color}
-                    _hover={{ bg: active ? color : `${color}15` }}
-                    borderRadius="full"
-                    flexShrink={0}
-                  >
-                    {cat} <Text as="span" ml={2} opacity={0.8} fontSize="xs">{count}</Text>
-                  </Button>
-                )
-              })}
-            </Flex>
-          )}
-
-          <Grid templateColumns={{ base: '1fr', md: 'repeat(12, 1fr)' }} gap={6} flex={1} minH={0}>
-          {/* ── LEFT PANE — navigation & filters ── */}
-          <GridItem colSpan={{ base: 12, md: 4, lg: 3 }} minH={0} overflowY={{ md: 'auto' }} pr={{ md: 2 }}>
-            <VStack spacing={4} align="stretch">
-              <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
-                <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
-                  <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
-                    <Icon as={StarIcon} mr={2} color="brand.500" /> Smart Filters
-                  </Text>
-                </Box>
-                <CardBody p={4}>
-                  <FilterToolbar filters={filters} activeKey={activeFilter?.key ?? null} onSelect={handleFilterSelect} />
-                </CardBody>
-              </Card>
-
-              <Card borderRadius="xl">
-                <CardBody p={3}>
-                  <InputGroup size="sm">
-                    <InputLeftElement pointerEvents="none">
-                      <SearchIcon color="gray.400" />
-                    </InputLeftElement>
-                    <Input
-                      placeholder="Search senders…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      borderRadius="md"
-                    />
-                  </InputGroup>
-                </CardBody>
-              </Card>
-
-              <Card borderRadius="xl" overflow="hidden" _hover={{ boxShadow: 'md' }} transition="box-shadow 0.2s" bg="bg.glass" backdropFilter="blur(10px)">
-                <Box px={4} py={3} borderBottom="1px" borderColor="border.glass">
-                  <Text fontSize="xs" fontWeight="bold" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
-                    <Icon as={CopyIcon} mr={2} color="brand.500" /> Segments
-                  </Text>
-                </Box>
-                <CardBody p={2}>
-                  {SEGMENTS.map((seg) => {
-                    const active = segment === seg.key && !isMessageView
-                    const count = segmentCounts[seg.key]
-                    return (
-                      <Flex
-                        key={seg.key}
-                        onClick={() => { 
-                          setSegment(seg.key)
-                          setActiveFilter(null)
-                          setActiveDrillDownSender(null)
-                          if (seg.key === 'protected') setCategory(null) 
-                        }}
-                        align="center"
-                        justify="space-between"
-                        px={3} py={2} mb={1}
-                        borderRadius="md"
-                        cursor="pointer"
-                        bg={active ? 'bg.accent' : 'transparent'}
-                        borderLeft="2px solid"
-                        borderColor={active ? 'brand.icon' : 'transparent'}
-                        _hover={{ bg: active ? 'bg.accent' : 'bg.hover' }}
-                      >
-                        <Box overflow="hidden">
-                          <Text fontSize="sm" fontWeight={600} color={active ? 'text.secondary' : 'text.primary'} isTruncated>
-                            {seg.label}
-                          </Text>
-                          <Text fontSize="xs" color={active ? 'text.secondary' : 'neutral.500'} isTruncated>
-                            {seg.blurb}
-                          </Text>
-                        </Box>
-                        <Text fontSize="sm" fontWeight={700} ml={2} flexShrink={0} color={active ? 'text.secondary' : 'text.primary'}>
-                          {count.toLocaleString()}
-                        </Text>
-                      </Flex>
-                    )
-                  })}
-                </CardBody>
-              </Card>
-
-            </VStack>
+          <Grid templateColumns={{ base: '1fr', md: navCollapsed ? '56px 1fr' : '232px 1fr' }} gap={4} flex={1} minH={0}>
+          {/* ── LEFT PANE — flat navigation rail (drawer on mobile) ── */}
+          <GridItem minH={0} overflowY={{ md: 'auto' }} pr={{ md: 1 }} display={{ base: 'none', md: 'block' }}>
+            <MailboxNav
+              collapsed={navCollapsed}
+              showCategories={!showProtectedView && categoryCounts.length > 0}
+              categoryCounts={categoryCounts}
+              category={category}
+              onCategorySelect={handleCategorySelect}
+              segment={segment}
+              segmentCounts={segmentCounts}
+              onSegmentSelect={handleSegmentSelect}
+              isMessageView={isMessageView}
+              filters={filters}
+              activeFilterKey={activeFilter?.key ?? null}
+              onFilterSelect={handleFilterSelect}
+            />
           </GridItem>
 
+          <Drawer isOpen={mobileNav.isOpen} placement="left" onClose={mobileNav.onClose}>
+            <DrawerOverlay />
+            <DrawerContent bg="bg.card" backdropFilter="blur(12px)">
+              <DrawerCloseButton />
+              <DrawerHeader fontSize="md">Navigate</DrawerHeader>
+              <DrawerBody px={2}>
+                <MailboxNav
+                  collapsed={false}
+                  showCategories={!showProtectedView && categoryCounts.length > 0}
+                  categoryCounts={categoryCounts}
+                  category={category}
+                  onCategorySelect={(c) => { handleCategorySelect(c); mobileNav.onClose() }}
+                  segment={segment}
+                  segmentCounts={segmentCounts}
+                  onSegmentSelect={(s) => { handleSegmentSelect(s); mobileNav.onClose() }}
+                  isMessageView={isMessageView}
+                  filters={filters}
+                  activeFilterKey={activeFilter?.key ?? null}
+                  onFilterSelect={(f) => { handleFilterSelect(f); mobileNav.onClose() }}
+                />
+              </DrawerBody>
+            </DrawerContent>
+          </Drawer>
+
           {/* ── RIGHT PANE — content ── */}
-          <GridItem colSpan={{ base: 12, md: 8, lg: 9 }} minH={0}>
+          <GridItem minH={0}>
             <Box position="relative" h="100%">
             {isMessageView ? (
               <Card 
@@ -748,10 +956,18 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 <Flex align="center" justify="space-between" px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent">
                   <Box>
                     <Text fontSize="lg" fontWeight={700} color="text.primary">
-                      {activeFilter ? activeFilter.label : activeDrillDownSender!.name || activeDrillDownSender!.email}
+                      {activeFilter
+                        ? activeFilter.label
+                        : activeDrillDownSender
+                          ? activeDrillDownSender.name || activeDrillDownSender.email
+                          : 'Search results'}
                     </Text>
                     <Text fontSize="sm" color="neutral.500" mt={1}>
-                      {activeFilter ? 'Viewing filtered messages' : `Browsing emails from ${activeDrillDownSender!.email}`}
+                      {activeFilter
+                        ? 'Viewing filtered messages'
+                        : activeDrillDownSender
+                          ? `Browsing emails from ${activeDrillDownSender.email}`
+                          : `Messages matching your tag search`}
                     </Text>
                   </Box>
                   <HStack spacing={2}>
@@ -759,6 +975,21 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                       <Tag size="sm" colorScheme="brand" borderRadius="full">
                         {selectedMessages.size} selected
                       </Tag>
+                    )}
+                    {(activeFilter || tagSearchQuery) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        colorScheme="brand"
+                        isLoading={filterLabelJob.running}
+                        onClick={() => {
+                          setCustomLabelArchive(false)
+                          setCustomLabelName('')
+                          setShowFilterLabelDialog(true)
+                        }}
+                      >
+                        Label all matching
+                      </Button>
                     )}
                     {activeFilter && (
                       <Button
@@ -771,7 +1002,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                         Trash all matching
                       </Button>
                     )}
-                    <Button size="sm" variant="solid" colorScheme="brand" onClick={() => { setActiveFilter(null); setActiveDrillDownSender(null); setMessages(null); setSelectedMessages(new Set()) }}>
+                    <Button size="sm" variant="solid" colorScheme="brand" onClick={() => { setActiveFilter(null); setActiveDrillDownSender(null); setTagSearchQuery(null); setMessages(null); setSelectedMessages(new Set()) }}>
                       Close
                     </Button>
                   </HStack>
@@ -779,7 +1010,13 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 <SelectableMessageList
                   messages={messages}
                   loading={messagesLoading}
-                  emptyText={activeFilter ? "No messages match this filter." : "No messages found from this sender."}
+                  emptyText={
+                    activeFilter
+                      ? "No messages match this filter."
+                      : activeDrillDownSender
+                        ? "No messages found from this sender."
+                        : "No messages match your tag search."
+                  }
                   selected={selectedMessages}
                   onSelectedChange={setSelectedMessages}
                 />
@@ -797,44 +1034,17 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                 </Box>
               </Card>
             ) : (
-              <Card 
-                variant="outline" 
-                borderRadius="xl" 
-                h="100%" 
-                display="flex" 
-                flexDir="column" 
-                bg="bg.card" 
+              <Card
+                variant="outline"
+                borderRadius="xl"
+                h="100%"
+                display="flex"
+                flexDir="column"
+                bg="bg.card"
                 backdropFilter="blur(12px)"
                 pb={selectedSenders.size > 0 ? "80px" : "0px"}
                 transition="padding-bottom 0.2s"
               >
-                <Flex align="center" justify="space-between" px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent" gap={4}>
-                  <HStack spacing={3} minW={0} overflow="hidden">
-                    <Text fontSize="lg" fontWeight={700} color="text.primary" isTruncated>{rightTitle}</Text>
-                    <Tag size="sm" variant="outline" borderRadius="full">{visibleSenders.length.toLocaleString()}</Tag>
-                    {category && (
-                      <Tag size="sm" borderRadius="full" bg={`${CATEGORY_COLORS[category] ?? '#AEAEB2'}20`} color={CATEGORY_COLORS[category] ?? '#8E8E93'}>
-                        {category}
-                      </Tag>
-                    )}
-                    {selectedSenders.size > 0 && (
-                      <Tag size="sm" colorScheme="brand" borderRadius="full">{selectedSenders.size} selected</Tag>
-                    )}
-                  </HStack>
-                  <Select
-                    size="sm"
-                    w="160px"
-                    flexShrink={0}
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as SortKey)}
-                    bg="white"
-                  >
-                    <option value="volume">Sort: Most emails</option>
-                    <option value="name">Sort: Name (A–Z)</option>
-                    <option value="recent">Sort: Most recent</option>
-                  </Select>
-                </Flex>
-                
                 {segment === 'subscriptions' && (
                   <Flex px={6} py={3} borderBottom="1px" borderColor="whiteAlpha.400" wrap="wrap" gap={2} align="center">
                     <Text fontSize="xs" color="neutral.500" mr={1}>
@@ -1023,6 +1233,63 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
           onCancel={() => setConfirmFilterTrash(false)}
           onConfirm={runFilterTrash}
         />
+      )}
+
+      {showFilterLabelDialog && (activeFilter || tagSearchQuery) && (
+        <Modal isOpen onClose={() => setShowFilterLabelDialog(false)} size="md" isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Label matching messages</ModalHeader>
+            <ModalBody>
+              <Text fontSize="sm" mb={4}>
+                Apply a custom label to all emails matching {activeFilter ? (
+                  <>the filter <Text as="strong">"{activeFilter.label}"</Text></>
+                ) : (
+                  <Text as="strong">your tag search</Text>
+                )} (up to 5,000 messages).
+              </Text>
+              <VStack spacing={4} align="stretch">
+                <Box>
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={1} textTransform="uppercase">
+                    Label Name
+                  </Text>
+                  <Input
+                    placeholder="e.g. Clean Promotions"
+                    value={customLabelName}
+                    onChange={(e) => setCustomLabelName(e.target.value)}
+                    size="sm"
+                    borderRadius="md"
+                    autoFocus
+                  />
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    Note: The label will be prefixed with the app's folder (e.g. Unsub/Promo Clean).
+                  </Text>
+                </Box>
+                <Checkbox
+                  isChecked={customLabelArchive}
+                  onChange={(e) => setCustomLabelArchive(e.target.checked)}
+                  size="sm"
+                  colorScheme="blue"
+                >
+                  Also archive tagged emails (move out of Inbox)
+                </Checkbox>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" size="sm" mr={3} onClick={() => setShowFilterLabelDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="blue"
+                size="sm"
+                isDisabled={!customLabelName.trim()}
+                onClick={runFilterLabel}
+              >
+                Apply Label
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       )}
     </Flex>
   )

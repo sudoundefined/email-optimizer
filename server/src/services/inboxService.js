@@ -32,9 +32,9 @@ export function getGroup(key) {
 }
 
 /** Live counts for every group. */
-export async function listGroups() {
+export async function listGroups(userId) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     return Promise.all(
       GROUPS.map((g) =>
         limited(async () => {
@@ -61,11 +61,11 @@ export async function listGroups() {
         })
       )
     )
-  })
+  }, userId)
 }
 
 /** The most recent messages in one group: {id, from, subject, date}[]. */
-export async function groupMessages(key, max = 25) {
+export async function groupMessages(userId, key, max = 25) {
   const group = getGroup(key)
   if (!group) {
     const err = new Error(`Unknown group "${key}"`)
@@ -73,7 +73,7 @@ export async function groupMessages(key, max = 25) {
     throw err
   }
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     const params =
       group.kind === 'label'
         ? { userId: 'me', labelIds: [group.labelId], maxResults: max }
@@ -89,14 +89,14 @@ export async function groupMessages(key, max = 25) {
         subject: m.headers['subject'] || '',
         date: m.internalDate,
       }))
-  })
+  }, userId)
 }
 
 /** Every label in the Gmail account (system + user) with live counts. */
-export async function listAllLabels() {
+export async function listAllLabels(userId) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
-    const registered = await listRegistered()
+    const gmail = await getGmail(userId)
+    const registered = listRegistered(userId)
     const appIds = new Set(registered.map((r) => r.id))
 
     const listRes = await limited(() => gmail.users.labels.list({ userId: 'me' }))
@@ -121,15 +121,15 @@ export async function listAllLabels() {
       .sort((a, b) =>
         a.type !== b.type ? (a.type === 'system' ? -1 : 1) : a.name.localeCompare(b.name)
       )
-  })
+  }, userId)
 }
 
 /**
  * Run an arbitrary Gmail query and return recent messages.
  */
-export async function filterMessages(query, max = 25) {
+export async function filterMessages(userId, query, max = 25) {
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     const res = await limited(() =>
       gmail.users.messages.list({ userId: 'me', q: query, maxResults: max })
     )
@@ -144,7 +144,7 @@ export async function filterMessages(query, max = 25) {
         subject: m.headers['subject'] || '',
         date: m.internalDate,
       }))
-  })
+  }, userId)
 }
 
 const FILTER_TRASH_MAX_MESSAGES = 10_000
@@ -181,7 +181,7 @@ export const FILTERS = Object.fromEntries(FILTER_DEFS.map((d) => [d.key, d.query
  * Returns { trashed, excluded, capped } where `excluded` counts protected
  * messages skipped and `capped` indicates the 10k scan cap was hit.
  */
-export async function trashByFilterKey(key, emit) {
+export async function trashByFilterKey(userId, key, emit) {
   const q = FILTERS[key]
   if (!q) {
     const err = new Error(`Unknown filter "${key}"`)
@@ -189,7 +189,7 @@ export async function trashByFilterKey(key, emit) {
     throw err
   }
   return withAuthErrorHandling(async () => {
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     emit?.({ phase: 'listing', listed: 0 })
     // Fetch one past the cap purely to detect truncation honestly.
     const ids = await listAllMessageIds(gmail, q, {
@@ -202,7 +202,7 @@ export async function trashByFilterKey(key, emit) {
 
     let trashIds = scanIds
     let excluded = 0
-    const protectedList = await listProtected()
+    const protectedList = listProtected(userId)
     if (protectedList.length > 0) {
       const protectedSet = new Set(protectedList.map((p) => p.email.toLowerCase()))
       emit?.({ phase: 'checking', fetched: 0, total: scanIds.length })
@@ -221,7 +221,7 @@ export async function trashByFilterKey(key, emit) {
     }
 
     if (trashIds.length === 0) return { trashed: 0, excluded, capped }
-    const res = await trashMessages(trashIds, emit)
+    const res = await trashMessages(userId, trashIds, emit)
     return { trashed: res.trashed, excluded, capped }
-  })
+  }, userId)
 }

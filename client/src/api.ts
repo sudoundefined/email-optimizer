@@ -28,6 +28,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
+    credentials: 'include',
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
   })
@@ -77,6 +78,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ assignments, ...opts }),
     }),
+  applyFilterLabel: (query: string, labelName: string, archive: boolean) =>
+    request<{ jobId: string }>('/api/labels/apply-filter', {
+      method: 'POST',
+      body: JSON.stringify({ query, labelName, archive }),
+    }),
   labels: () => request<AppLabel[]>('/api/labels'),
   labelMessages: (id: string) => request<GroupMessage[]>(`/api/labels/${id}/messages`),
   deleteLabelOnly: (id: string) =>
@@ -89,6 +95,7 @@ export const api = {
   groupMessages: (key: string) => request<GroupMessage[]>(`/api/inbox/groups/${key}/messages`),
   allLabels: () => request<GmailLabel[]>('/api/inbox/labels'),
   inboxFilters: () => request<Filter[]>('/api/inbox/filters'),
+  userPreferences: () => request<{ labelPrefix?: string }>('/api/user/preferences'),
   filterMessages: (q: string) => request<GroupMessage[]>(`/api/inbox/filter?q=${encodeURIComponent(q)}`),
   trashFilter: (key: string) =>
     request<{ jobId: string }>(`/api/inbox/filter/${encodeURIComponent(key)}/trash`, { method: 'POST' }),

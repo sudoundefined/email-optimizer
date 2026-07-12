@@ -9,12 +9,14 @@ import {
 } from '@chakra-ui/icons'
 
 import { useAuth } from './hooks/useAuth'
-import ConnectScreen from './components/ConnectScreen'
+import LandingPage from './components/LandingPage'
 import AccountBadge from './components/AccountBadge'
 import MailboxTab from './components/MailboxTab'
 import StorageTab from './components/StorageTab'
 import LabelManager from './components/LabelManager'
+import AccountPage from './components/AccountPage'
 import DigestSettingsDialog from './components/DigestSettingsDialog'
+import UserProfileModal from './components/UserProfileModal'
 import { useAppTheme } from './theme/ThemeContext'
 
 const StorageIcon = (props: any) => (
@@ -36,6 +38,7 @@ const TABS = [
   { value: 'mailbox', label: 'Mailbox', icon: EmailIcon, blurb: 'Clean up senders and messages' },
   { value: 'storage', label: 'Storage', icon: StorageIcon, blurb: 'Reclaim space from large emails' },
   { value: 'labels',  label: 'Labels',  icon: LabelIcon, blurb: 'Manage your app-created labels' },
+  { value: 'account', label: 'Account & Logs', icon: SettingsIcon, blurb: 'Preferences, security settings & activity audit log' },
 ] as const
 
 type TabValue = (typeof TABS)[number]['value']
@@ -45,6 +48,7 @@ export default function App() {
   const [tab, setTab] = useState<TabValue>('mailbox')
   const [digestOpen, setDigestOpen] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const profileModal = useDisclosure()
   const { colorMode, toggleColorMode } = useColorMode()
   const { theme: activeThemeName, setTheme } = useAppTheme()
   const [cacheInfo, setCacheInfo] = useState<{
@@ -71,7 +75,7 @@ export default function App() {
     )
   }
 
-  if (!auth.status?.connected) return <ConnectScreen />
+  if (!auth.status?.connected) return <LandingPage />
 
   const active = TABS.find(t => t.value === tab)!
 
@@ -248,7 +252,11 @@ export default function App() {
                 onClick={() => setDigestOpen(true)}
               />
             </Tooltip>
-            <AccountBadge email={auth.status.email!} onLogout={auth.logout} />
+            <AccountBadge
+              email={auth.status.email!}
+              onLogout={auth.logout}
+              onOpenProfile={() => setTab('account')}
+            />
           </HStack>
         </Flex>
 
@@ -316,10 +324,18 @@ export default function App() {
         )}
 
         {/* Tab Content */}
-        <Flex p={{ base: 4, md: 8 }} overflow="hidden" flex={1} direction="column" minH={0}>
+        <Flex
+          p={tab === 'mailbox' ? { base: 3, md: 5 } : { base: 4, md: 8 }}
+          overflowY={tab === 'account' ? 'auto' : 'hidden'}
+          overflowX="hidden"
+          flex={1}
+          direction="column"
+          minH={0}
+        >
           {tab === 'mailbox' && <MailboxTab onDisconnected={auth.markDisconnected} />}
           {tab === 'storage' && <StorageTab onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
           {tab === 'labels'  && <LabelManager onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
+          {tab === 'account' && <AccountPage userEmail={auth.status.email} onLogout={auth.logout} />}
         </Flex>
       </Flex>
 
@@ -328,6 +344,13 @@ export default function App() {
         onClose={() => setDigestOpen(false)}
         onDisconnected={auth.markDisconnected}
         accountEmail={auth.status.email ?? ''}
+      />
+
+      <UserProfileModal
+        isOpen={profileModal.isOpen}
+        onClose={profileModal.onClose}
+        userEmail={auth.status.email}
+        onLogout={auth.logout}
       />
     </Flex>
   )

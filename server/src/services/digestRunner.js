@@ -17,15 +17,15 @@ async function getAccountEmail(gmail) {
  * baseline) — the client should explain that the run seeds a baseline rather
  * than emailing a giant list.
  */
-export async function computeDigest({ range = '6m' } = {}, emit) {
+export async function computeDigest(userId, { range = '6m' } = {}, emit) {
   return withAuthErrorHandling(async () => {
     emit?.({ phase: 'scanning' })
-    const scan = await scanSenders({ range }, (p) => emit?.({ phase: 'scanning', ...p }))
-    const state = await getState()
+    const scan = await scanSenders(userId, { range }, (p) => emit?.({ phase: 'scanning', ...p }))
+    const state = getState(userId)
     const seeding = !state.lastRunAt && state.baseline.knownSenders.length === 0
     const senders = [...scan.senders.values()]
     const newSenders = diffNewSenders(senders, state.baseline.knownSenders)
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     const accountEmail = await getAccountEmail(gmail)
     return {
       seeding,
@@ -33,7 +33,7 @@ export async function computeDigest({ range = '6m' } = {}, emit) {
       accountEmail,
       totalScanned: scan.messageCount,
     }
-  })
+  }, userId)
 }
 
 /**
@@ -43,10 +43,10 @@ export async function computeDigest({ range = '6m' } = {}, emit) {
  *
  * dryRun:true computes + returns without sending or mutating state (preview).
  */
-export async function runDigest({ range = '6m', dryRun = false, at } = {}, emit) {
+export async function runDigest(userId, { range = '6m', dryRun = false, at } = {}, emit) {
   return withAuthErrorHandling(async () => {
-    const { seeding, newSenders, accountEmail, totalScanned } = await computeDigest({ range }, emit)
-    const settings = await getSettings()
+    const { seeding, newSenders, accountEmail, totalScanned } = await computeDigest(userId, { range }, emit)
+    const settings = getSettings(userId)
     const recipient = settings.recipient || accountEmail
     const stamp = at || new Date().toISOString()
 
@@ -58,14 +58,14 @@ export async function runDigest({ range = '6m', dryRun = false, at } = {}, emit)
     // definition weekly runs use), send nothing. Seeding from marketing-only
     // avoids permanently suppressing a sender that later becomes marketing.
     if (seeding) {
-      await recordRun({ at: stamp, reportedEmails: newSenders.map((s) => s.email), sent: false, recipient })
+      recordRun(userId, { at: stamp, reportedEmails: newSenders.map((s) => s.email), sent: false, recipient })
       return { dryRun: false, seeding: true, newSenders: [], recipient, totalScanned, sent: false }
     }
 
     // Advance durable state (lastRunAt + baseline) BEFORE sending. Sending is
     // at-least-once; persisting first makes the run at-most-once, so a crash or
     // retry after a successful send can never re-send the same digest.
-    await recordRun({ at: stamp, reportedEmails: newSenders.map((s) => s.email), sent: newSenders.length > 0, recipient })
+    recordRun(userId, { at: stamp, reportedEmails: newSenders.map((s) => s.email), sent: newSenders.length > 0, recipient })
 
     let sent = false
     if (newSenders.length > 0) {
@@ -79,11 +79,11 @@ export async function runDigest({ range = '6m', dryRun = false, at } = {}, emit)
         html,
         text,
       })
-      const gmail = await getGmail()
+      const gmail = await getGmail(userId)
       await limited(() => gmail.users.messages.send({ userId: 'me', requestBody: { raw } }))
       sent = true
     }
 
     return { dryRun: false, seeding: false, newSenders, recipient, totalScanned, sent }
-  })
+  }, userId)
 }

@@ -12,38 +12,51 @@ function avatarColor(email: string) {
   return colors[Math.abs(hash) % colors.length]
 }
 
-export default function AccountBadge({ email, onLogout }: { email: string; onLogout: () => void }) {
+interface AccountBadgeProps {
+  email: string
+  onLogout: () => void
+  onOpenProfile?: () => void
+}
+
+export default function AccountBadge({ email, onLogout, onOpenProfile }: AccountBadgeProps) {
   const bg = avatarColor(email)
 
   return (
     <Flex align="center" gap={3} ml="auto">
-      <Tooltip label={email} placement="bottom">
-        <Avatar
-          size="sm"
-          bg={bg}
-          color="white"
-          name={email}
-          getInitials={() => initials(email)}
-          cursor="default"
-        />
+      <Tooltip label="Click to view Account & Preferences" placement="bottom">
+        <Flex
+          align="center"
+          gap={2}
+          cursor={onOpenProfile ? 'pointer' : 'default'}
+          onClick={onOpenProfile}
+          _hover={{ opacity: 0.8 }}
+        >
+          <Avatar
+            size="sm"
+            bg={bg}
+            color="white"
+            name={email}
+            getInitials={() => initials(email)}
+          />
+          <Text
+            color="text.primary"
+            fontWeight={500}
+            display={{ base: 'none', lg: 'block' }}
+            maxW="160px"
+            isTruncated
+            fontSize="sm"
+          >
+            {email}
+          </Text>
+        </Flex>
       </Tooltip>
-      <Text
-        color="gray.600"
-        fontWeight={500}
-        display={{ base: 'none', lg: 'block' }}
-        maxW="160px"
-        isTruncated
-        fontSize="sm"
-      >
-        {email}
-      </Text>
       <Button
         size="sm"
         variant="outline"
         onClick={onLogout}
-        color="gray.600"
-        borderColor="gray.300"
-        _hover={{ color: 'blue.500', borderColor: 'blue.400', bg: 'blue.50' }}
+        color="text.secondary"
+        borderColor="border.subtle"
+        _hover={{ color: 'brand.500', borderColor: 'brand.400', bg: 'bg.hover' }}
       >
         Sign out
       </Button>

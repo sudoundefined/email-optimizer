@@ -7,31 +7,31 @@ import {
 
 const router = Router()
 
-router.get('/protect', async (req, res, next) => {
+router.get('/protect', (req, res, next) => {
   try {
-    const list = await listProtected()
+    const list = listProtected(req.userId)
     res.json({ protected: list })
   } catch (err) { next(err) }
 })
 
-router.post('/protect', async (req, res, next) => {
+router.post('/protect', (req, res, next) => {
   try {
     const { emails } = req.body || {}
-    if (!Array.isArray(emails) || emails.length === 0) {
-      return res.status(400).json({ error: 'emails must be a non-empty array' })
+    if (!Array.isArray(emails) || emails.length === 0 || emails.length > 5000 || !emails.every(e => typeof e === 'string')) {
+      return res.status(400).json({ error: 'emails must be a non-empty array of strings (max 5000)' })
     }
-    await protectSenders(emails)
+    protectSenders(req.userId, emails)
     res.json({ ok: true })
   } catch (err) { next(err) }
 })
 
-router.delete('/protect', async (req, res, next) => {
+router.delete('/protect', (req, res, next) => {
   try {
     const { emails } = req.body || {}
-    if (!Array.isArray(emails) || emails.length === 0) {
-      return res.status(400).json({ error: 'emails must be a non-empty array' })
+    if (!Array.isArray(emails) || emails.length === 0 || emails.length > 5000 || !emails.every(e => typeof e === 'string')) {
+      return res.status(400).json({ error: 'emails must be a non-empty array of strings (max 5000)' })
     }
-    await unprotectSenders(emails)
+    unprotectSenders(req.userId, emails)
     res.json({ ok: true })
   } catch (err) { next(err) }
 })

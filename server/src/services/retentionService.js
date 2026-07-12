@@ -3,6 +3,7 @@ import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { listAllMessageIds } from '../gmail/messages.js'
 import { trashMessages } from './messageTrashService.js'
 import { isProtected } from './protectService.js'
+import { logActivity } from './auditService.js'
 
 const KEEP_LATEST_MAX_MESSAGES = 10_000
 
@@ -32,14 +33,14 @@ export function partitionKeepLatest(newestFirstIds, keep) {
  * Job runner: keep the `keep` newest emails from one sender, trash the rest.
  * Refuses protected senders. Never permanent-deletes (Gmail Trash only).
  */
-export async function runKeepLatest({ senderEmail, keep }, emit) {
+export async function runKeepLatest(userId, { senderEmail, keep }, emit) {
   return withAuthErrorHandling(async () => {
     const email = String(senderEmail).toLowerCase()
-    if (await isProtected(email)) {
+    if (isProtected(userId, email)) {
       return { protected: true, senderEmail: email, trashed: 0, kept: 0, capped: false }
     }
 
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     emit?.({ phase: 'listing', listed: 0 })
     // Gmail returns newest-first; listAllMessageIds preserves that paging order.
     // Quote the address so any residual special chars are a literal string, not
@@ -57,11 +58,13 @@ export async function runKeepLatest({ senderEmail, keep }, emit) {
 
     const { keep: kept, toTrash } = partitionKeepLatest(scanIds, keep)
     if (toTrash.length === 0) {
+      logActivity(userId, 'keep_latest', { senderEmail: email, kept: kept.length, trashed: 0 })
       return { protected: false, senderEmail: email, trashed: 0, kept: kept.length, capped }
     }
 
     emit?.({ phase: 'trashing', trashed: 0, total: toTrash.length })
-    const res = await trashMessages(toTrash, emit)
+    const res = await trashMessages(userId, toTrash, emit)
+    logActivity(userId, 'keep_latest', { senderEmail: email, kept: kept.length, trashed: res.trashed })
     return { protected: false, senderEmail: email, trashed: res.trashed, kept: kept.length, capped }
-  })
+  }, userId)
 }

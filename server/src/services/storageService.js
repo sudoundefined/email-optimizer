@@ -98,9 +98,8 @@ export function filterLargeAttachments(messages, minSizeMB = 5) {
     }))
 }
 
-// In-memory cache — full scan of large messages is expensive
-let cache = null
-let cacheTime = 0
+// In-memory cache per user — full scan of large messages is expensive
+const caches = new Map()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 async function fetchLargeMessages(gmail, emit) {
@@ -154,12 +153,13 @@ async function fetchLargeMessages(gmail, emit) {
   return messages
 }
 
-export async function getStorageStats(emit) {
+export async function getStorageStats(userId, emit) {
   return withAuthErrorHandling(async () => {
     const now = Date.now()
-    if (cache && (now - cacheTime) < CACHE_TTL) return cache
+    const userCache = caches.get(userId)
+    if (userCache && (now - userCache.time) < CACHE_TTL) return userCache.data
 
-    const gmail = await getGmail()
+    const gmail = await getGmail(userId)
     const messages = await fetchLargeMessages(gmail, emit)
 
     const totalBytes = messages.reduce((sum, m) => sum + m.sizeEstimate, 0)
@@ -172,12 +172,9 @@ export async function getStorageStats(emit) {
       sizes: aggregateBySizeBand(messages),
       attachments: filterLargeAttachments(messages, 5),
     }
-    cache = stats
-    cacheTime = now
-    // keep full message list for drill-down queries
-    cache._messages = messages
+    caches.set(userId, { data: stats, time: now, _messages: messages })
     return stats
-  })
+  }, userId)
 }
 
 /**
@@ -186,9 +183,10 @@ export async function getStorageStats(emit) {
  * by: 'sender' → filter by from email (lowercase match)
  * by: 'month'  → filter by YYYY-MM month string
  */
-export function getDrillDownMessages(by, value) {
-  if (!cache || !cache._messages) return null   // cache not warm
-  const messages = cache._messages
+export function getDrillDownMessages(userId, by, value) {
+  const userCache = caches.get(userId)
+  if (!userCache || !userCache._messages) return null   // cache not warm
+  const messages = userCache._messages
 
   if (by === 'sender') {
     const v = value.toLowerCase()
@@ -256,7 +254,10 @@ export function getDrillDownMessages(by, value) {
   return []
 }
 
-export function clearStorageCache() {
-  cache = null
-  cacheTime = 0
+export function clearStorageCache(userId) {
+  if (userId) {
+    caches.delete(userId)
+  } else {
+    caches.clear()
+  }
 }
