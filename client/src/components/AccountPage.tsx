@@ -216,7 +216,7 @@ export default function AccountPage({ userEmail, onLogout }: AccountPageProps) {
                 <Badge colorScheme="green" display="flex" alignItems="center" gap={1} px={2} py={0.5} borderRadius="full">
                   <Icon as={CheckCircleIcon} boxSize={3} /> Connected to Google
                 </Badge>
-                <Badge colorScheme="blue" variant="subtle" px={2} py={0.5} borderRadius="full">
+                <Badge colorScheme="brand" variant="subtle" px={2} py={0.5} borderRadius="full">
                   AES-256-GCM Secured
                 </Badge>
               </HStack>
@@ -339,7 +339,7 @@ export default function AccountPage({ userEmail, onLogout }: AccountPageProps) {
           <HStack spacing={3} w={{ base: 'full', md: 'auto' }}>
             <InputGroup size="sm" maxW="220px">
               <InputLeftElement pointerEvents="none">
-                <SearchIcon color="gray.400" />
+                <SearchIcon color="text.tertiary" />
               </InputLeftElement>
               <Input
                 placeholder="Search log details..."

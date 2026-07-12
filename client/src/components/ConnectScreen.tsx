@@ -10,7 +10,7 @@ const FEATURES = [
 
 export default function ConnectScreen() {
   return (
-    <Flex minH="100vh" align="center" justify="center" p={{ base: 4, sm: 8 }} bg="gray.50">
+    <Flex minH="100vh" align="center" justify="center" p={{ base: 4, sm: 8 }} bg="bg.muted">
       <Card maxW="480px" w="100%" p={{ base: 6, sm: 8 }} textAlign="center" borderRadius="xl" boxShadow="sm">
         <VStack spacing={6}>
           <Flex w="64px" h="64px" borderRadius="16px" bg="white" align="center" justify="center" boxShadow="md" overflow="hidden">
@@ -18,8 +18,8 @@ export default function ConnectScreen() {
           </Flex>
 
           <Box>
-            <Heading size="lg" mb={2} color="gray.900">EmailDiet</Heading>
-            <Text color="gray.500">
+            <Heading size="lg" mb={2} color="text.primary">EmailDiet</Heading>
+            <Text color="text.secondary">
               Take back control of your Gmail inbox. Unsubscribe in bulk, organise with labels, and free up storage.
             </Text>
           </Box>
@@ -28,7 +28,7 @@ export default function ConnectScreen() {
             {FEATURES.map(f => (
               <HStack key={f.label} spacing={4}>
                 <Text fontSize="xl">{f.icon}</Text>
-                <Text color="gray.900" fontWeight={500}>{f.label}</Text>
+                <Text color="text.primary" fontWeight={500}>{f.label}</Text>
               </HStack>
             ))}
           </VStack>
@@ -36,7 +36,7 @@ export default function ConnectScreen() {
           <Button
             as="a"
             href="/api/auth/login"
-            colorScheme="blue"
+            colorScheme="brand"
             size="lg"
             width="full"
             leftIcon={<StarIcon />}
@@ -45,7 +45,7 @@ export default function ConnectScreen() {
             Sign in with Google
           </Button>
 
-          <Text fontSize="xs" color="gray.500">
+          <Text fontSize="xs" color="text.secondary">
             While in Google Testing mode, sessions expire after ~7 days.<br />
             Nothing is deleted permanently — Trash is always recoverable.
           </Text>
@@ -53,7 +53,7 @@ export default function ConnectScreen() {
       </Card>
       
       <Flex position="absolute" bottom={4} w="full" justify="center">
-        <Text fontSize="sm" color="gray.400">
+        <Text fontSize="sm" color="text.tertiary">
           &copy; {new Date().getFullYear()} EmailDiet. All rights reserved.
         </Text>
       </Flex>

@@ -84,7 +84,7 @@ export default function SenderTable({
   if (senders.length === 0) {
     return (
       <Box p={4} textAlign="center">
-        <Text fontSize="sm" color="gray.500">
+        <Text fontSize="sm" color="text.secondary">
           No senders match this filter.
         </Text>
       </Box>
@@ -106,19 +106,19 @@ export default function SenderTable({
                 />
               </Th>
                 <Th w={{ base: '30%', xl: '32%' }} borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th w="150px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Volume <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Volume <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th w="130px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Unsubscribe <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Unsubscribe <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th w="130px" borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Category <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Category <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
                 <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="xs" fontWeight="600" textTransform="none" letterSpacing="normal" py={2.5}>
-                  <Flex align="center" gap={2}>Latest subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                  <Flex align="center" gap={2}>Latest subject <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
             </Tr>
           </Thead>

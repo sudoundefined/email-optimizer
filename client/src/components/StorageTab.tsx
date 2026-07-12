@@ -68,11 +68,11 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
     <Flex
       direction="column"
       h="100%"
-      border="1px solid" borderColor="gray.100"
+      border="1px solid" borderColor="border.subtle"
       borderRadius="xl"
       overflow="hidden"
       bg="bg.card"
-      backdropFilter="blur(12px)"
+      
       pb={selected.size > 0 ? "80px" : "0px"}
       transition="padding-bottom 0.2s"
     >
@@ -85,7 +85,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
             </Tag>
           )}
           {panelSelected > 0 && (
-            <Tag size="sm" colorScheme="blue" borderRadius="full" flexShrink={0}>
+            <Tag size="sm" colorScheme="brand" borderRadius="full" flexShrink={0}>
               {panelSelected} selected
             </Tag>
           )}
@@ -100,7 +100,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
       )}
 
       {messages && messages.length === 0 && (
-        <Text fontSize="sm" color="gray.500" px={6} py={6}>
+        <Text fontSize="sm" color="text.secondary" px={6} py={6}>
           No messages found for this selection.
         </Text>
       )}
@@ -108,27 +108,27 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
       {messages && messages.length > 0 && (
         <TableContainer flex={1} overflowY="auto">
           <Table size="sm" variant="simple" style={{ tableLayout: 'fixed' }}>
-            <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+            <Thead position="sticky" top={0} bg="bg.muted" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
               <Tr>
-                <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
+                <Th w="40px" px={4} borderBottom="1px solid" borderColor="border.subtle" py={4}>
                   <Checkbox
                     isChecked={allSelected}
                     isIndeterminate={someSelected && !allSelected}
                     onChange={toggleAll}
-                    colorScheme="blue"
+                    colorScheme="brand"
                   />
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                  <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
-                <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                  <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
-                <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                  <Flex justify="flex-end" align="center" gap={2}>Size <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                <Th isNumeric borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex justify="flex-end" align="center" gap={2}>Size <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
-                <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                  <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                <Th isNumeric borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                  <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                 </Th>
               </Tr>
             </Thead>
@@ -137,11 +137,11 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
                 <Tr
                   key={m.id}
                   bg="transparent"
-                  _hover={{ bg: 'gray.50' }}
+                  _hover={{ bg: 'bg.hover' }}
                   onClick={() => toggle(m.id)}
                   cursor="pointer"
                   borderBottom="1px solid"
-                  borderColor="gray.100"
+                  borderColor="border.subtle"
                   boxShadow={selected.has(m.id) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
                 >
                   <Td px={4} onClick={(e) => e.stopPropagation()}>
@@ -165,7 +165,7 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
                     </Text>
                   </Td>
                   <Td isNumeric whiteSpace="nowrap">
-                    <Text fontSize="xs" fontWeight={600} color="brand.900">{m.sizeMB.toLocaleString()} MB</Text>
+                    <Text fontSize="xs" fontWeight={600} color="text.primary">{m.sizeMB.toLocaleString()} MB</Text>
                   </Td>
                   <Td isNumeric whiteSpace="nowrap">
                     <Text fontSize="xs" color="neutral.500">
@@ -184,14 +184,14 @@ function DrillPanel({ title, messages, loading, selected, onSelectedChange, onCl
         <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="border.subtle" bg="bg.card">
           <HStack spacing={4}>
             <HStack>
-              <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+              <Text fontSize="sm" color="text.secondary">Rows per page:</Text>
               <Select size="sm" w="80px" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0) }}>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>
               </Select>
             </HStack>
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="text.secondary">
               {start + 1}-{Math.min(start + rowsPerPage, messages?.length || 0)} of {messages?.length || 0}
             </Text>
             <HStack spacing={1}>
@@ -543,13 +543,13 @@ export default function StorageTab({
             {/* Storage by Year -> Month */}
             <Card borderRadius="2xl" overflow="hidden" boxShadow="sm" border="1px solid" borderColor="border.glass" bg="bg.card">
               <Box px={5} py={4} borderBottom="1px" borderColor="border.glass" bgGradient="linear(to-r, brand.50, transparent)">
-                <Text fontSize="xs" fontWeight="800" color="brand.700" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
+                <Text fontSize="xs" fontWeight="800" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
                   <Icon as={CalendarIcon} mr={2} color="brand.500" /> Storage by Date
                 </Text>
               </Box>
               <CardBody p={3} maxH="320px" overflowY="auto" css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
                 {(stats.years ?? []).length === 0 && (
-                  <Text fontSize="sm" color="gray.500" p={2}>No large emails found.</Text>
+                  <Text fontSize="sm" color="text.secondary" p={2}>No large emails found.</Text>
                 )}
                 <VStack spacing={2} align="stretch">
                   {(stats.years ?? []).map((y: StorageYear) => {
@@ -617,13 +617,13 @@ export default function StorageTab({
             {/* Top Senders */}
             <Card borderRadius="2xl" overflow="hidden" boxShadow="sm" border="1px solid" borderColor="border.glass" bg="bg.card">
               <Box px={5} py={4} borderBottom="1px" borderColor="border.glass" bgGradient="linear(to-r, brand.50, transparent)">
-                <Text fontSize="xs" fontWeight="800" color="brand.700" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
+                <Text fontSize="xs" fontWeight="800" color="text.secondary" letterSpacing="wider" textTransform="uppercase" display="flex" alignItems="center">
                   <Icon as={CopyIcon} mr={2} color="brand.500" /> Top Senders
                 </Text>
               </Box>
               <CardBody p={3} maxH="320px" overflowY="auto" css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
                 {stats.senders.length === 0 && (
-                  <Text fontSize="sm" color="gray.500" p={2}>No large emails found.</Text>
+                  <Text fontSize="sm" color="text.secondary" p={2}>No large emails found.</Text>
                 )}
                 <VStack spacing={2} align="stretch">
                   {stats.senders.map((s) => {
@@ -682,7 +682,7 @@ export default function StorageTab({
                 display="flex" 
                 flexDir="column" 
                 bg="bg.card" 
-                backdropFilter="blur(12px)"
+                
                 pb={selectedIds.size > 0 ? "80px" : "0px"}
                 transition="padding-bottom 0.2s"
               >
@@ -702,14 +702,14 @@ export default function StorageTab({
 
               {stats.attachments.length === 0 ? (
                 <Box p={6}>
-                  <Text fontSize="sm" color="gray.500">No attachments larger than 5 MB found.</Text>
+                  <Text fontSize="sm" color="text.secondary">No attachments larger than 5 MB found.</Text>
                 </Box>
               ) : (
                 <TableContainer flex={1} overflowY="auto">
                   <Table size="sm" variant="simple">
-                    <Thead position="sticky" top={0} bg="brand.50" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
+                    <Thead position="sticky" top={0} bg="bg.muted" zIndex={1} boxShadow="0 2px 4px rgba(0,0,0,0.02)">
                       <Tr>
-                        <Th w="40px" px={4} borderBottom="1px solid" borderColor="gray.200" py={4}>
+                        <Th w="40px" px={4} borderBottom="1px solid" borderColor="border.subtle" py={4}>
                           <Checkbox
                             isChecked={allAttachmentsSelected}
                             isIndeterminate={someAttachmentsSelected && !allAttachmentsSelected}
@@ -717,17 +717,17 @@ export default function StorageTab({
                             colorScheme="brand"
                           />
                         </Th>
-                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                          <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>From <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                         </Th>
-                        <Th borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                          <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        <Th borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex align="center" gap={2}>Subject <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                         </Th>
-                        <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                          <Flex justify="flex-end" align="center" gap={2}>Size <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        <Th isNumeric borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex justify="flex-end" align="center" gap={2}>Size <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                         </Th>
-                        <Th isNumeric borderBottom="1px solid" borderColor="gray.200" color="gray.700" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
-                          <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="gray.400" /></Flex>
+                        <Th isNumeric borderBottom="1px solid" borderColor="border.subtle" color="text.secondary" fontSize="sm" fontWeight="600" textTransform="none" letterSpacing="normal" py={4}>
+                          <Flex justify="flex-end" align="center" gap={2}>Date <UpDownIcon boxSize={3} color="text.tertiary" /></Flex>
                         </Th>
                       </Tr>
                     </Thead>
@@ -736,11 +736,11 @@ export default function StorageTab({
                         <Tr
                           key={a.id}
                           bg="transparent"
-                          _hover={{ bg: 'gray.50' }}
+                          _hover={{ bg: 'bg.hover' }}
                           onClick={() => toggleAttachment(a.id)}
                           cursor="pointer"
                           borderBottom="1px solid"
-                          borderColor="gray.100"
+                          borderColor="border.subtle"
                           boxShadow={selectedIds.has(a.id) ? 'inset 3px 0 0 0 var(--chakra-colors-brand-500)' : 'none'}
                         >
                           <Td px={4} onClick={(e) => e.stopPropagation()}>
@@ -759,7 +759,7 @@ export default function StorageTab({
                             </Tooltip>
                           </Td>
                           <Td maxW="280px">
-                            <Text fontSize="sm" color="gray.500" isTruncated>
+                            <Text fontSize="sm" color="text.secondary" isTruncated>
                               {a.subject || '(no subject)'}
                             </Text>
                           </Td>
@@ -767,7 +767,7 @@ export default function StorageTab({
                             <Text fontSize="xs" fontWeight={600}>{a.sizeMB.toLocaleString()} MB</Text>
                           </Td>
                           <Td isNumeric whiteSpace="nowrap">
-                            <Text fontSize="xs" color="gray.500">
+                            <Text fontSize="xs" color="text.secondary">
                               {new Date(a.date).toLocaleDateString(undefined, {
                                 month: 'short', day: 'numeric', year: 'numeric',
                               })}
@@ -783,14 +783,14 @@ export default function StorageTab({
                 <Flex align="center" justify="flex-end" px={4} py={2} borderTop="1px" borderColor="border.subtle" bg="bg.card">
                   <HStack spacing={4}>
                     <HStack>
-                      <Text fontSize="sm" color="gray.600">Rows per page:</Text>
+                      <Text fontSize="sm" color="text.secondary">Rows per page:</Text>
                       <Select size="sm" w="80px" value={attachRowsPerPage} onChange={(e) => { setAttachRowsPerPage(Number(e.target.value)); setAttachPage(0) }}>
                         <option value={50}>50</option>
                         <option value={100}>100</option>
                         <option value={200}>200</option>
                       </Select>
                     </HStack>
-                    <Text fontSize="sm" color="gray.600">
+                    <Text fontSize="sm" color="text.secondary">
                       {attachView.safePage * attachRowsPerPage + 1}-{Math.min((attachView.safePage + 1) * attachRowsPerPage, attachView.total)} of {attachView.total}
                     </Text>
                     <HStack spacing={1}>

@@ -136,7 +136,7 @@ export default function LandingPage() {
             <Button
               as="a"
               href="/api/auth/login"
-              colorScheme="blue"
+              colorScheme="brand"
               size="sm"
               px={6}
               borderRadius="full"
@@ -152,7 +152,7 @@ export default function LandingPage() {
       <Container maxW="1100px" pt={{ base: 12, md: 20 }} pb={16} textAlign="center">
         <VStack spacing={6}>
           <Badge
-            colorScheme="blue"
+            colorScheme="brand"
             px={3}
             py={1}
             borderRadius="full"
@@ -187,7 +187,7 @@ export default function LandingPage() {
             <Button
               as="a"
               href="/api/auth/login"
-              colorScheme="blue"
+              colorScheme="brand"
               size="lg"
               px={8}
               py={7}
@@ -275,7 +275,7 @@ export default function LandingPage() {
                   >
                     <Icon as={feat.icon} boxSize={6} />
                   </Flex>
-                  <Badge colorScheme="blue" borderRadius="full" px={3} py={1}>
+                  <Badge colorScheme="brand" borderRadius="full" px={3} py={1}>
                     {feat.badge}
                   </Badge>
                 </Flex>

@@ -70,7 +70,7 @@ export default function LabelReview({
       <ModalContent>
         <ModalHeader>Review labels</ModalHeader>
         <ModalBody>
-          <Text fontSize="sm" color="gray.600" mb={4}>
+          <Text fontSize="sm" color="text.secondary" mb={4}>
             Each category becomes a Gmail label applied to every scanned email from the sender.
             By default this <Text as="strong">tags in place</Text> — nothing leaves your inbox. Review the
             grouping below, then create the labels.
@@ -80,7 +80,7 @@ export default function LabelReview({
             <Box key={category} mb={4}>
               <Text fontWeight="bold" fontSize="sm" mb={2}>
                 {category}{' '}
-                <Text as="span" fontWeight="normal" color="gray.500">
+                <Text as="span" fontWeight="normal" color="text.secondary">
                   ({group.length} senders)
                 </Text>
               </Text>
@@ -89,7 +89,7 @@ export default function LabelReview({
                   <Text fontSize="sm" fontWeight={600} flex={1} isTruncated>
                     {s.name || s.email}
                   </Text>
-                  <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">
+                  <Text fontSize="xs" color="text.secondary" whiteSpace="nowrap">
                     {s.messageCount} emails
                   </Text>
                   <Select
@@ -116,11 +116,11 @@ export default function LabelReview({
           )}
           {applyJob.running && progress && (
             <Box mt={3}>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color="text.secondary">
                 Labeling {progress.labeled ?? 0} / {progress.total ?? '?'}
                 {progress.currentLabel ? ` (${progress.currentLabel})` : ''}
               </Text>
-              <Progress size="sm" isIndeterminate={!progress.total} value={progress.total && progress.labeled ? (progress.labeled / progress.total) * 100 : undefined} colorScheme="blue" mt={1} borderRadius="md" />
+              <Progress size="sm" isIndeterminate={!progress.total} value={progress.total && progress.labeled ? (progress.labeled / progress.total) * 100 : undefined} colorScheme="brand" mt={1} borderRadius="md" />
             </Box>
           )}
           {doneMessage && (
@@ -130,14 +130,14 @@ export default function LabelReview({
             </Alert>
           )}
         </ModalBody>
-        <ModalFooter justifyContent="space-between" bg="gray.50" borderBottomRadius="md">
+        <ModalFooter justifyContent="space-between" bg="bg.muted" borderBottomRadius="md">
           {!doneMessage ? (
             <Checkbox
               size="sm"
               isChecked={archive}
               onChange={(e) => setArchive(e.target.checked)}
               isDisabled={applyJob.running}
-              colorScheme="blue"
+              colorScheme="brand"
             >
               Also archive tagged emails (move out of inbox)
             </Checkbox>
@@ -147,7 +147,7 @@ export default function LabelReview({
               {doneMessage ? 'Close' : 'Cancel'}
             </Button>
             {!doneMessage && (
-              <Button colorScheme="blue" onClick={apply} isLoading={applyJob.running}>
+              <Button colorScheme="brand" onClick={apply} isLoading={applyJob.running}>
                 {applyJob.running ? 'Applying…' : archive ? 'Create labels, tag & archive' : 'Create labels & tag'}
               </Button>
             )}
