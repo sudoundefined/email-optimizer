@@ -3,12 +3,8 @@ import {
   Alert, AlertIcon, Box, Button, Card, CardBody, Checkbox, Tag,
   Grid, GridItem, Flex, Text, Table, Thead, Tbody,
   Tr, Th, Td, TableContainer, Tooltip, Icon, VStack, HStack, Select, IconButton,
-  SimpleGrid, useColorModeValue, Progress
+  SimpleGrid, Progress
 } from '@chakra-ui/react'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, CartesianGrid
-} from 'recharts'
 import EmailLoader from './EmailLoader'
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, CopyIcon, UpDownIcon } from '@chakra-ui/icons'
 import { HardDrive, ChevronDown, ChevronUp, FileText, Image as ImageIcon, Paperclip } from 'lucide-react'
@@ -463,8 +459,6 @@ export default function StorageTab({
     }
   }
 
-  const gridStroke = useColorModeValue('#EEF0F2', 'rgba(255,255,255,0.06)')
-
   const largestSender = useMemo(() => {
     return stats && stats.senders && stats.senders.length > 0
       ? [...stats.senders].sort((a, b) => b.totalMB - a.totalMB)[0]
@@ -497,6 +491,14 @@ export default function StorageTab({
         color: palette[idx % palette.length]
       }))
   }, [stats])
+
+  const totalSizeMB = useMemo(() => {
+    return sizeDonutData.reduce((acc, d) => acc + d.value, 0) || 1
+  }, [sizeDonutData])
+
+  const maxSenderMB = useMemo(() => {
+    return Math.max(...topSendersChart.map((s) => s.mb), 1)
+  }, [topSendersChart])
 
   if (loading) {
     return (
@@ -601,92 +603,111 @@ export default function StorageTab({
           />
         </SimpleGrid>
 
-        <Grid templateColumns={{ base: '1fr', lg: '1fr 1.6fr' }} gap={4} mb={4}>
+        <Grid templateColumns={{ base: '1fr', lg: '1fr 1.3fr' }} gap={6} mb={5}>
+          {/* Custom segmented Size Bands Card */}
           <GridItem
             bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
-            boxShadow="e1" p={5}
+            boxShadow="e1" p={6}
           >
-            <Text fontSize="15px" fontWeight={600} color="text.primary" mb={1}>Storage by size category</Text>
-            <Text fontSize="13px" color="text.tertiary" mb={3}>Distribution across file size bands</Text>
+            <Text fontSize="15px" fontWeight={700} color="text.primary" mb={1}>Storage by size category</Text>
+            <Text fontSize="13px" color="text.secondary" mb={4}>Distribution across file size bands</Text>
             {sizeDonutData.length === 0 ? (
-              <Flex h="210px" align="center" justify="center">
+              <Flex h="200px" align="center" justify="center">
                 <Text fontSize="13px" color="text.tertiary">No size categories recorded.</Text>
               </Flex>
             ) : (
-              <Flex align="center" gap={4} direction={{ base: 'column', sm: 'row' }}>
-                <Box w="140px" h="170px" flexShrink={0}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={sizeDonutData} dataKey="value" nameKey="name"
-                        innerRadius={44} outerRadius={66} paddingAngle={2} stroke="none"
+              <Box>
+                {/* Horizontal Segmented Bar */}
+                <Flex h="18px" borderRadius="full" overflow="hidden" bg="border.subtle" mb={6} border="1px solid" borderColor="border.subtle">
+                  {sizeDonutData.map((d) => {
+                    const pct = (d.value / totalSizeMB) * 100
+                    return (
+                      <Tooltip key={d.name} label={`${d.name}: ${Math.round(d.value)} MB (${Math.round(pct)}%)`}>
+                        <Box w={`${pct}%`} bg={d.color} h="full" transition="all 0.2s" cursor="pointer" _hover={{ filter: 'brightness(1.1)' }} />
+                      </Tooltip>
+                    )
+                  })}
+                </Flex>
+
+                {/* Segment Details List */}
+                <VStack align="stretch" spacing={3}>
+                  {sizeDonutData.map((d) => {
+                    const pct = (d.value / totalSizeMB) * 100
+                    return (
+                      <Flex
+                        key={d.name}
+                        align="center"
+                        justify="space-between"
+                        fontSize="13px"
+                        cursor="pointer"
+                        p={1.5}
+                        borderRadius="md"
+                        _hover={{ bg: 'bg.hover' }}
+                        onClick={() => openDrill('size', d.name)}
                       >
-                        {sizeDonutData.map((d) => (
-                          <Cell key={d.name} fill={d.color} />
-                        ))}
-                      </Pie>
-                      <RTooltip
-                        contentStyle={{ borderRadius: 12, border: '1px solid var(--chakra-colors-border-subtle)', boxShadow: 'var(--chakra-shadows-e2)', fontSize: 13 }}
-                        formatter={(v, n) => [`${Number(v).toLocaleString()} MB`, String(n)]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Box>
-                <VStack align="stretch" spacing={2.5} flex={1}>
-                  {sizeDonutData.map((d) => (
-                    <Flex key={d.name} align="center" justify="space-between" fontSize="13px">
-                      <HStack spacing={2}>
-                        <Box w={2.5} h={2.5} borderRadius="sm" bg={d.color} />
-                        <Text color="text.secondary" isTruncated>{d.name}</Text>
-                      </HStack>
-                      <Text fontWeight={600} color="text.primary">{d.value.toLocaleString()} MB</Text>
-                    </Flex>
-                  ))}
+                        <HStack spacing={3}>
+                          <Box w={3} h={3} borderRadius="full" bg={d.color} />
+                          <Text fontWeight={600} color="text.primary">{d.name}</Text>
+                          <Text fontSize="11px" color="text.secondary">({d.count} emails)</Text>
+                        </HStack>
+                        <HStack spacing={2.5}>
+                          <Text fontWeight={700} color="text.primary">{Math.round(d.value)} MB</Text>
+                          <Text fontSize="11px" color="text.tertiary" fontWeight={600}>{Math.round(pct)}%</Text>
+                        </HStack>
+                      </Flex>
+                    )
+                  })}
                 </VStack>
-              </Flex>
+              </Box>
             )}
           </GridItem>
 
+          {/* Custom Senders Progress List Card */}
           <GridItem
             bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
-            boxShadow="e1" p={5}
+            boxShadow="e1" p={6}
           >
             <Flex justify="space-between" align="center" mb={1}>
-              <Text fontSize="15px" fontWeight={600} color="text.primary">Top senders by storage</Text>
-              <Text fontSize="xs" color="text.tertiary">Click a bar to inspect</Text>
+              <Text fontSize="15px" fontWeight={700} color="text.primary">Top senders by storage</Text>
+              <Text fontSize="12px" color="brand.500" fontWeight={600}>Click sender to inspect</Text>
             </Flex>
-            <Text fontSize="13px" color="text.tertiary" mb={3}>Heavy senders taking up mailbox quota</Text>
+            <Text fontSize="13px" color="text.secondary" mb={4}>Heavy senders taking up mailbox quota</Text>
             {topSendersChart.length === 0 ? (
-              <Flex h="210px" align="center" justify="center">
+              <Flex h="200px" align="center" justify="center">
                 <Text fontSize="13px" color="text.tertiary">No senders found.</Text>
               </Flex>
             ) : (
-              <Box h="200px">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={topSendersChart}
-                    margin={{ top: 0, right: 16, left: 30, bottom: 0 }}
-                  >
-                    <CartesianGrid stroke={gridStroke} horizontal={false} />
-                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--chakra-colors-text-tertiary)' }} unit=" MB" />
-                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--chakra-colors-text-secondary)' }} width={95} />
-                    <RTooltip
-                      contentStyle={{ borderRadius: 12, border: '1px solid var(--chakra-colors-border-subtle)', boxShadow: 'var(--chakra-shadows-e2)', fontSize: 13 }}
-                      formatter={(v) => [`${Number(v).toLocaleString()} MB`, 'Storage']}
-                    />
-                    <Bar
-                      dataKey="mb"
-                      fill="var(--chakra-colors-brand-500)"
-                      radius={[0, 6, 6, 0]}
+              <VStack align="stretch" spacing={3.5}>
+                {topSendersChart.map((sender) => {
+                  const pct = (sender.mb / maxSenderMB) * 100
+                  const initials = sender.name.split(' ').map((n: string) => n.charAt(0)).join('').substring(0, 2).toUpperCase() || '?'
+                  return (
+                    <Box
+                      key={sender.email}
+                      onClick={() => openDrill('sender', sender.email)}
                       cursor="pointer"
-                      onClick={(data: any) => {
-                        if (data && data.email) openDrill('sender', data.email)
-                      }}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
+                      role="group"
+                    >
+                      <Flex justify="space-between" align="center" mb={1} fontSize="13px">
+                        <HStack spacing={2.5}>
+                          <Flex w={6} h={6} borderRadius="full" bg="bg.muted" align="center" justify="center" fontSize="10px" fontWeight={700} color="brand.500" border="1px solid" borderColor="border.subtle">
+                            {initials}
+                          </Flex>
+                          <Text fontWeight={600} color="text.primary" _groupHover={{ color: 'brand.500' }}>
+                            {sender.name}
+                          </Text>
+                        </HStack>
+                        <Text fontWeight={700} color="text.primary">
+                          {Math.round(sender.mb)} MB
+                        </Text>
+                      </Flex>
+                      <Box w="full" bg="border.subtle" h="6px" borderRadius="full" overflow="hidden">
+                        <Box w={`${pct}%`} bg="brand.500" h="full" borderRadius="full" transition="all 0.3s" _groupHover={{ bg: 'brand.600' }} />
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </VStack>
             )}
           </GridItem>
         </Grid>

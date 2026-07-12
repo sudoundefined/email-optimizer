@@ -19,7 +19,6 @@ import SenderTable, { CATEGORY_COLORS } from './SenderTable'
 import UnsubscribePanel from './UnsubscribePanel'
 import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
-import ProtectedTab from './ProtectedTab'
 import MailboxNav, { SEGMENTS } from './MailboxNav'
 import type { Segment } from './MailboxNav'
 import TagSearchInput from './TagSearchInput'
@@ -669,7 +668,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     return sorted
   }, [scan, segment, category, activeSearch, sort, suggestionMap, subMap])
 
-  const showProtectedView = segment === 'protected' && !activeFilter && !activeDrillDownSender
+  const showProtectedView = false
   const rightTitle = SEGMENTS.find((s) => s.key === segment)?.label ?? 'Senders'
   const isMessageView = !!activeFilter || !!activeDrillDownSender || !!tagSearchQuery
 
@@ -685,7 +684,6 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     setActiveFilter(null)
     setActiveDrillDownSender(null)
     setTagSearchQuery(null)
-    if (seg === 'protected') setCategory(null)
   }
 
   return (
@@ -1021,18 +1019,6 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                   selected={selectedMessages}
                   onSelectedChange={setSelectedMessages}
                 />
-              </Card>
-            ) : showProtectedView ? (
-              <Card variant="outline" borderRadius="xl" h="100%" display="flex" flexDir="column" bg="bg.card" >
-                <Box px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent">
-                  <Text fontSize="lg" fontWeight={700} color="text.primary">Protected list</Text>
-                  <Text fontSize="sm" color="neutral.500" mt={1}>
-                    Senders shielded from bulk unsubscribe and trash. Banks, utilities, and government are auto-protected.
-                  </Text>
-                </Box>
-                <Box flex={1} overflowY="auto" p={6}>
-                  <ProtectedTab onDisconnected={onDisconnected} />
-                </Box>
               </Card>
             ) : (
               <Card

@@ -7,6 +7,7 @@ import {
 import { HamburgerIcon, SunIcon, MoonIcon, RepeatIcon } from '@chakra-ui/icons'
 import {
   LayoutDashboard, Mail, HardDrive, Tags, User, History, CalendarClock, Palette,
+  MailCheck, ShieldCheck, Settings, Zap
 } from 'lucide-react'
 
 import { useAuth } from './hooks/useAuth'
@@ -16,9 +17,12 @@ import DashboardTab from './components/DashboardTab'
 import MailboxTab from './components/MailboxTab'
 import StorageTab from './components/StorageTab'
 import LabelManager from './components/LabelManager'
-import AccountPage from './components/AccountPage'
+import TimelineTab from './components/TimelineTab'
 import LogsPage from './components/LogsPage'
-import DigestSettingsDialog from './components/DigestSettingsDialog'
+import DigestTab from './components/DigestTab'
+import ProtectedTab from './components/ProtectedTab'
+import SettingsTab from './components/SettingsTab'
+import UpgradeModal from './components/UpgradeModal'
 import UserProfileModal from './components/UserProfileModal'
 import { CommandPaletteModal } from './components/CommandPaletteModal'
 import { useAppTheme, type AppTheme } from './theme/ThemeContext'
@@ -28,23 +32,26 @@ const TABS = [
   { value: 'mailbox', label: 'Mailbox', icon: Mail, blurb: 'Clean up senders and messages' },
   { value: 'storage', label: 'Storage', icon: HardDrive, blurb: 'Reclaim space from large emails' },
   { value: 'labels',  label: 'Labels',  icon: Tags, blurb: 'Manage your app-created labels' },
-  { value: 'account', label: 'Account', icon: User, blurb: 'Preferences, security & connected account' },
-  { value: 'logs',    label: 'Activity Log', icon: History, blurb: 'Immutable audit trail of scans & cleanups' },
+  { value: 'timeline', label: 'Timeline', icon: CalendarClock, blurb: 'Relationship and interaction timeline' },
+  { value: 'activity', label: 'Activity', icon: History, blurb: 'Immutable audit trail of scans & cleanups' },
+  { value: 'digest', label: 'Weekly Digest', icon: MailCheck, blurb: 'Configure your weekly email digest' },
+  { value: 'protected', label: 'Protected Senders', icon: ShieldCheck, blurb: 'Manage whitelisted senders' },
+  { value: 'settings', label: 'Settings', icon: Settings, blurb: 'System and scan preferences' },
 ] as const
 
 type TabValue = (typeof TABS)[number]['value']
 
 const THEME_CYCLE: Record<AppTheme, AppTheme> = {
-  daylight: 'botanical', botanical: 'espresso', espresso: 'daylight',
+  daylight: 'botanical', botanical: 'sage', sage: 'daylight',
 }
 const THEME_LABEL: Record<AppTheme, string> = {
-  daylight: 'Daylight', botanical: 'Botanical', espresso: 'Espresso',
+  daylight: 'Daylight', botanical: 'Botanical', sage: 'Sage Mint',
 }
 
 export default function App() {
   const auth = useAuth()
   const [tab, setTab] = useState<TabValue>('dashboard')
-  const [digestOpen, setDigestOpen] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const profileModal = useDisclosure()
@@ -148,20 +155,6 @@ export default function App() {
       <VStack spacing={1} align="stretch" px={3} pt={6}>
         <Flex
           as="button"
-          onClick={() => setDigestOpen(true)}
-          align="center"
-          px={3}
-          h="44px"
-          borderRadius="12px"
-          color="text.secondary"
-          _hover={{ bg: 'bg.hover', color: 'text.primary' }}
-          transition="all 0.15s"
-        >
-          <Icon as={CalendarClock} mr={3} boxSize={5} />
-          <Text fontWeight={500} fontSize="15px">Weekly Digest</Text>
-        </Flex>
-        <Flex
-          as="button"
           onClick={() => setTheme(THEME_CYCLE[activeThemeName])}
           align="center"
           px={3}
@@ -174,6 +167,34 @@ export default function App() {
           <Icon as={Palette} mr={3} boxSize={5} />
           <Text fontWeight={500} fontSize="15px">{THEME_LABEL[activeThemeName]} theme</Text>
         </Flex>
+        <Flex
+          as="button"
+          onClick={() => setUpgradeOpen(true)}
+          align="center"
+          px={3}
+          h="44px"
+          borderRadius="12px"
+          color="text.secondary"
+          _hover={{ bg: 'bg.hover', color: 'text.primary' }}
+          transition="all 0.15s"
+        >
+          <Icon as={Zap} mr={3} boxSize={5} />
+          <Text fontWeight={500} fontSize="15px">Upgrade</Text>
+        </Flex>
+        <Flex
+          as="button"
+          onClick={profileModal.onOpen}
+          align="center"
+          px={3}
+          h="44px"
+          borderRadius="12px"
+          color="text.secondary"
+          _hover={{ bg: 'bg.hover', color: 'text.primary' }}
+          transition="all 0.15s"
+        >
+          <Icon as={User} mr={3} boxSize={5} />
+          <Text fontWeight={500} fontSize="15px">Profile</Text>
+        </Flex>
       </VStack>
 
       <Flex mt={5} w="full" justify="center" align="center">
@@ -185,7 +206,7 @@ export default function App() {
   )
 
   return (
-    <Flex h="100vh" p={{ base: 0, md: 5 }} gap={5} maxW="1600px" mx="auto">
+    <Flex h="100vh" p={{ base: 0, md: 5 }} gap={5} maxW="100%" w="100%">
       {/* Desktop Sidebar */}
       <Box display={{ base: 'none', md: 'block' }} w="240px" flexShrink={0} position="sticky" top={5} h="calc(100vh - 40px)">
         <SidebarContent />
@@ -256,7 +277,7 @@ export default function App() {
             <AccountBadge
               email={auth.status.email!}
               onLogout={auth.logout}
-              onOpenProfile={() => setTab('account')}
+              onOpenProfile={() => setTab('settings')}
             />
           </HStack>
         </Flex>
@@ -327,26 +348,27 @@ export default function App() {
         {/* Tab Content */}
         <Flex
           p={tab === 'mailbox' ? { base: 3, md: 5 } : { base: 4, md: 7 }}
-          overflowY={tab === 'account' || tab === 'dashboard' ? 'auto' : 'hidden'}
+          overflowY={tab === 'settings' || tab === 'dashboard' || tab === 'digest' || tab === 'timeline' || tab === 'protected' || tab === 'activity' ? 'auto' : 'hidden'}
           overflowX="hidden"
           flex={1}
           direction="column"
           minH={0}
         >
-          {tab === 'dashboard' && <DashboardTab onDisconnected={auth.markDisconnected} onNavigate={setTab} userName={userName} />}
+          {tab === 'dashboard' && <DashboardTab onDisconnected={auth.markDisconnected} onNavigate={(t) => setTab(t as any)} userName={userName} />}
           {tab === 'mailbox' && <MailboxTab onDisconnected={auth.markDisconnected} />}
           {tab === 'storage' && <StorageTab onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
           {tab === 'labels'  && <LabelManager onDisconnected={auth.markDisconnected} onCacheInfo={setCacheInfo} />}
-          {tab === 'account' && <AccountPage userEmail={auth.status.email} onLogout={auth.logout} />}
-          {tab === 'logs' && <LogsPage />}
+          {tab === 'timeline' && <TimelineTab />}
+          {tab === 'activity' && <LogsPage />}
+          {tab === 'digest' && <DigestTab onDisconnected={auth.markDisconnected} accountEmail={auth.status.email ?? ''} />}
+          {tab === 'protected' && <ProtectedTab onDisconnected={auth.markDisconnected} />}
+          {tab === 'settings' && <SettingsTab userEmail={auth.status.email} onLogout={auth.logout} />}
         </Flex>
       </Flex>
 
-      <DigestSettingsDialog
-        open={digestOpen}
-        onClose={() => setDigestOpen(false)}
-        onDisconnected={auth.markDisconnected}
-        accountEmail={auth.status.email ?? ''}
+      <UpgradeModal
+        isOpen={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
       />
 
       <UserProfileModal

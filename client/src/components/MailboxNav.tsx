@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Box, Flex, IconButton, Text, Tooltip, VStack } from '@chakra-ui/react'
 import {
-  CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, EmailIcon, LockIcon,
+  CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, EmailIcon,
   NotAllowedIcon, RepeatIcon,
 } from '@chakra-ui/icons'
 import type { ComponentWithAs, IconProps } from '@chakra-ui/react'
@@ -9,14 +9,13 @@ import { CATEGORY_COLORS } from './SenderTable'
 import FilterToolbar from './FilterToolbar'
 import type { Filter } from '../types'
 
-export type Segment = 'all' | 'unsub' | 'nomethod' | 'subscriptions' | 'protected'
+export type Segment = 'all' | 'unsub' | 'nomethod' | 'subscriptions'
 
 export const SEGMENTS: { key: Segment; label: string; blurb: string; icon: ComponentWithAs<'svg', IconProps> }[] = [
   { key: 'all', label: 'All senders', blurb: 'Everything from your scan', icon: EmailIcon },
   { key: 'unsub', label: 'With unsubscribe', blurb: 'One-click, email, or link', icon: CheckCircleIcon },
   { key: 'nomethod', label: 'No method', blurb: 'No unsubscribe detected', icon: NotAllowedIcon },
   { key: 'subscriptions', label: 'Subscriptions', blurb: 'Recurring paid services', icon: RepeatIcon },
-  { key: 'protected', label: 'Protected list', blurb: 'Shielded from bulk actions', icon: LockIcon },
 ]
 
 const INITIAL_CATEGORIES = 6
