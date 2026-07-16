@@ -1,6 +1,6 @@
-import { describe, it, before, beforeEach, mock } from 'node:test'
+import { describe, it, beforeEach, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { getDb } from '../src/db/db.js'
+import { setDbForTesting, resetDbForTesting } from '../src/db/db.js'
 import { encryptTokens } from '../src/db/crypto.js'
 import { google } from 'googleapis'
 import { runApplyLabelToFilter } from '../src/services/labelService.js'
@@ -8,22 +8,51 @@ import { runApplyLabelToFilter } from '../src/services/labelService.js'
 const TEST_USER = 'test-label-user'
 
 describe('labelService query labeling', () => {
-  before(() => {
-    const db = getDb()
-    db.prepare('INSERT OR IGNORE INTO users (id, email) VALUES (?, ?)').run(TEST_USER, 'testlabel@x.com')
-    const { encrypted, iv } = encryptTokens({ access_token: 'fake-access', refresh_token: 'fake-refresh' })
-    db.prepare('INSERT OR IGNORE INTO tokens (user_id, encrypted, iv) VALUES (?, ?, ?)').run(TEST_USER, encrypted, iv)
-  })
+  let store = {
+    preferences: { user_id: TEST_USER, label_prefix: 'Unsub/' },
+    registry: []
+  }
 
   beforeEach(() => {
-    const db = getDb()
-    db.prepare('DELETE FROM label_registry WHERE user_id = ?').run(TEST_USER)
-    db.prepare('DELETE FROM preferences WHERE user_id = ?').run(TEST_USER)
+    store.preferences = { user_id: TEST_USER, label_prefix: 'Unsub/' }
+    store.registry = []
+
+    const mockSql = async (strings, ...values) => {
+      const queryStr = strings.join('?')
+      if (queryStr.includes('FROM tokens')) {
+        return [encryptTokens({ access_token: 'mock-access-token', refresh_token: 'mock-refresh-token' })]
+      }
+      if (queryStr.includes('FROM preferences') && queryStr.includes('SELECT')) {
+        return [store.preferences]
+      }
+      if (queryStr.includes('INSERT INTO preferences') || queryStr.includes('UPDATE preferences')) {
+        if (values[1] !== undefined && typeof values[1] === 'string' && values[1].includes('/')) {
+          store.preferences.label_prefix = values[1]
+        }
+        return []
+      }
+      if (queryStr.includes('FROM label_registry') && queryStr.includes('SELECT')) {
+        return store.registry
+      }
+      if (queryStr.includes('INSERT INTO label_registry')) {
+        store.registry.push({
+          user_id: values[0],
+          label_name: values[1],
+          gmail_id: values[2]
+        })
+        return []
+      }
+      return []
+    }
+    setDbForTesting(mockSql)
+  })
+
+  afterEach(() => {
+    resetDbForTesting()
   })
 
   it('runApplyLabelToFilter: creates and applies label with configured prefix', async () => {
-    const db = getDb()
-    db.prepare("INSERT INTO preferences (user_id, label_prefix) VALUES (?, 'TestPrefix/')").run(TEST_USER)
+    store.preferences.label_prefix = 'TestPrefix/'
 
     let createCalled = false
     let batchModifyCalled = false
@@ -75,10 +104,9 @@ describe('labelService query labeling', () => {
     assert.ok(batchModifyCalled)
 
     // Check it is registered in the DB
-    const row = db.prepare('SELECT * FROM label_registry WHERE user_id = ?').get(TEST_USER)
-    assert.ok(row)
-    assert.equal(row.label_name, 'TestPrefix/CustomLabel')
-    assert.equal(row.gmail_id, 'NEW_LABEL_ID')
+    assert.ok(store.registry.length > 0)
+    assert.equal(store.registry[0].label_name, 'TestPrefix/CustomLabel')
+    assert.equal(store.registry[0].gmail_id, 'NEW_LABEL_ID')
   })
 
   it('runApplyLabelToFilter: archives tagged emails when archive option is set', async () => {
@@ -88,7 +116,7 @@ describe('labelService query labeling', () => {
       return {
         users: {
           messages: {
-            list: async () => ({
+            list: async ({ q }) => ({
               data: {
                 messages: [{ id: 'msg-1' }]
               }
@@ -123,7 +151,6 @@ describe('labelService query labeling', () => {
           messages: {
             list: async ({ pageToken }) => {
               callCount++
-              // Return 2500 per page to test paging and capping
               if (callCount === 1) {
                 return {
                   data: {

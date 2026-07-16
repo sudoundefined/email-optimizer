@@ -1,6 +1,8 @@
 import { getGmail } from '../gmail/client.js'
 import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { limited } from '../gmail/rateLimiter.js'
+import { getEffectiveScanLimits } from '../utils/preferences.js'
+import { LIST_LIMITS } from '../utils/constants.js'
 
 export function bytesToMB(bytes) {
   return Math.round((bytes / (1024 * 1024)) * 100) / 100
@@ -16,7 +18,7 @@ export const SIZE_BANDS = [
   { key: 'gt25m', label: '> 25 MB', minBytes: 26_214_400, maxBytes: Infinity },
 ]
 
-export function aggregateBySender(messages, limit = 10) {
+export function aggregateBySender(messages, limit = LIST_LIMITS.TOP_SENDERS_CHART) {
   const map = new Map()
   for (const m of messages) {
     const email = m.from.toLowerCase()
@@ -102,16 +104,18 @@ export function filterLargeAttachments(messages, minSizeMB = 5) {
 const caches = new Map()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-async function fetchLargeMessages(gmail, emit) {
+async function fetchLargeMessages(gmail, emit, maxMessages = 5000) {
   const messages = []
   let pageToken
   let listed = 0
   do {
+    const remaining = maxMessages - listed
+    if (remaining <= 0) break
     const res = await limited(() =>
       gmail.users.messages.list({
         userId: 'me',
         q: 'larger:250K -in:trash -in:spam',
-        maxResults: 500,
+        maxResults: Math.min(500, remaining),
         pageToken,
       })
     )
@@ -148,9 +152,9 @@ async function fetchLargeMessages(gmail, emit) {
     listed += ids.length
     pageToken = res.data.nextPageToken
     if (emit) emit({ phase: 'analyzing', processed: listed })
-  } while (pageToken)
+  } while (pageToken && listed < maxMessages)
 
-  return messages
+  return messages.slice(0, maxMessages)
 }
 
 export async function getStorageStats(userId, emit) {
@@ -159,14 +163,15 @@ export async function getStorageStats(userId, emit) {
     const userCache = caches.get(userId)
     if (userCache && (now - userCache.time) < CACHE_TTL) return userCache.data
 
+    const limits = await getEffectiveScanLimits(userId)
     const gmail = await getGmail(userId)
-    const messages = await fetchLargeMessages(gmail, emit)
+    const messages = await fetchLargeMessages(gmail, emit, limits.maxMessages)
 
     const totalBytes = messages.reduce((sum, m) => sum + m.sizeEstimate, 0)
     const stats = {
       totalMB: bytesToMB(totalBytes),
       messageCount: messages.length,
-      senders: aggregateBySender(messages, 10),
+      senders: aggregateBySender(messages, LIST_LIMITS.TOP_SENDERS_CHART),
       months: aggregateByMonth(messages),
       years: aggregateByYear(messages),
       sizes: aggregateBySizeBand(messages),
@@ -183,6 +188,17 @@ export async function getStorageStats(userId, emit) {
  * by: 'sender' → filter by from email (lowercase match)
  * by: 'month'  → filter by YYYY-MM month string
  */
+function formatDrillDownMessage(m) {
+  return {
+    id: m.id,
+    from: (m.from || '').slice(0, 80),
+    subject: (m.subject || '').slice(0, 100),
+    sizeMB: bytesToMB(m.sizeEstimate),
+    date: m.date,
+    hasAttachment: m.hasAttachment,
+  }
+}
+
 export function getDrillDownMessages(userId, by, value) {
   const userCache = caches.get(userId)
   if (!userCache || !userCache._messages) return null   // cache not warm
@@ -193,14 +209,8 @@ export function getDrillDownMessages(userId, by, value) {
     return messages
       .filter(m => m.from.toLowerCase().includes(v))
       .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
-      .map(m => ({
-        id: m.id,
-        from: m.from,
-        subject: m.subject,
-        sizeMB: bytesToMB(m.sizeEstimate),
-        date: m.date,
-        hasAttachment: m.hasAttachment,
-      }))
+      .slice(0, LIST_LIMITS.MESSAGES_MAX)
+      .map(formatDrillDownMessage)
   }
 
   if (by === 'month') {
@@ -211,28 +221,16 @@ export function getDrillDownMessages(userId, by, value) {
         return month === value
       })
       .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
-      .map(m => ({
-        id: m.id,
-        from: m.from,
-        subject: m.subject,
-        sizeMB: bytesToMB(m.sizeEstimate),
-        date: m.date,
-        hasAttachment: m.hasAttachment,
-      }))
+      .slice(0, LIST_LIMITS.MESSAGES_MAX)
+      .map(formatDrillDownMessage)
   }
 
   if (by === 'year') {
     return messages
       .filter(m => String(new Date(m.date).getFullYear()) === value)
       .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
-      .map(m => ({
-        id: m.id,
-        from: m.from,
-        subject: m.subject,
-        sizeMB: bytesToMB(m.sizeEstimate),
-        date: m.date,
-        hasAttachment: m.hasAttachment,
-      }))
+      .slice(0, LIST_LIMITS.MESSAGES_MAX)
+      .map(formatDrillDownMessage)
   }
 
   if (by === 'size') {
@@ -241,14 +239,8 @@ export function getDrillDownMessages(userId, by, value) {
     return messages
       .filter(m => m.sizeEstimate >= band.minBytes && m.sizeEstimate < band.maxBytes)
       .sort((a, b) => b.sizeEstimate - a.sizeEstimate)
-      .map(m => ({
-        id: m.id,
-        from: m.from,
-        subject: m.subject,
-        sizeMB: bytesToMB(m.sizeEstimate),
-        date: m.date,
-        hasAttachment: m.hasAttachment,
-      }))
+      .slice(0, LIST_LIMITS.MESSAGES_MAX)
+      .map(formatDrillDownMessage)
   }
 
   return []

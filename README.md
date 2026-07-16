@@ -22,6 +22,8 @@ A multi-user SaaS web app for cleaning up and optimizing your Gmail inbox. Scan 
 | **Auto-Categorization & Labels** | 18-category label taxonomy applied in place (opt-in archive), a full label manager, and custom query labeling. |
 | **Subscriptions Detector** | Surfaces recurring paid services (Netflix, Spotify, …) with estimated billing cadence — heuristic, cache-only, no extra API calls. |
 | **Weekly Digest Email** | Scheduled scan for new senders with a clean summary emailed from your own Gmail. |
+| **First Login Onboarding & Mailbox Story** | Step-by-step onboarding journey guiding new users through scan depth selection and category protection. Generates an executive "Mailbox Story" summary post-scan and triggers instant celebration metrics (`timeSavedMinutes`, `healthImprovement`) on first cleanup. |
+| **Deterministic Scoring & Insights Engine** | Zero-AI, sub-10ms explainable insights calculation engine producing a bounded Mailbox Health Score (0–100) and 14+ widgets with plain-English `why` explanations, `action` buttons, and 7 unlockable gamification badges. |
 | **Excel Export** | Instant client-side `.xlsx` download of filtered or selected senders with split name columns and domains. |
 | **Account & Audit Log** | Profile, per-user preferences, and a searchable activity audit trail; full cascade account deletion. |
 | **Themes & Dark Mode** | Two curated themes — *Botanical Forest* and *Espresso* — each with full light and dark variants. |
@@ -111,6 +113,7 @@ npm run db:inspect -w server  # inspect SQLite tables, row counts, samples
 | :--- | :--- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | HLD + LLD (client & server), database schema, security model, API endpoints, data flows |
 | [FEATURES.md](FEATURES.md) | Feature guides, safety model, release status, roadmap |
+| [FEATURES_V2.md](FEATURES_V2.md) | V2 architectural additions: SQL DBA optimization, First Login Onboarding, Deterministic Scoring & Insights Engine |
 | [DESIGN.md](DESIGN.md) | Design system: themes, semantic tokens, component inventory, UI rules |
 | [CLAUDE.md](CLAUDE.md) | AI/developer context: commands, project layout, core patterns, gotchas |
 

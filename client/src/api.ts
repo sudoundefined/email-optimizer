@@ -14,6 +14,12 @@ import type {
   StorageDrillMessage,
   DigestState,
   DigestSettings,
+  OnboardingState,
+  MailboxStoryResponse,
+  DashboardInsightsResponse,
+  DashboardScores,
+  DashboardWidgets,
+  TrashMessagesResult,
 } from './types'
 
 export class ApiError extends Error {
@@ -49,6 +55,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   authStatus: () => request<AuthStatus>('/api/auth/status'),
+  demoLogin: () => request<{ ok: boolean; user: any }>('/api/auth/demo-login', { method: 'POST' }),
   logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
   startScan: (range: string) =>
     request<{ jobId: string }>('/api/scan', { method: 'POST', body: JSON.stringify({ range }) }),
@@ -111,7 +118,7 @@ export const api = {
       `/api/storage/messages?by=${encodeURIComponent(by)}&value=${encodeURIComponent(value)}`
     ),
   trashMessages: (messageIds: string[]) =>
-    request<{ trashed: number } | { jobId: string }>('/api/messages/trash', {
+    request<TrashMessagesResult | { jobId: string }>('/api/messages/trash', {
       method: 'POST',
       body: JSON.stringify({ messageIds }),
     }),
@@ -127,4 +134,23 @@ export const api = {
     }),
   runDigest: () => request<{ jobId: string }>('/api/digest/run', { method: 'POST' }),
   previewDigest: () => request<{ jobId: string }>('/api/digest/preview', { method: 'POST' }),
+
+  // Onboarding endpoints
+  getOnboardingState: () => request<OnboardingState>('/api/user/onboarding'),
+  updateOnboardingStep: (step: string) =>
+    request<OnboardingState>('/api/user/onboarding', { method: 'PATCH', body: JSON.stringify({ step }) }),
+  configureOnboardingScan: (opts: { timeRange: string; maxMessages: number }) =>
+    request<{ jobId: string }>('/api/user/onboarding/configure', { method: 'POST', body: JSON.stringify(opts) }),
+  getMailboxStory: () => request<MailboxStoryResponse>('/api/user/onboarding/story'),
+  completeOnboarding: (step?: string) =>
+    request<OnboardingState>('/api/user/onboarding/complete', { method: 'POST', body: JSON.stringify({ step }) }),
+
+  // Insights & Dashboard endpoints
+  getDashboardInsights: () => request<DashboardInsightsResponse>('/api/insights/dashboard'),
+  getHealthInsights: () =>
+    request<{ scores: DashboardScores; healthWidget: DashboardWidgets['health'] }>('/api/insights/health'),
+  getPrioritiesInsights: () => request<{ priorities: DashboardWidgets['topPriorities'] }>('/api/insights/priorities'),
+  getMailboxDna: () => request<{ dna: DashboardWidgets['dna'] }>('/api/insights/dna'),
+  getAchievements: () => request<{ achievements: DashboardWidgets['achievements'] }>('/api/insights/achievements'),
+  recalculateInsights: () => request<DashboardInsightsResponse>('/api/insights/recalculate', { method: 'POST' }),
 }

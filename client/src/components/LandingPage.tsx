@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { api } from '../api'
 import {
   Box,
   Flex,
@@ -16,6 +17,7 @@ import {
   Divider,
   Collapse,
   IconButton,
+  Link,
 } from '@chakra-ui/react'
 import {
   Sparkles,
@@ -157,7 +159,19 @@ export default function LandingPage() {
   const [activeTestimonial, setActiveTestimonial] = useState(0)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [coords, setCoords] = useState({ x: 0, y: 0 })
+  const [demoLoading, setDemoLoading] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
+
+  const handleDemoLogin = async () => {
+    try {
+      setDemoLoading(true)
+      await api.demoLogin()
+      window.location.reload()
+    } catch (err) {
+      console.error('Demo login failed:', err)
+      setDemoLoading(false)
+    }
+  }
 
   // Autoplay testimonials
   useEffect(() => {
@@ -248,33 +262,33 @@ export default function LandingPage() {
 
             {/* Links (Desktop) */}
             <HStack spacing={8} display={{ base: 'none', md: 'flex' }}>
-              <Box as="a" href="#features" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">Features</Box>
-              <Box as="a" href="#how-it-works" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">How it Works</Box>
-              <Box as="a" href="#pricing" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">Pricing</Box>
-              <Box as="a" href="#security" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">Security</Box>
-              <Box as="a" href="#faq" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">FAQ</Box>
+              <Link href="#features" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">Features</Link>
+              <Link href="#how-it-works" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">How it Works</Link>
+              <Link href="#pricing" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">Pricing</Link>
+              <Link href="#security" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">Security</Link>
+              <Link href="#faq" fontSize="14px" fontWeight={500} color="gray.400" _hover={{ color: 'white' }} transition="color 0.2s">FAQ</Link>
             </HStack>
 
             {/* CTAs (Desktop) */}
             <HStack spacing={4} display={{ base: 'none', md: 'flex' }}>
-              <Box as="a" href="/api/auth/login" fontSize="14px" fontWeight={600} color="gray.300" _hover={{ color: 'white' }}>
+              <Link href="/api/auth/login" fontSize="14px" fontWeight={600} color="gray.300" _hover={{ color: 'white' }}>
                 Sign In
-              </Box>
-              <Button
-                as="a"
-                href="/api/auth/login"
-                size="sm"
-                px={5}
-                py={5}
-                bg="#16A34A"
-                color="white"
-                borderRadius="full"
-                fontWeight={600}
-                _hover={{ bg: '#22C55E', transform: 'translateY(-1px)', boxShadow: '0 4px 15px rgba(22, 197, 94, 0.4)' }}
-                transition="all 0.2s"
-              >
-                Connect Gmail — Free
-              </Button>
+              </Link>
+              <Link href="/api/auth/login" _hover={{ textDecoration: 'none' }}>
+                <Button
+                  size="sm"
+                  px={5}
+                  py={5}
+                  bg="#16A34A"
+                  color="white"
+                  borderRadius="full"
+                  fontWeight={600}
+                  _hover={{ bg: '#22C55E', transform: 'translateY(-1px)', boxShadow: '0 4px 15px rgba(22, 197, 94, 0.4)' }}
+                  transition="all 0.2s"
+                >
+                  Connect Gmail — Free
+                </Button>
+              </Link>
             </HStack>
 
             {/* Mobile Menu Toggle */}
@@ -292,24 +306,24 @@ export default function LandingPage() {
           {/* Mobile Dropdown Menu */}
           <Collapse in={mobileMenuOpen} animateOpacity>
             <VStack spacing={4} align="stretch" mt={4} p={4} bg="rgba(11, 19, 32, 0.95)" borderRadius="xl" border="1px solid rgba(255,255,255,0.08)">
-              <Box as="a" href="#features" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">Features</Box>
-              <Box as="a" href="#how-it-works" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">How it Works</Box>
-              <Box as="a" href="#pricing" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">Pricing</Box>
-              <Box as="a" href="#security" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">Security</Box>
-              <Box as="a" href="#faq" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">FAQ</Box>
+              <Link href="#features" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">Features</Link>
+              <Link href="#how-it-works" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">How it Works</Link>
+              <Link href="#pricing" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">Pricing</Link>
+              <Link href="#security" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">Security</Link>
+              <Link href="#faq" onClick={() => setMobileMenuOpen(false)} py={1} color="gray.300">FAQ</Link>
               <Divider borderColor="whiteAlpha.150" />
               <Flex justify="space-between" align="center" pt={2}>
-                <Box as="a" href="/api/auth/login" fontWeight={600} color="gray.300">Sign In</Box>
-                <Button
-                  as="a"
-                  href="/api/auth/login"
-                  size="sm"
-                  bg="#16A34A"
-                  color="white"
-                  borderRadius="full"
-                >
-                  Connect Gmail
-                </Button>
+                <Link href="/api/auth/login" fontWeight={600} color="gray.300">Sign In</Link>
+                <Link href="/api/auth/login" _hover={{ textDecoration: 'none' }}>
+                  <Button
+                    size="sm"
+                    bg="#16A34A"
+                    color="white"
+                    borderRadius="full"
+                  >
+                    Connect Gmail
+                  </Button>
+                </Link>
               </Flex>
             </VStack>
           </Collapse>
@@ -361,28 +375,45 @@ export default function LandingPage() {
 
             <VStack align="stretch" w="100%" spacing={4}>
               <Flex direction={{ base: 'column', sm: 'row' }} gap={4}>
+                <Link href="/api/auth/login" _hover={{ textDecoration: 'none' }}>
+                  <Button
+                    bg="linear-gradient(135deg, #16A34A 0%, #22C55E 100%)"
+                    color="white"
+                    size="lg"
+                    h="60px"
+                    px={8}
+                    borderRadius="full"
+                    fontSize="16px"
+                    fontWeight={700}
+                    boxShadow="0 8px 24px rgba(22, 163, 74, 0.35)"
+                    rightIcon={<Icon as={ArrowRight} boxSize={5} />}
+                    _hover={{ bg: '#22C55E', transform: 'translateY(-2px)', boxShadow: '0 12px 30px rgba(22, 197, 94, 0.5)' }}
+                    transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+                  >
+                    <HStack spacing={3}>
+                      <Box w={3} h={3} borderRadius="full" bg="white" position="relative" display="flex" alignItems="center" justifyContent="center">
+                        <Box w={3} h={3} borderRadius="full" bg="white" position="absolute" opacity={0.6} />
+                      </Box>
+                      <Text>Connect Gmail — Free</Text>
+                    </HStack>
+                  </Button>
+                </Link>
                 <Button
-                  as="a"
-                  href="/api/auth/login"
-                  bg="linear-gradient(135deg, #16A34A 0%, #22C55E 100%)"
-                  color="white"
+                  variant="outline"
+                  borderColor="rgba(34, 197, 94, 0.4)"
+                  color="#22C55E"
                   size="lg"
                   h="60px"
                   px={8}
                   borderRadius="full"
                   fontSize="16px"
                   fontWeight={700}
-                  boxShadow="0 8px 24px rgba(22, 163, 74, 0.35)"
-                  rightIcon={<Icon as={ArrowRight} boxSize={5} />}
-                  _hover={{ bg: '#22C55E', transform: 'translateY(-2px)', boxShadow: '0 12px 30px rgba(22, 197, 94, 0.5)' }}
+                  isLoading={demoLoading}
+                  onClick={handleDemoLogin}
+                  _hover={{ bg: 'rgba(34, 197, 94, 0.1)', borderColor: '#22C55E', transform: 'translateY(-2px)' }}
                   transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
                 >
-                  <HStack spacing={3}>
-                    <Box w={3} h={3} borderRadius="full" bg="white" position="relative" display="flex" alignItems="center" justifyContent="center">
-                      <Box w={3} h={3} borderRadius="full" bg="white" position="absolute" opacity={0.6} />
-                    </Box>
-                    <Text>Connect Gmail — Free</Text>
-                  </HStack>
+                  ⚡ Enter Demo / Sandbox Mode
                 </Button>
               </Flex>
 
@@ -838,20 +869,20 @@ export default function LandingPage() {
                     </HStack>
                   ))}
                 </VStack>
-                <Button
-                  as="a"
-                  href="/api/auth/login"
-                  w="100%"
-                  size="lg"
-                  bg={plan.popular ? '#16A34A' : 'rgba(255, 255, 255, 0.06)'}
-                  color="white"
-                  borderRadius="full"
-                  fontSize="14px"
-                  fontWeight={700}
-                  _hover={{ bg: plan.popular ? '#22C55E' : 'rgba(255, 255, 255, 0.12)' }}
-                >
-                  {plan.cta}
-                </Button>
+                <Link href="/api/auth/login" w="100%" _hover={{ textDecoration: 'none' }}>
+                  <Button
+                    w="100%"
+                    size="lg"
+                    bg={plan.popular ? '#16A34A' : 'rgba(255, 255, 255, 0.06)'}
+                    color="white"
+                    borderRadius="full"
+                    fontSize="14px"
+                    fontWeight={700}
+                    _hover={{ bg: plan.popular ? '#22C55E' : 'rgba(255, 255, 255, 0.12)' }}
+                  >
+                    {plan.cta}
+                  </Button>
+                </Link>
               </Box>
             ))}
           </SimpleGrid>
@@ -1000,23 +1031,23 @@ export default function LandingPage() {
               Join thousands of users keeping Gmail clean, organized, and protected without losing storage or peace of mind.
             </Text>
 
-            <Button
-              as="a"
-              href="/api/auth/login"
-              bg="linear-gradient(135deg, #16A34A 0%, #22C55E 100%)"
-              color="white"
-              size="lg"
-              h="54px"
-              px={8}
-              borderRadius="full"
-              fontSize="15px"
-              fontWeight={700}
-              boxShadow="0 6px 20px rgba(22, 163, 74, 0.3)"
-              rightIcon={<Icon as={ArrowRight} boxSize={4} />}
-              _hover={{ bg: '#22C55E', transform: 'translateY(-1px)', boxShadow: '0 10px 25px rgba(22, 197, 94, 0.4)' }}
-            >
-              Connect Gmail — Free
-            </Button>
+            <Link href="/api/auth/login" _hover={{ textDecoration: 'none' }}>
+              <Button
+                bg="linear-gradient(135deg, #16A34A 0%, #22C55E 100%)"
+                color="white"
+                size="lg"
+                h="54px"
+                px={8}
+                borderRadius="full"
+                fontSize="15px"
+                fontWeight={700}
+                boxShadow="0 6px 20px rgba(22, 163, 74, 0.3)"
+                rightIcon={<Icon as={ArrowRight} boxSize={4} />}
+                _hover={{ bg: '#22C55E', transform: 'translateY(-1px)', boxShadow: '0 10px 25px rgba(22, 197, 94, 0.4)' }}
+              >
+                Connect Gmail — Free
+              </Button>
+            </Link>
           </VStack>
         </Box>
       </Container>
@@ -1049,25 +1080,25 @@ export default function LandingPage() {
             {/* Product Column */}
             <VStack align="flex-start" spacing={3}>
               <Text fontSize="11px" fontWeight={800} color="white" letterSpacing="wider" textTransform="uppercase">Product</Text>
-              <Box as="a" href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Unsubscriber</Box>
-              <Box as="a" href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Storage Reclaimer</Box>
-              <Box as="a" href="#pricing" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Pricing Plans</Box>
+              <Link href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Unsubscriber</Link>
+              <Link href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Storage Reclaimer</Link>
+              <Link href="#pricing" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Pricing Plans</Link>
             </VStack>
 
             {/* Resources Column */}
             <VStack align="flex-start" spacing={3}>
               <Text fontSize="11px" fontWeight={800} color="white" letterSpacing="wider" textTransform="uppercase">Resources</Text>
-              <Box as="a" href="#faq" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Help Center</Box>
-              <Box as="a" href="#faq" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Security Center</Box>
-              <Box as="a" href="#faq" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>FAQ Documentation</Box>
+              <Link href="#faq" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Help Center</Link>
+              <Link href="#faq" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Security Center</Link>
+              <Link href="#faq" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>FAQ Documentation</Link>
             </VStack>
 
             {/* Company Column */}
             <VStack align="flex-start" spacing={3}>
               <Text fontSize="11px" fontWeight={800} color="white" letterSpacing="wider" textTransform="uppercase">Company</Text>
-              <Box as="a" href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>About Us</Box>
-              <Box as="a" href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Privacy Practices</Box>
-              <Box as="a" href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Contact Support</Box>
+              <Link href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>About Us</Link>
+              <Link href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Privacy Practices</Link>
+              <Link href="#features" fontSize="12px" color="gray.500" _hover={{ color: 'white' }}>Contact Support</Link>
             </VStack>
 
           </SimpleGrid>
@@ -1077,9 +1108,9 @@ export default function LandingPage() {
           <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align="center" fontSize="11px" color="gray.500">
             <Text>&copy; {new Date().getFullYear()} EmailDiet. All rights reserved.</Text>
             <HStack spacing={6} mt={{ base: 4, md: 0 }}>
-              <Box as="a" href="/privacy" _hover={{ color: 'white' }}>Privacy Policy</Box>
-              <Box as="a" href="/terms" _hover={{ color: 'white' }}>Terms of Service</Box>
-              <Box as="a" href="/security" _hover={{ color: 'white' }}>Security Standard</Box>
+              <Link href="/privacy" _hover={{ color: 'white' }}>Privacy Policy</Link>
+              <Link href="/terms" _hover={{ color: 'white' }}>Terms of Service</Link>
+              <Link href="/security" _hover={{ color: 'white' }}>Security Standard</Link>
             </HStack>
           </Flex>
         </Container>

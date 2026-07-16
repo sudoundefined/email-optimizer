@@ -22,7 +22,7 @@ export const config = {
   clientId: process.env.GOOGLE_CLIENT_ID || '',
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   redirectUri: process.env.REDIRECT_URI || 'http://localhost:3001/api/auth/callback',
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+  clientUrl: process.env.CLIENT_URL || 'http://localhost:5250',
 
   // Database
   dataDir: path.join(serverRoot, 'data'),
@@ -37,7 +37,7 @@ export const config = {
   cookieSecure: process.env.NODE_ENV === 'production',
 
   // CORS (for different subdomain deployment)
-  corsOrigin: process.env.CORS_ORIGIN || process.env.CLIENT_URL || 'http://localhost:5173',
+  corsOrigin: process.env.CORS_ORIGIN || process.env.CLIENT_URL || 'http://localhost:5250',
 
   // Scan limits
   // No scan cap by default — scan the entire matching set. Set
@@ -47,6 +47,9 @@ export const config = {
 
   // Rate limiting
   rateLimitPerMinute: Number(process.env.RATE_LIMIT_PER_MINUTE || 60),
+
+  // Demo / Sandbox mode
+  demoMode: process.env.DEMO_MODE === 'true' || process.env.MOCK_GMAIL === 'true',
 }
 
 export const SCOPES = [

@@ -1,0 +1,1504 @@
+openapi: 3.0.3
+info:
+  title: EmailDiet Multi-User SaaS API
+  description: |
+    Self-hosted and multi-user Gmail optimizer API.
+    All operations are non-destructive by default (moving to Gmail TRASH only) and operate on email metadata headers (`From`, `Subject`, `Date`, `List-Unsubscribe`, `List-Unsubscribe-Post`).
+    
+    ### Authentication & User Isolation
+    Protected endpoints require a valid session JWT cookie (`oauth_state` or `auth_token`).
+    Every request and database operation is strictly scoped to the authenticated user ID (`req.userId` extracted from the JWT cookie) adhering to a 1:1 user/account model.
+  version: 1.0.0
+  contact:
+    name: EmailDiet Support
+    email: support@emaildiet.com
+servers:
+  - url: http://localhost:3001
+    description: Local Development Server
+  - url: https://api.emaildiet.com
+    description: Production Environment
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: HTTP-only JWT session cookie obtained via `/api/auth/callback` or `/api/auth/demo-login`.
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: not_connected
+        message:
+          type: string
+          example: Token expired or revoked
+    
+    AuthStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          example: true
+        email:
+          type: string
+          example: demo.personal@gmail.com
+        user:
+          $ref: '#/components/schemas/User'
+
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: acc_demo_personal
+        email:
+          type: string
+          example: demo.personal@gmail.com
+        displayName:
+          type: string
+          example: Demo Personal
+        avatarUrl:
+          type: string
+          example: https://lh3.googleusercontent.com/a/demo-personal
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+
+
+
+    Preferences:
+      type: object
+      properties:
+        defaultTimeRange:
+          type: string
+          enum: [1m, 3m, 6m, 1y, all]
+          example: 6m
+        scanMaxMessages:
+          type: integer
+          nullable: true
+          example: 5000
+        labelPrefix:
+          type: string
+          example: Unsub/
+        digestEnabled:
+          type: boolean
+          example: true
+        digestDay:
+          type: integer
+          minimum: 0
+          maximum: 6
+          example: 1
+        digestHour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          example: 9
+        digestRecipient:
+          type: string
+          example: demo.personal@gmail.com
+        onboardingStep:
+          type: string
+          enum: [welcome, privacy, config, scanning, story, celebration, completed]
+          example: completed
+        hasCompletedOnboarding:
+          type: boolean
+          example: true
+        protectedCategories:
+          type: array
+          items:
+            type: string
+          example: [Banking, Finance, Bills]
+
+    Sender:
+      type: object
+      properties:
+        email:
+          type: string
+          example: newsletter@substack.com
+        name:
+          type: string
+          example: Substack Newsletter
+        domain:
+          type: string
+          example: substack.com
+        messageCount:
+          type: integer
+          example: 24
+        latestSubject:
+          type: string
+          example: Weekly Tech Roundup #104
+        latestDate:
+          type: integer
+          description: Unix timestamp in milliseconds
+          example: 1721088000000
+        method:
+          type: string
+          enum: [oneclick, mailto, link, none]
+          example: oneclick
+
+    Subscription:
+      type: object
+      properties:
+        vendor:
+          type: string
+          example: Netflix
+        email:
+          type: string
+          example: billing@netflix.com
+        name:
+          type: string
+          example: Netflix Billing
+        domain:
+          type: string
+          example: netflix.com
+        messageCount:
+          type: integer
+          example: 12
+        cadence:
+          type: string
+          enum: [weekly, monthly, quarterly, annual, unknown]
+          example: monthly
+        lastSeen:
+          type: integer
+          example: 1721088000000
+        method:
+          type: string
+          enum: [oneclick, mailto, link, none]
+
+    ScanResult:
+      type: object
+      properties:
+        scannedAt:
+          type: string
+          format: date-time
+        range:
+          type: string
+          example: 6m
+        messageCount:
+          type: integer
+          example: 1542
+        senders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sender'
+
+    JobSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          example: scan
+        state:
+          type: string
+          enum: [running, done, error, cancelled]
+        progress:
+          type: object
+          additionalProperties: true
+        result:
+          type: object
+          nullable: true
+          additionalProperties: true
+        error:
+          type: string
+          nullable: true
+
+    Suggestion:
+      type: object
+      properties:
+        senderEmail:
+          type: string
+          example: orders@amazon.com
+        messageCount:
+          type: integer
+          example: 45
+        category:
+          type: string
+          example: Shopping
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        reason:
+          type: string
+          example: Matches known e-commerce vendor domain
+
+    ProtectedSender:
+      type: object
+      properties:
+        email:
+          type: string
+          example: alerts@chase.com
+        reason:
+          type: string
+          enum: [auto:domain, auto:subject, manual]
+        addedAt:
+          type: string
+          format: date-time
+
+    StorageStats:
+      type: object
+      properties:
+        totalMB:
+          type: number
+          example: 482.5
+        messageCount:
+          type: integer
+          example: 1542
+        senders:
+          type: array
+          items:
+            type: object
+            properties:
+              email:
+                type: string
+              name:
+                type: string
+              totalMB:
+                type: number
+              messageCount:
+                type: integer
+        months:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+                example: 2026-07
+              totalMB:
+                type: number
+              messageCount:
+                type: integer
+        years:
+          type: array
+          items:
+            type: object
+            properties:
+              year:
+                type: string
+                example: '2026'
+              totalMB:
+                type: number
+              messageCount:
+                type: integer
+        sizes:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                example: '>10MB'
+              label:
+                type: string
+                example: Over 10 MB
+              totalMB:
+                type: number
+              messageCount:
+                type: integer
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              from:
+                type: string
+              subject:
+                type: string
+              sizeMB:
+                type: number
+              date:
+                type: integer
+
+    OnboardingState:
+      type: object
+      properties:
+        step:
+          type: string
+          enum: [welcome, privacy, config, scanning, story, celebration, completed]
+          example: story
+        isCompleted:
+          type: boolean
+          example: false
+        shouldStartAtDashboard:
+          type: boolean
+          example: false
+        protectedCategories:
+          type: array
+          items:
+            type: string
+          example: [Banking, Finance]
+        error:
+          type: string
+          nullable: true
+
+    MailboxStoryResponse:
+      type: object
+      properties:
+        totalEmails:
+          type: integer
+          example: 12450
+        totalStorageBytes:
+          type: integer
+          example: 4521984000
+        totalStorageMB:
+          type: number
+          example: 4312.5
+        totalStorageGB:
+          type: number
+          example: 4.21
+        subscriptionSendersCount:
+          type: integer
+          example: 34
+        promotionsAndMarketingCount:
+          type: integer
+          example: 8420
+        promotionsStorageMB:
+          type: number
+          example: 2150.0
+        promotionsStorageGB:
+          type: number
+          example: 2.10
+        topSenders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sender'
+        dominantCategory:
+          type: object
+          properties:
+            category:
+              type: string
+              example: Promotions
+            percentage:
+              type: integer
+              example: 68
+            senderCount:
+              type: integer
+              example: 45
+        cleanupPotential:
+          type: object
+          properties:
+            recoverableMessages:
+              type: integer
+              example: 8420
+            recoverableStorageMB:
+              type: number
+              example: 2150.0
+            recoverableStorageGB:
+              type: number
+              example: 2.10
+            estimatedHoursSaved:
+              type: number
+              example: 9.4
+        isClean:
+          type: boolean
+          example: false
+
+    CelebrationPayload:
+      type: object
+      properties:
+        emailsCleaned:
+          type: integer
+          example: 150
+        storageMB:
+          type: number
+          example: 345.2
+        timeSavedMinutes:
+          type: integer
+          example: 10
+        healthImprovement:
+          type: integer
+          example: 15
+
+    DashboardScores:
+      type: object
+      properties:
+        healthScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 78
+        healthLevel:
+          type: string
+          enum: [Excellent, Good, Fair, Needs Attention]
+          example: Good
+        cleanlinessScore:
+          type: integer
+          example: 82
+        storageEfficiencyScore:
+          type: integer
+          example: 74
+        subscriptionHygieneScore:
+          type: integer
+          example: 80
+        organizationScore:
+          type: integer
+          example: 65
+        securityScore:
+          type: integer
+          example: 90
+        priorityScore:
+          type: integer
+          example: 70
+        cleanupPotential:
+          type: object
+          properties:
+            messages:
+              type: integer
+            storageMB:
+              type: number
+            storageGB:
+              type: number
+            percentageOfTotal:
+              type: integer
+
+    DashboardWidgets:
+      type: object
+      properties:
+        health:
+          type: object
+        topPriorities:
+          type: array
+          items:
+            type: object
+        dna:
+          type: object
+        promotions:
+          type: object
+        storage:
+          type: object
+        timeSaved:
+          type: object
+        streak:
+          type: object
+        forecast:
+          type: object
+        achievements:
+          type: array
+          items:
+            type: object
+        cleanupPotential:
+          type: object
+
+    DashboardInsightsResponse:
+      type: object
+      properties:
+        scores:
+          $ref: '#/components/schemas/DashboardScores'
+        widgets:
+          $ref: '#/components/schemas/DashboardWidgets'
+        lastUpdated:
+          type: string
+          format: date-time
+        isCached:
+          type: boolean
+          example: true
+
+paths:
+  # ==========================================
+  # Public & Health Endpoints
+  # ==========================================
+  /api/health:
+    get:
+      tags: [Public]
+      summary: Health check endpoint
+      responses:
+        '200':
+          description: API is online
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /legal/privacy:
+    get:
+      tags: [Public]
+      summary: Public Privacy Policy HTML page
+      responses:
+        '200':
+          description: HTML content
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /legal/terms:
+    get:
+      tags: [Public]
+      summary: Public Terms of Service HTML page
+      responses:
+        '200':
+          description: HTML content
+          content:
+            text/html:
+              schema:
+                type: string
+
+  # ==========================================
+  # Authentication & Account Management
+  # ==========================================
+  /api/auth/status:
+    get:
+      tags: [Auth]
+      summary: Check current authentication state and list connected accounts
+      responses:
+        '200':
+          description: Current auth state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatus'
+
+  /api/auth/login:
+    get:
+      tags: [Auth]
+      summary: Initiate Google OAuth 2.0 flow
+      description: Sets `oauth_state` cookie and redirects to Google consent screen.
+      responses:
+        '302':
+          description: Redirect to Google OAuth
+
+  /api/auth/demo-login:
+    post:
+      tags: [Auth]
+      summary: Enter Sandbox / Demo Mode instantly
+      description: Sets in-memory demo flag, seeds demo dataset, and issues a valid JWT cookie for `acc_demo_personal`.
+      responses:
+        '200':
+          description: Sandbox session established
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout and revoke current token
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+
+
+  # ==========================================
+  # User Profile & Preferences (Protected)
+  # ==========================================
+  /api/user/profile:
+    get:
+      tags: [User]
+      summary: Get user profile summary
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User profile summary
+
+  /api/user/preferences:
+    get:
+      tags: [User]
+      summary: Get user preferences
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+    patch:
+      tags: [User]
+      summary: Update user preferences
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                defaultTimeRange:
+                  type: string
+                scanMaxMessages:
+                  type: integer
+                labelPrefix:
+                  type: string
+      responses:
+        '200':
+          description: Updated preferences
+
+  /api/user/activity:
+    get:
+      tags: [User]
+      summary: Get full audit trail of user activities
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Activity log entries
+
+  /api/user/gamification:
+    get:
+      tags: [User]
+      summary: Get gamification stats (hours saved, CO2 reduced)
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Gamification statistics
+
+  # ==========================================
+  # First Login Onboarding Workflow
+  # ==========================================
+  /api/user/onboarding:
+    get:
+      tags: [Onboarding]
+      summary: Get current first-login onboarding state
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Onboarding state and routing decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingState'
+    patch:
+      tags: [Onboarding]
+      summary: Update onboarding step status
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                step:
+                  type: string
+                  enum: [welcome, privacy, config, scanning, story, celebration, completed]
+      responses:
+        '200':
+          description: Updated onboarding state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingState'
+
+  /api/user/onboarding/configure:
+    post:
+      tags: [Onboarding]
+      summary: Configure scan preferences and trigger initial onboarding scan
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeRange:
+                  type: string
+                  enum: [1m, 3m, 6m, 1y, all]
+                  default: 3m
+                maxMessages:
+                  type: integer
+                  example: 500
+                protectedCategories:
+                  type: array
+                  items:
+                    type: string
+                  example: [Banking, Finance, Bills]
+      responses:
+        '200':
+          description: Initial scan initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  status:
+                    type: string
+                    example: scanning
+
+  /api/user/onboarding/story:
+    get:
+      tags: [Onboarding]
+      summary: Get executive Mailbox Story summary from initial scan
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Mailbox Story overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailboxStoryResponse'
+
+  /api/user/onboarding/complete:
+    post:
+      tags: [Onboarding]
+      summary: Mark onboarding as completed and retrieve celebration time-saved metrics
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailsCleaned:
+                  type: integer
+                storageMB:
+                  type: number
+      responses:
+        '200':
+          description: Onboarding completed with celebration metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CelebrationPayload'
+
+  # ==========================================
+  # Deterministic Insights & Dashboard
+  # ==========================================
+  /api/insights/dashboard:
+    get:
+      tags: [Insights]
+      summary: Retrieve full deterministic dashboard insights and scores (<10ms cache)
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Complete dashboard insights and explainable widgets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardInsightsResponse'
+
+  /api/insights/health:
+    get:
+      tags: [Insights]
+      summary: Get detailed 6-part weighted formula breakdown for Mailbox Health Score
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Health widget and breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardScores'
+
+  /api/insights/priorities:
+    get:
+      tags: [Insights]
+      summary: Get top high-impact opportunities ranked by messageCount * storageMB
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Priority opportunities list
+
+  /api/insights/dna:
+    get:
+      tags: [Insights]
+      summary: Get Mailbox Identity profile based on category distribution
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Mailbox DNA profile
+
+  /api/insights/achievements:
+    get:
+      tags: [Insights]
+      summary: Get 7 unlockable gamification badges and progress status
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Gamification achievements list
+
+  /api/insights/recalculate:
+    post:
+      tags: [Insights]
+      summary: Manually trigger deterministic calculation engine and refresh dashboard cache
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Recalculated dashboard insights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardInsightsResponse'
+
+  # ==========================================
+  # Scan & Senders (Protected)
+  # ==========================================
+  /api/scan:
+    post:
+      tags: [Scan]
+      summary: Start background mailbox scan job
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                range:
+                  type: string
+                  enum: [1m, 3m, 6m, 1y, all]
+                  default: 6m
+      responses:
+        '200':
+          description: Scan job initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+
+  /api/senders:
+    get:
+      tags: [Scan]
+      summary: Get cached sender scan results
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Scan summary and aggregated senders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResult'
+
+  /api/subscriptions:
+    get:
+      tags: [Scan]
+      summary: Get detected recurring subscriptions
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of recurring subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subscription'
+
+  /api/senders/trash:
+    post:
+      tags: [Senders]
+      summary: Bulk move all emails from given senders to Gmail TRASH
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senderEmails]
+              properties:
+                senderEmails:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Trash job started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    nullable: true
+                  excluded:
+                    type: integer
+                    description: Number of senders excluded by protection rules
+
+  /api/senders/keep-latest:
+    post:
+      tags: [Senders]
+      summary: Keep latest N messages per sender and trash historical clutter
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senderEmails]
+              properties:
+                senderEmails:
+                  type: array
+                  items:
+                    type: string
+                keepCount:
+                  type: integer
+                  default: 1
+      responses:
+        '200':
+          description: Keep-latest job started
+
+  # ==========================================
+  # Unsubscribe (Protected)
+  # ==========================================
+  /api/unsubscribe:
+    post:
+      tags: [Unsubscribe]
+      summary: Bulk unsubscribe from selected marketing senders
+      description: Executes RFC 8058 one-click POST requests or constructs mailto unsubscribe actions.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senderEmails]
+              properties:
+                senderEmails:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Unsubscribe job initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    nullable: true
+                  excluded:
+                    type: integer
+
+  # ==========================================
+  # Labels & Categorization (Protected)
+  # ==========================================
+  /api/labels/suggestions:
+    get:
+      tags: [Labels]
+      summary: Get AI/heuristic label suggestions for top senders
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of category suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Suggestion'
+
+  /api/labels/apply:
+    post:
+      tags: [Labels]
+      summary: Apply category labels to specific senders
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignments]
+              properties:
+                assignments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      senderEmail:
+                        type: string
+                      category:
+                        type: string
+      responses:
+        '200':
+          description: Labeling job started
+
+  /api/labels/apply-filter:
+    post:
+      tags: [Labels]
+      summary: Apply label to messages matching a custom Gmail query
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query, labelName]
+              properties:
+                query:
+                  type: string
+                  example: from:substack.com
+                labelName:
+                  type: string
+                  example: Newsletters/Substack
+                archive:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Custom query labeling job initiated
+
+  /api/labels:
+    get:
+      tags: [Labels]
+      summary: List all app-created and system Gmail labels
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of labels
+
+  /api/labels/{id}:
+    delete:
+      tags: [Labels]
+      summary: Delete an app-created Gmail label
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Label deleted
+
+  /api/labels/{id}/messages:
+    get:
+      tags: [Labels]
+      summary: Get messages inside a specific label
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Messages in label
+
+  # ==========================================
+  # Inbox Filters & Groups (Protected)
+  # ==========================================
+  /api/inbox/filters:
+    get:
+      tags: [Inbox]
+      summary: Get available smart inbox filters
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of pre-built filters
+
+  /api/inbox/groups:
+    get:
+      tags: [Inbox]
+      summary: Get inbox category groups and message counts
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of inbox groups
+
+  /api/inbox/groups/{key}/messages:
+    get:
+      tags: [Inbox]
+      summary: Get messages inside an inbox group
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Group messages
+
+  /api/inbox/filter:
+    get:
+      tags: [Inbox]
+      summary: Run search query against Gmail
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching messages
+
+  /api/inbox/filter/{key}/trash:
+    post:
+      tags: [Inbox]
+      summary: Move all messages matching a pre-built filter to Trash
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Filter trash job initiated
+
+  # ==========================================
+  # Protected Senders / Whitelist (Protected)
+  # ==========================================
+  /api/protect:
+    get:
+      tags: [Protection]
+      summary: List all protected senders
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Protected senders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProtectedSender'
+    post:
+      tags: [Protection]
+      summary: Add senders to protection whitelist
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emails]
+              properties:
+                emails:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Senders protected
+    delete:
+      tags: [Protection]
+      summary: Remove senders from protection whitelist
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emails]
+              properties:
+                emails:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Senders unprotected
+
+  # ==========================================
+  # Storage Reclamation (Protected)
+  # ==========================================
+  /api/storage/stats:
+    get:
+      tags: [Storage]
+      summary: Get storage usage breakdown by sender, month, year, and attachment size
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Storage breakdown statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageStats'
+
+  /api/storage/refresh:
+    post:
+      tags: [Storage]
+      summary: Force refresh storage scan cache
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Refresh job started
+
+  /api/storage/messages:
+    get:
+      tags: [Storage]
+      summary: Drill down into specific storage messages by sender, month, or size band
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: sender
+          in: query
+          schema:
+            type: string
+        - name: month
+          in: query
+          schema:
+            type: string
+        - name: sizeBand
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Drill-down message list
+
+  # ==========================================
+  # Message Operations (Protected)
+  # ==========================================
+  /api/messages/trash:
+    post:
+      tags: [Messages]
+      summary: Move specific message IDs to Gmail TRASH
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Messages moved to trash
+    delete:
+      tags: [Messages]
+      summary: Empty Gmail Trash permanently
+      description: This is the ONLY destructive permanent deletion operation in the entire application (`in:trash`).
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Empty trash job started
+
+  # ==========================================
+  # Weekly Digest (Protected)
+  # ==========================================
+  /api/digest:
+    get:
+      tags: [Digest]
+      summary: Get current weekly digest settings and run history
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Digest state
+
+  /api/digest/settings:
+    post:
+      tags: [Digest]
+      summary: Update weekly digest schedule settings
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Preferences'
+      responses:
+        '200':
+          description: Settings updated
+
+  /api/digest/run:
+    post:
+      tags: [Digest]
+      summary: Manually trigger weekly digest email right now
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Digest run job started
+
+  /api/digest/preview:
+    post:
+      tags: [Digest]
+      summary: Generate dry-run preview of weekly digest
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Preview generated
+
+  # ==========================================
+  # Background Jobs Stream (Protected)
+  # ==========================================
+  /api/jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: Get current status snapshot of a background job
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobSnapshot'
+
+  /api/jobs/{id}/cancel:
+    post:
+      tags: [Jobs]
+      summary: Cancel a running background job
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job cancelled
+
+  /api/jobs/{id}/events:
+    get:
+      tags: [Jobs]
+      summary: Server-Sent Events (SSE) live progress stream for a job
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE event stream (`text/event-stream`)
+
+  # ==========================================
+  # Diagnostic & Client Logs (Protected)
+  # ==========================================
+  /api/logs/recent:
+    get:
+      tags: [Logs]
+      summary: Get recent activity audit logs
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Recent activity logs
+
+  /api/logs/metadata:
+    get:
+      tags: [Logs]
+      summary: Get scan timing and profiling history
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Scan timing metadata
+
+  /api/logs/client:
+    post:
+      tags: [Logs]
+      summary: Forward client-side console errors to server terminal
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                level:
+                  type: string
+                  default: info
+                message:
+                  type: string
+                context:
+                  type: object
+      responses:
+        '200':
+          description: Client log recorded

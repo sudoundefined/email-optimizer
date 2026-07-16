@@ -1,4 +1,4 @@
-import { getDb } from '../db/db.js'
+import { ProtectedSenderRepository } from '../models/ProtectedSenderRepository.js'
 
 export const PROTECTED_DOMAINS = [
   'chase.com', 'wellsfargo.com', 'bankofamerica.com', 'citi.com', 'capitalone.com',
@@ -29,10 +29,6 @@ export function matchesSubjectHeuristic(subjects) {
   })
 }
 
-/**
- * Analyze scan results and return senders that should be auto-protected.
- * Returns [{email, domain, reason: 'auto:domain'|'auto:subject'}]
- */
 export function autoProtectFromScan(senders) {
   const results = []
   for (const [, sender] of senders) {
@@ -45,89 +41,49 @@ export function autoProtectFromScan(senders) {
   return results
 }
 
-export function listProtected(userId) {
-  const db = getDb()
-  return db.prepare(`
-    SELECT email, domain, source as reason, added_at as addedAt
-    FROM protected_senders
-    WHERE user_id = ?
-    ORDER BY added_at DESC
-  `).all(userId)
+export async function listProtected(userId) {
+  const rows = await ProtectedSenderRepository.findByUserId(userId)
+  return rows.map(r => ({
+    email: r.email,
+    domain: r.domain,
+    reason: r.source,
+    addedAt: r.added_at
+  }))
 }
 
-export function protectSenders(userId, emails) {
-  const db = getDb()
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO protected_senders (user_id, email, domain, source, added_at)
-    VALUES (?, ?, ?, 'manual', datetime('now'))
-  `)
-  const transaction = db.transaction((emailsList) => {
-    for (const email of emailsList) {
-      const lower = email.toLowerCase()
-      const domain = lower.split('@')[1] || ''
-      insert.run(userId, lower, domain)
-    }
-  })
-  transaction(emails)
+export async function protectSenders(userId, emails) {
+  await ProtectedSenderRepository.insertMany(userId, emails, 'manual')
   return listProtected(userId)
 }
 
-export function unprotectSenders(userId, emails) {
-  const db = getDb()
-  const del = db.prepare(`
-    DELETE FROM protected_senders
-    WHERE user_id = ? AND LOWER(email) = ?
-  `)
-  const transaction = db.transaction((emailsList) => {
-    for (const email of emailsList) {
-      del.run(userId, email.toLowerCase())
-    }
-  })
-  transaction(emails)
+export async function unprotectSenders(userId, emails) {
+  await ProtectedSenderRepository.deleteMany(userId, emails)
   return listProtected(userId)
 }
 
-export function isProtected(userId, email) {
-  const db = getDb()
-  const row = db.prepare(`
-    SELECT 1 FROM protected_senders
-    WHERE user_id = ? AND LOWER(email) = ?
-  `).get(userId, email.toLowerCase())
-  return Boolean(row)
+export async function isProtected(userId, email) {
+  return ProtectedSenderRepository.isProtected(userId, email)
 }
 
-/**
- * Run auto-protect after a scan, merging new auto-detections
- * into SQLite (won't duplicate existing entries).
- */
-export function runAutoProtect(userId, senders) {
+export async function runAutoProtect(userId, senders) {
   const detected = autoProtectFromScan(senders)
   if (detected.length === 0) return []
-  const db = getDb()
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO protected_senders (user_id, email, domain, source, added_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-  `)
+
+  const currentRows = await ProtectedSenderRepository.findByUserId(userId)
+  const existingSet = new Set(currentRows.map(r => r.email.toLowerCase()))
+
   const added = []
-  const transaction = db.transaction(() => {
-    for (const d of detected) {
-      const lower = d.email.toLowerCase()
-      const result = insert.run(userId, lower, d.domain || '', d.reason)
-      if (result.changes > 0) {
-        added.push(d)
-      }
+  for (const d of detected) {
+    if (!existingSet.has(d.email.toLowerCase())) {
+      await ProtectedSenderRepository.insertMany(userId, [d.email], d.reason)
+      added.push(d)
     }
-  })
-  transaction()
+  }
   return added
 }
 
-/**
- * Filter out protected senders from an email list.
- * Returns {allowed: string[], excluded: string[]}
- */
-export function filterProtected(userId, senderEmails) {
-  const list = listProtected(userId)
+export async function filterProtected(userId, senderEmails) {
+  const list = await listProtected(userId)
   const protectedSet = new Set(list.map(p => p.email.toLowerCase()))
   const allowed = []
   const excluded = []

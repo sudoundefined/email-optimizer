@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.1.0] - 2026-07-16
+
+### Added
+- **Deterministic Dashboard Calculation & Insights Engine**: Implemented full backend scoring (`scoringEngine.js`), metric normalization (`normalizationEngine.js`), and insights widget generation (`insightsEngine.js`) computing `0–100` Mailbox Health Scores, Health Levels (`pristine`, `healthy`, `needs_attention`, `critical`), and 14+ explainable dashboard widgets (`Priorities`, `Mailbox DNA`, `Achievements`, `Storage Breakdown`) with plain-English `why` explanations and structured `action` objects. Precomputed results are stored in `ScanCacheRepository.dashboard_json` to guarantee `<10ms` API responses.
+- **First Login Journey (Onboarding Workflow)**: Implemented 7-screen state machine (`onboardingService.js`) with endpoints (`GET/PATCH/POST /api/user/onboarding/*`), auto-protect category seeding (`Banking`, `Government`, `Work`, `Family`, `Starred`), Mailbox Story calculation (`totalEmails`, `totalSizeEstimate`, `cleanableMessages`, top sender concentration formula), and celebration hooks upon initial cleanup (`has_completed_onboarding = true`).
+- **Dual Gmail Operational Mode**: Added `mockClient.js` backed by isolated `mockStateByAccount` (`acc_demo_*` or `config.demoMode`) for rapid local development and safe demo presentations without querying live Google endpoints or decrypting real OAuth tokens.
+- **AI Agent & Workflow Ecosystem (`.agents/`)**: Created custom workspace skills (`emaildiet-backend-verifier`, `emaildiet-5way-doc-sync`, `emaildiet-ui-apple-hig` registered in `.agents/skills.json`), copy-ready boilerplates (`service_template.js`, `controller_template.js`, `repository_template.js`), canonical workspace rules (`.agents/AGENTS.md`), living project memory (`.agents/PROJECT_MEMORY.md`), and root orientation guide (`GEMINI.md`).
+
+### Security & Hardening
+- **OWASP Top 10 & VibeSec Audit Complete**: Executed comprehensive security scan and remediation across all phases (`SECURITY.md`), verifying zero hardcoded secrets, `AES-256-GCM` rest encryption, `HS256` JWT algorithm pinning, `SameSite=Lax` cookies, and `assertSafeUrl` / `pinnedLookup` DNS rebinding & private/cloud metadata (`169.254.169.254`, `fe80:`, `fc00:`) SSRF defense.
+- **Input Allowlist Hardening**: Added strict allowlisting and bounds checks across controllers (`userController.js`, `unsubscribeController.js`, `labelController.js`) to reject malformed payload strings (`ALLOWED_STEPS`, `timeRange`) and unbounded arrays with `400 Bad Request`.
+- **Payload & Loop Optimization**: Eliminated redundant object allocations inside inner loops (`ActivityLogRepository`, `auditService`) and enforced query result truncation (`LIST_LIMITS`).
+
+### Verified
+- **Automated Verification Suite**: Expanded Node.js backend test suite to **161 tests across 17 suites (`node --test`), passing 100% cleanly without regressions**.
+
 ## [v2.0.0] - 2026-07-12
 
 ### Added

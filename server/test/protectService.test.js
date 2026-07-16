@@ -1,6 +1,6 @@
-import { describe, it, before, beforeEach } from 'node:test'
+import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { getDb } from '../src/db/db.js'
+import { setDbForTesting, resetDbForTesting } from '../src/db/db.js'
 import {
   PROTECTED_DOMAINS,
   matchesDomainHeuristic,
@@ -15,14 +15,50 @@ import {
 const TEST_USER = 'test-protect-user'
 
 describe('protectService', () => {
-  before(() => {
-    const db = getDb()
-    db.prepare('INSERT OR IGNORE INTO users (id, email) VALUES (?, ?)').run(TEST_USER, 'testprotect@x.com')
-  })
+  let protectedSet = new Set()
 
   beforeEach(() => {
-    const db = getDb()
-    db.prepare('DELETE FROM protected_senders WHERE user_id = ?').run(TEST_USER)
+    protectedSet.clear()
+
+    const mockSql = async (strings, ...values) => {
+      const queryStr = strings.join('?')
+      if (queryStr.includes('SELECT 1 FROM protected_senders')) {
+        // query is WHERE user_id = ? AND email = ? (or legacy WHERE email = ?)
+        const email = queryStr.includes('user_id') ? values[1] : values[0]
+        return protectedSet.has(String(email).toLowerCase()) ? [{ '?column?': 1 }] : []
+      }
+      if (queryStr.includes('FROM protected_senders') && queryStr.includes('SELECT')) {
+        return [...protectedSet].map(email => ({
+          id: `id_${email}`,
+          user_id: TEST_USER,
+          email,
+          domain: email.split('@')[1] || '',
+          source: 'manual',
+          added_at: '2026-07-13T12:00:00Z'
+        }))
+      }
+      if (queryStr.includes('INSERT INTO protected_senders')) {
+        // VALUES (user_id, email, domain, source)
+        const email = queryStr.includes('user_id') ? values[1] : values[0]
+        protectedSet.add(String(email).toLowerCase())
+        return []
+      }
+      if (queryStr.includes('DELETE FROM protected_senders')) {
+        // WHERE user_id = ? AND email = ANY(?)
+        const emailsArg = queryStr.includes('user_id') ? values[1] : values[0]
+        const emails = Array.isArray(emailsArg) ? emailsArg : [emailsArg]
+        for (const e of emails) {
+          protectedSet.delete(String(e).toLowerCase())
+        }
+        return []
+      }
+      return []
+    }
+    setDbForTesting(mockSql)
+  })
+
+  afterEach(() => {
+    resetDbForTesting()
   })
 
   it('PROTECTED_DOMAINS includes known banks and government', () => {
@@ -55,23 +91,23 @@ describe('protectService', () => {
     assert.ok(!emails.includes('news@randomshop.com'), 'should not flag random shop')
   })
 
-  it('protectSenders + listProtected + isProtected round-trip', () => {
-    protectSenders(TEST_USER, ['a@test.com', 'b@test.com'])
-    const list = listProtected(TEST_USER)
+  it('protectSenders + listProtected + isProtected round-trip', async () => {
+    await protectSenders(TEST_USER, ['a@test.com', 'b@test.com'])
+    const list = await listProtected(TEST_USER)
     assert.equal(list.length, 2)
-    assert.ok(isProtected(TEST_USER, 'a@test.com'))
-    assert.ok(!isProtected(TEST_USER, 'c@test.com'))
+    assert.ok(await isProtected(TEST_USER, 'a@test.com'))
+    assert.ok(!(await isProtected(TEST_USER, 'c@test.com')))
   })
 
-  it('unprotectSenders removes entries', () => {
-    protectSenders(TEST_USER, ['x@test.com', 'y@test.com'])
-    unprotectSenders(TEST_USER, ['x@test.com'])
-    assert.ok(!isProtected(TEST_USER, 'x@test.com'))
-    assert.ok(isProtected(TEST_USER, 'y@test.com'))
+  it('unprotectSenders removes entries', async () => {
+    await protectSenders(TEST_USER, ['x@test.com', 'y@test.com'])
+    await unprotectSenders(TEST_USER, ['x@test.com'])
+    assert.ok(!(await isProtected(TEST_USER, 'x@test.com')))
+    assert.ok(await isProtected(TEST_USER, 'y@test.com'))
   })
 
-  it('isProtected is case-insensitive', () => {
-    protectSenders(TEST_USER, ['Case@Test.COM'])
-    assert.ok(isProtected(TEST_USER, 'case@test.com'))
+  it('isProtected is case-insensitive', async () => {
+    await protectSenders(TEST_USER, ['Case@Test.COM'])
+    assert.ok(await isProtected(TEST_USER, 'case@test.com'))
   })
 })

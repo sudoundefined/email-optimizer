@@ -1,39 +1,47 @@
 import { getDb, closeDb } from '../src/db/db.js'
 
-function inspect() {
-  const db = getDb()
+async function inspect() {
+  const sql = getDb()
 
   console.log('==============================================')
-  console.log('         EMAILDIET DATABASE INSPECTOR         ')
+  console.log('     EMAILDIET 13-TABLE DATABASE INSPECTOR    ')
   console.log('==============================================\n')
 
   const tables = [
     'users',
     'tokens',
     'preferences',
-    'scan_cache',
     'protected_senders',
     'label_registry',
     'activity_log',
-    'digest_baseline'
+    'digest_baseline',
+    'scan_cache',
+    'sender_cache',
+    'cleanup_history',
+    'weekly_digest',
+    'saved_views',
+    'scan_metadata'
   ]
 
   for (const table of tables) {
     try {
-      const countRow = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get()
-      console.log(`📦 Table [${table}]: ${countRow.count} row(s)`)
+      const countRow = await sql.unsafe(`SELECT COUNT(*) as count FROM ${table}`)
+      console.log(`📦 Table [${table}]: ${countRow[0].count} row(s)`)
 
-      if (countRow.count > 0 && (table === 'users' || table === 'activity_log' || table === 'preferences')) {
-        const rows = db.prepare(`SELECT * FROM ${table} ORDER BY rowid DESC LIMIT 5`).all()
+      if (countRow[0].count > 0 && ['users', 'preferences', 'scan_cache', 'scan_metadata'].includes(table)) {
+        const rows = await sql.unsafe(`SELECT * FROM ${table} LIMIT 5`)
         console.table(rows)
       }
     } catch (err) {
-      console.log(`⚠️  Could not inspect table ${table}: ${err.message}`)
+      console.log(`⚠️  Could not inspect table [${table}]: ${err.message}`)
     }
     console.log('')
   }
 
-  closeDb()
+  await closeDb()
 }
 
-inspect()
+inspect().catch(err => {
+  console.error(err)
+  process.exit(1)
+})

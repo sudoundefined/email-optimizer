@@ -45,7 +45,6 @@ function NavRow({
   const row = (
     <Flex
       as="button"
-      type="button"
       w="100%"
       textAlign="left"
       onClick={onClick}
@@ -181,7 +180,6 @@ export default function MailboxNav({
           {hiddenCount > 0 && (
             <Flex
               as="button"
-              type="button"
               w="100%"
               onClick={() => setShowAllCategories((v) => !v)}
               align="center"
