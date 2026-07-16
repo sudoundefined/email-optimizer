@@ -6,6 +6,8 @@ import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { requireScan } from '../store/scanCache.js'
 import { parseMailto, buildUnsubscribeEmail } from '../gmail/mime.js'
 import { limited } from '../gmail/rateLimiter.js'
+import { onboardingService } from './onboardingService.js'
+import { insightsService } from './insightsService.js'
 
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
@@ -230,12 +232,32 @@ export async function runUnsubscribe(userId, { senderEmails }, emit) {
 
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, senders.length) }, worker))
 
+    const successCount = results.filter((r) => r.status === 'success' || r.status === 'manual').length
+    let emailsCleaned = 0
+    let storageBytes = 0
+    for (const s of senders) {
+      if (results.some((r) => (r.status === 'success' || r.status === 'manual') && r.sender === s.email)) {
+        emailsCleaned += Number(s.messageCount || 0)
+        storageBytes += Number(s.totalSizeEstimate || 0)
+      }
+    }
+    const storageMB = Number((storageBytes / (1024 * 1024)).toFixed(1))
+
+    let celebration = null
+    try {
+      celebration = await onboardingService.triggerOnboardingCelebrationIfApplicable(userId, { emailsCleaned, storageMB })
+      await insightsService.recalculateInsights(userId)
+    } catch (e) {
+      console.error('⚠️ Failed celebration/insights post-unsubscribe:', e?.message || e)
+    }
+
     const summary = {
       total: senders.length,
       success: results.filter((r) => r.status === 'success').length,
       manual: results.filter((r) => r.status === 'manual').length,
       failed: results.filter((r) => r.status === 'failed').length,
       results,
+      celebration,
     }
     return summary
   }, userId)

@@ -1,50 +1,29 @@
-import { getDb } from '../db/db.js'
+import { PreferenceRepository } from '../models/PreferenceRepository.js'
+import { DigestBaselineRepository } from '../models/DigestBaselineRepository.js'
+import { LIST_LIMITS } from '../utils/constants.js'
 
-/**
- * Persistent state for the scheduled weekly digest, per user.
- * Now backed by SQLite (preferences + digest_baseline tables).
- */
-
-const HISTORY_MAX = 20
-
-// In-memory history cache per user (audit log can supplement this)
+const HISTORY_MAX = LIST_LIMITS.DIGEST_HISTORY_MAX
 const historyCache = new Map()
 
 export const DEFAULT_SETTINGS = {
   enabled: false,
   dayOfWeek: 1, // Monday
   hour: 9,
-  recipient: '', // '' means "the connected account's own address"
+  recipient: '',
 }
 
-export function getSettings(userId) {
-  const db = getDb()
-  const row = db.prepare(`
-    SELECT digest_enabled as enabled, digest_day as dayOfWeek, digest_hour as hour, digest_recipient as recipient
-    FROM preferences WHERE user_id = ?
-  `).get(userId)
-
-  if (!row) return { ...DEFAULT_SETTINGS }
-
+export async function getSettings(userId) {
+  const row = await PreferenceRepository.findByUserId(userId)
   return {
-    enabled: Boolean(row.enabled),
-    dayOfWeek: row.dayOfWeek ?? DEFAULT_SETTINGS.dayOfWeek,
-    hour: row.hour ?? DEFAULT_SETTINGS.hour,
-    recipient: row.recipient || '',
+    enabled: Boolean(row?.digest_enabled),
+    dayOfWeek: row?.digest_day ?? DEFAULT_SETTINGS.dayOfWeek,
+    hour: row?.digest_hour ?? DEFAULT_SETTINGS.hour,
+    recipient: row?.digest_recipient || '',
   }
 }
 
-export function getState(userId) {
-  const settings = getSettings(userId)
-  const baseline = getBaseline(userId)
-  const lastRunAt = getLastRunAt(userId)
-  const history = getHistory(userId)
-  return { settings, baseline, lastRunAt, history }
-}
-
-function getBaseline(userId) {
-  const db = getDb()
-  const row = db.prepare('SELECT senders FROM digest_baseline WHERE user_id = ?').get(userId)
+export async function getBaseline(userId) {
+  const row = await DigestBaselineRepository.findByUserId(userId)
   if (!row || !row.senders) return { knownSenders: [] }
   try {
     return { knownSenders: JSON.parse(row.senders) }
@@ -53,17 +32,23 @@ function getBaseline(userId) {
   }
 }
 
-function getLastRunAt(userId) {
-  const db = getDb()
-  const row = db.prepare('SELECT last_run_at FROM digest_baseline WHERE user_id = ?').get(userId)
+export async function getLastRunAt(userId) {
+  const row = await DigestBaselineRepository.findByUserId(userId)
   return row?.last_run_at || null
 }
 
-function getHistory(userId) {
+export function getHistory(userId) {
   return historyCache.get(userId) || []
 }
 
-/** Validate + normalize a partial settings patch. Throws on bad input. */
+export async function getState(userId) {
+  const settings = await getSettings(userId)
+  const baseline = await getBaseline(userId)
+  const lastRunAt = await getLastRunAt(userId)
+  const history = getHistory(userId)
+  return { settings, baseline, lastRunAt, history }
+}
+
 export function normalizeSettings(patch) {
   const s = { ...DEFAULT_SETTINGS, ...(patch || {}) }
   const enabled = Boolean(s.enabled)
@@ -88,47 +73,32 @@ export function normalizeSettings(patch) {
   return { enabled, dayOfWeek, hour, recipient }
 }
 
-export function saveSettings(userId, patch) {
-  const current = getSettings(userId)
+export async function saveSettings(userId, patch) {
+  const current = await getSettings(userId)
   const merged = normalizeSettings({ ...current, ...patch })
 
-  const db = getDb()
-  db.prepare(`
-    UPDATE preferences SET
-      digest_enabled = ?, digest_day = ?, digest_hour = ?, digest_recipient = ?
-    WHERE user_id = ?
-  `).run(merged.enabled ? 1 : 0, merged.dayOfWeek, merged.hour, merged.recipient, userId)
+  await PreferenceRepository.update(userId, {
+    digest_enabled: merged.enabled ? 1 : 0,
+    digest_day: merged.dayOfWeek,
+    digest_hour: merged.hour,
+    digest_recipient: merged.recipient
+  })
 
   return merged
 }
 
-export function getKnownSenders(userId) {
-  return getBaseline(userId).knownSenders
+export async function getKnownSenders(userId) {
+  const b = await getBaseline(userId)
+  return b.knownSenders
 }
 
-/**
- * Record a completed digest run: merge the reported senders into the baseline,
- * stamp lastRunAt, and prepend a history entry.
- */
-export function recordRun(userId, { at, reportedEmails = [], sent, recipient, error = null }) {
-  const db = getDb()
-
-  // Update baseline
-  const current = getBaseline(userId)
+export async function recordRun(userId, { at, reportedEmails = [], sent, recipient, error = null }) {
+  const current = await getBaseline(userId)
   const known = new Set(current.knownSenders.map((e) => e.toLowerCase()))
   for (const e of reportedEmails) known.add(String(e).toLowerCase())
-  const senders = JSON.stringify([...known])
 
-  db.prepare(`
-    INSERT INTO digest_baseline (user_id, senders, last_run_at, updated_at)
-    VALUES (?, ?, ?, datetime('now'))
-    ON CONFLICT(user_id) DO UPDATE SET
-      senders = excluded.senders,
-      last_run_at = excluded.last_run_at,
-      updated_at = datetime('now')
-  `).run(userId, senders, at)
+  await DigestBaselineRepository.upsert(userId, [...known], at)
 
-  // Update in-memory history
   const history = getHistory(userId)
   const updated = [
     { at, newSenders: reportedEmails.length, sent: Boolean(sent), recipient: recipient || null, error },

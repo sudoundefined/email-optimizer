@@ -1,27 +1,41 @@
 import { limited } from './rateLimiter.js'
+import { getEffectiveScanLimits } from '../utils/preferences.js'
 
 /**
- * Lists message ids matching a Gmail search query, paginating until
- * exhaustion or maxMessages.
+ * Lists message ids matching a Gmail search query and/or labelIds, paginating until
+ * exhaustion or maxMessages limit from the DB.
  */
-export async function listAllMessageIds(gmail, q, { maxMessages = 5000, onProgress, signal } = {}) {
+export async function listMessagesPaginated(gmail, { q, labelIds, maxMessages, onProgress, signal, userId } = {}) {
+  const limits = await getEffectiveScanLimits(userId)
+  const effectiveMax = maxMessages !== undefined ? maxMessages : limits.maxMessages
   const ids = new Set()
   let pageToken
   do {
     if (signal?.aborted) break
+    const remaining = effectiveMax - ids.size
+    if (remaining <= 0) break
     const res = await limited(() =>
       gmail.users.messages.list({
         userId: 'me',
-        q,
-        maxResults: 500,
+        ...(q ? { q } : {}),
+        ...(labelIds && labelIds.length > 0 ? { labelIds } : {}),
+        maxResults: Math.min(limits.maxMessages, remaining, 500),
         pageToken,
       })
     )
     for (const m of res.data.messages || []) ids.add(m.id)
     pageToken = res.data.nextPageToken
     onProgress?.({ listed: ids.size })
-  } while (pageToken && ids.size < maxMessages && !signal?.aborted)
-  return [...ids].slice(0, maxMessages)
+  } while (pageToken && ids.size < effectiveMax && !signal?.aborted)
+  return [...ids].slice(0, effectiveMax)
+}
+
+/**
+ * Lists message ids matching a Gmail search query, paginating until
+ * exhaustion or maxMessages limit from the DB.
+ */
+export async function listAllMessageIds(gmail, q, { maxMessages, onProgress, signal, userId } = {}) {
+  return listMessagesPaginated(gmail, { q, maxMessages, onProgress, signal, userId })
 }
 
 const METADATA_HEADERS = ['From', 'Subject', 'Date', 'List-Unsubscribe', 'List-Unsubscribe-Post']
@@ -56,6 +70,7 @@ export async function getMetadata(gmail, ids, { onProgress, signal } = {}) {
             internalDate: Number(res.data.internalDate || 0),
             labelIds: res.data.labelIds || [],
             headers,
+            sizeEstimate: res.data.sizeEstimate || 0,
           }
         })
         .catch(() => null)

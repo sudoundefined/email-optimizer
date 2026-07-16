@@ -1,8 +1,9 @@
 import crypto from 'node:crypto'
 import { google } from 'googleapis'
 import { config, SCOPES } from '../config.js'
-import { getDb } from '../db/db.js'
-import { encryptTokens, decryptTokens } from '../db/crypto.js'
+import { UserRepository } from '../models/UserRepository.js'
+import { TokenRepository } from '../models/TokenRepository.js'
+import { PreferenceRepository } from '../models/PreferenceRepository.js'
 
 export class NotConnectedError extends Error {
   constructor(message = 'Not connected to Gmail') {
@@ -42,14 +43,9 @@ export function getAuthUrlWithState() {
   return { url, state }
 }
 
-export function getAuthUrl() {
-  return getAuthUrlWithState().url
-}
-
 /**
  * Handle the OAuth callback: exchange code, fetch Google profile,
- * upsert user in DB, store encrypted tokens.
- * @returns {{ userId: string, email: string }} The authenticated user
+ * upsert user workspace in DB, store encrypted tokens via Repositories.
  */
 export async function handleCallback(code, state, expectedCookieState) {
   if (!state || !pendingStates.has(state) || (expectedCookieState !== undefined && state !== expectedCookieState)) {
@@ -70,58 +66,39 @@ export async function handleCallback(code, state, expectedCookieState) {
   const displayName = profile.name || ''
   const avatarUrl = profile.picture || ''
 
-  const db = getDb()
+  // Upsert user via UserRepository
+  const user = await UserRepository.upsert({ id: userId, email, displayName, avatarUrl })
 
-  // Upsert user
-  db.prepare(`
-    INSERT INTO users (id, email, display_name, avatar_url, last_login_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-    ON CONFLICT(id) DO UPDATE SET
-      email = excluded.email,
-      display_name = excluded.display_name,
-      avatar_url = excluded.avatar_url,
-      last_login_at = datetime('now')
-  `).run(userId, email, displayName, avatarUrl)
+  // Encrypt and store tokens via TokenRepository
+  await TokenRepository.upsert(userId, tokens)
 
-  // Encrypt and store tokens
-  const { encrypted, iv } = encryptTokens(tokens)
-  db.prepare(`
-    INSERT INTO tokens (user_id, encrypted, iv, updated_at)
-    VALUES (?, ?, ?, datetime('now'))
-    ON CONFLICT(user_id) DO UPDATE SET
-      encrypted = excluded.encrypted,
-      iv = excluded.iv,
-      updated_at = datetime('now')
-  `).run(userId, encrypted, iv)
+  // Ensure user workspace preferences row exists via PreferenceRepository
+  await PreferenceRepository.upsertDefault(userId)
 
-  // Ensure preferences row exists
-  db.prepare(`
-    INSERT OR IGNORE INTO preferences (user_id) VALUES (?)
-  `).run(userId)
-
-  return { userId, email, displayName, avatarUrl }
+  return {
+    userId,
+    accountId: userId,
+    email,
+    displayName,
+    avatarUrl,
+    isDefault: true
+  }
 }
 
 /**
- * Returns an authorized OAuth2 client for the given user.
- * Decrypts tokens from SQLite and sets up auto-refresh persistence.
+ * Returns an authorized OAuth2 client for the given user workspace.
+ * Decrypts tokens from Supabase and sets up auto-refresh persistence.
  */
 export async function getAuthedClient(userId) {
-  const db = getDb()
-  const row = db.prepare('SELECT encrypted, iv FROM tokens WHERE user_id = ?').get(userId)
-
-  if (!row) {
-    throw new NotConnectedError()
+  if (config.demoMode || String(userId).startsWith('acc_demo_')) {
+    return {
+      credentials: { access_token: 'mock_demo_token' },
+      setCredentials() {},
+      on() {}
+    }
   }
-
-  let tokens
-  try {
-    tokens = decryptTokens(row)
-  } catch {
-    throw new NotConnectedError('Failed to decrypt tokens — please sign in again.')
-  }
-
-  if (!tokens.refresh_token && !tokens.access_token) {
+  const tokens = await TokenRepository.findByUserId(userId)
+  if (!tokens || (!tokens.refresh_token && !tokens.access_token)) {
     throw new NotConnectedError()
   }
 
@@ -129,14 +106,11 @@ export async function getAuthedClient(userId) {
   client.setCredentials(tokens)
 
   // Persist refreshed tokens automatically
-  client.on('tokens', (fresh) => {
+  client.on('tokens', async (fresh) => {
     try {
-      const merged = { ...tokens, ...fresh }
-      const { encrypted, iv } = encryptTokens(merged)
-      db.prepare(`
-        UPDATE tokens SET encrypted = ?, iv = ?, updated_at = datetime('now')
-        WHERE user_id = ?
-      `).run(encrypted, iv, userId)
+      const current = (await TokenRepository.findByUserId(userId).catch(() => null)) || tokens
+      const merged = { ...current, ...fresh }
+      await TokenRepository.upsert(userId, merged)
     } catch {
       // best effort
     }
@@ -153,8 +127,7 @@ export async function withAuthErrorHandling(fn, userId) {
     const msg = String(err?.response?.data?.error || err?.message || '')
     if (msg.includes('invalid_grant') || err?.code === 401 || err?.status === 401) {
       if (userId) {
-        const db = getDb()
-        db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
+        await TokenRepository.deleteByUserId(userId).catch(() => {})
       }
       throw new NotConnectedError('Google session expired — please sign in again.')
     }
@@ -163,29 +136,16 @@ export async function withAuthErrorHandling(fn, userId) {
 }
 
 export async function revokeAndLogout(userId) {
-  const db = getDb()
-  const row = db.prepare('SELECT encrypted, iv FROM tokens WHERE user_id = ?').get(userId)
-
-  if (row) {
+  const tokens = await TokenRepository.findByUserId(userId).catch(() => null)
+  if (tokens && (tokens.access_token || tokens.refresh_token)) {
     try {
-      const tokens = decryptTokens(row)
-      if (tokens.access_token || tokens.refresh_token) {
-        const client = makeOAuth2Client()
-        client.setCredentials(tokens)
-        await client.revokeCredentials()
-      }
+      const client = makeOAuth2Client()
+      client.setCredentials(tokens)
+      await client.revokeCredentials()
     } catch {
       // best effort — token may already be invalid
     }
   }
 
-  db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
-}
-
-/**
- * Get user profile from the database.
- */
-export function getUserFromDb(userId) {
-  const db = getDb()
-  return db.prepare('SELECT id, email, display_name, avatar_url, created_at, last_login_at FROM users WHERE id = ?').get(userId)
+  await TokenRepository.deleteByUserId(userId).catch(() => {})
 }

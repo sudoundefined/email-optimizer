@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box, Button, Card, Tag, TagLabel, TagCloseButton, useToast,
-  Grid, GridItem, Input, Progress,
+  Grid, GridItem, Input, Progress, Badge,
   Select, HStack, Text, Flex, Icon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, VStack, CircularProgress,
   Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, useDisclosure,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer, Checkbox, Tooltip, IconButton
 } from '@chakra-ui/react'
 import { EmailIcon, HamburgerIcon, SearchIcon, CloseIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '@chakra-ui/icons'
+import { MailX, Trash2 } from 'lucide-react'
 import { exportToExcel } from '../utils/exportExcel'
 import { api, ApiError } from '../api'
 import type { ScanResult, Sender, Suggestion, UnsubSummary, ProtectedSender, Subscription, Filter, GroupMessage } from '../types'
@@ -18,7 +19,6 @@ import SenderTable, { CATEGORY_COLORS } from './SenderTable'
 import UnsubscribePanel from './UnsubscribePanel'
 import LabelReview from './LabelReview'
 import ConfirmDialog from './ConfirmDialog'
-import ProtectedTab from './ProtectedTab'
 import MailboxNav, { SEGMENTS } from './MailboxNav'
 import type { Segment } from './MailboxNav'
 import TagSearchInput from './TagSearchInput'
@@ -668,7 +668,7 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     return sorted
   }, [scan, segment, category, activeSearch, sort, suggestionMap, subMap])
 
-  const showProtectedView = segment === 'protected' && !activeFilter && !activeDrillDownSender
+  const showProtectedView = false
   const rightTitle = SEGMENTS.find((s) => s.key === segment)?.label ?? 'Senders'
   const isMessageView = !!activeFilter || !!activeDrillDownSender || !!tagSearchQuery
 
@@ -684,7 +684,6 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
     setActiveFilter(null)
     setActiveDrillDownSender(null)
     setTagSearchQuery(null)
-    if (seg === 'protected') setCategory(null)
   }
 
   return (
@@ -1021,18 +1020,6 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
                   onSelectedChange={setSelectedMessages}
                 />
               </Card>
-            ) : showProtectedView ? (
-              <Card variant="outline" borderRadius="xl" h="100%" display="flex" flexDir="column" bg="bg.card" >
-                <Box px={6} py={4} borderBottom="1px" borderColor="border.glass" bg="transparent">
-                  <Text fontSize="lg" fontWeight={700} color="text.primary">Protected list</Text>
-                  <Text fontSize="sm" color="neutral.500" mt={1}>
-                    Senders shielded from bulk unsubscribe and trash. Banks, utilities, and government are auto-protected.
-                  </Text>
-                </Box>
-                <Box flex={1} overflowY="auto" p={6}>
-                  <ProtectedTab onDisconnected={onDisconnected} />
-                </Box>
-              </Card>
             ) : (
               <Card
                 variant="outline"
@@ -1290,6 +1277,59 @@ export default function MailboxTab({ onDisconnected }: { onDisconnected: () => v
             </ModalFooter>
           </ModalContent>
         </Modal>
+      )}
+
+      {/* Floating Bottom Bulk Action Bar (Screen 2) */}
+      {selectedSenders.size > 0 && (
+        <Box
+          position="fixed"
+          bottom="28px"
+          left="50%"
+          transform="translateX(-50%)"
+          zIndex={100}
+          bg="bg.card"
+          border="1px solid"
+          borderColor="border.subtle"
+          borderRadius="full"
+          boxShadow="2xl"
+          px={6}
+          py={3}
+        >
+          <HStack spacing={4} align="center">
+            <Badge colorScheme="green" borderRadius="full" px={3} py={1} fontSize="12px" fontWeight={700}>
+              {selectedSenders.size} selected
+            </Badge>
+            <Button
+              size="sm"
+              colorScheme="brand"
+              borderRadius="full"
+              leftIcon={<Icon as={MailX} boxSize={3.5} />}
+              onClick={runUnsubscribe}
+              isLoading={unsubJob.running}
+            >
+              Unsubscribe
+            </Button>
+            <Button
+              size="sm"
+              colorScheme="red"
+              variant="outline"
+              borderRadius="full"
+              leftIcon={<Icon as={Trash2} boxSize={3.5} />}
+              onClick={() => setConfirmSenderTrash(true)}
+            >
+              Trash
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              borderRadius="full"
+              fontSize="12px"
+              onClick={() => setSelectedSenders(new Set())}
+            >
+              Clear
+            </Button>
+          </HStack>
+        </Box>
       )}
     </Flex>
   )

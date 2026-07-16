@@ -1,117 +1,108 @@
-import Database from 'better-sqlite3'
+import postgres from 'postgres'
 import path from 'node:path'
 import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { config } from '../config.js'
 
-let _db = null
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const migrationsDir = path.resolve(__dirname, '../../../supabase/migrations')
+
+let _sql = null
+let _migrationPromise = null
 
 /**
- * Returns the singleton SQLite database instance.
- * Creates the database file and schema on first call.
+ * Returns the singleton `postgres` (sql) connection pool instance.
+ * Automatically runs schema migrations on first access.
  */
 export function getDb() {
-  if (_db) return _db
+  if (_sql) return _sql
 
-  // Ensure data directory exists
-  const dbDir = path.dirname(config.dbPath)
-  fs.mkdirSync(dbDir, { recursive: true })
+  let connectionString = process.env.SUPABASE || process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('Missing SUPABASE or DATABASE_URL environment variable in server/.env')
+  }
 
-  _db = new Database(config.dbPath)
+  // Normalize unencoded @ symbols inside password (e.g. EmailDiet@9026 -> EmailDiet%409026)
+  const lastAtIndex = connectionString.lastIndexOf('@')
+  const firstAtIndex = connectionString.indexOf('@')
+  if (lastAtIndex > firstAtIndex && (connectionString.startsWith('postgres://') || connectionString.startsWith('postgresql://'))) {
+    const protoEnd = connectionString.indexOf('://') + 3
+    const userInfo = connectionString.slice(protoEnd, lastAtIndex)
+    const hostInfo = connectionString.slice(lastAtIndex)
+    connectionString = connectionString.slice(0, protoEnd) + userInfo.replace(/@/g, '%40') + hostInfo
+  }
 
-  // WAL mode for better concurrent read performance
-  _db.pragma('journal_mode = WAL')
-  _db.pragma('foreign_keys = ON')
+  // Configure postgres client: use prepared statements by default unless connecting via PgBouncer transaction mode (port 6543) or explicitly disabled
+  const usePreparedStatements = process.env.PG_PREPARE !== undefined
+    ? process.env.PG_PREPARE !== 'false'
+    : !connectionString.includes(':6543')
 
-  // Run schema migration
-  migrate(_db)
+  _sql = postgres(connectionString, {
+    prepare: usePreparedStatements,
+    max: 10,
+    idle_timeout: 20,
+    connect_timeout: 10,
+    onnotice: () => {}, // suppress notice chatter
+  })
 
-  return _db
-}
+  // Trigger migration in background or on startup
+  if (!_migrationPromise) {
+    _migrationPromise = migrate(_sql).catch(err => {
+      console.error('⚠️ Supabase schema migration failed:', err.message)
+    })
+  }
 
-function migrate(db) {
-  db.exec(`
-    -- Core user identity (populated from Google profile on first login)
-    CREATE TABLE IF NOT EXISTS users (
-      id            TEXT PRIMARY KEY,
-      email         TEXT NOT NULL UNIQUE,
-      display_name  TEXT,
-      avatar_url    TEXT,
-      created_at    TEXT DEFAULT (datetime('now')),
-      last_login_at TEXT
-    );
-
-    -- Encrypted Gmail OAuth tokens per user
-    CREATE TABLE IF NOT EXISTS tokens (
-      user_id       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      encrypted     TEXT NOT NULL,
-      iv            TEXT NOT NULL,
-      updated_at    TEXT DEFAULT (datetime('now'))
-    );
-
-    -- Per-user preferences
-    CREATE TABLE IF NOT EXISTS preferences (
-      user_id             TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      scan_max_messages   INTEGER,
-      default_time_range  TEXT DEFAULT '3m',
-      label_prefix        TEXT DEFAULT 'Unsub/',
-      digest_enabled      INTEGER DEFAULT 0,
-      digest_day          INTEGER NOT NULL DEFAULT 1,
-      digest_hour         INTEGER NOT NULL DEFAULT 8,
-      digest_recipient    TEXT NOT NULL DEFAULT ''
-    );
-
-    -- Per-user protected senders
-    CREATE TABLE IF NOT EXISTS protected_senders (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      email     TEXT NOT NULL,
-      domain    TEXT,
-      source    TEXT DEFAULT 'manual',
-      added_at  TEXT DEFAULT (datetime('now')),
-      UNIQUE(user_id, email)
-    );
-
-    -- Per-user label registry
-    CREATE TABLE IF NOT EXISTS label_registry (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      label_name  TEXT NOT NULL,
-      gmail_id    TEXT NOT NULL,
-      created_at  TEXT DEFAULT (datetime('now')),
-      UNIQUE(user_id, label_name)
-    );
-
-    -- Activity audit log
-    CREATE TABLE IF NOT EXISTS activity_log (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      action      TEXT NOT NULL,
-      details     TEXT,
-      created_at  TEXT DEFAULT (datetime('now'))
-    );
-
-    -- Digest baseline per user
-    CREATE TABLE IF NOT EXISTS digest_baseline (
-      user_id     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      senders     TEXT,
-      last_run_at TEXT,
-      updated_at  TEXT DEFAULT (datetime('now'))
-    );
-
-    -- Indexes for common queries
-    CREATE INDEX IF NOT EXISTS idx_protected_senders_user ON protected_senders(user_id);
-    CREATE INDEX IF NOT EXISTS idx_label_registry_user ON label_registry(user_id);
-    CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id, created_at);
-    CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
-  `)
+  return _sql
 }
 
 /**
- * Close the database connection (for graceful shutdown).
+ * For unit testing: inject an in-memory or mock SQL connection pool.
  */
-export function closeDb() {
-  if (_db) {
-    _db.close()
-    _db = null
+export function setDbForTesting(mockSql) {
+  _sql = mockSql
+}
+
+/**
+ * For unit testing: reset connection state after tests.
+ */
+export function resetDbForTesting() {
+  _sql = null
+  _migrationPromise = null
+}
+
+/**
+ * Explicitly wait for database initialization and schema creation.
+ */
+export async function initDb() {
+  const sql = getDb()
+  if (_migrationPromise) {
+    await _migrationPromise
   }
+  return sql
+}
+
+async function migrate(sql) {
+  if (fs.existsSync(migrationsDir)) {
+    const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
+    for (const file of files) {
+      try {
+        const ddl = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+        await sql.unsafe(ddl)
+      } catch (err) {
+        // Log migration execution error so schema failures are never silently hidden
+        console.error(`⚠️ [DB Migration Error] Failed running ${file}:`, err.message)
+      }
+    }
+  }
+}
+
+/**
+ * Close the database connection pool (for graceful shutdown or testing).
+ */
+export async function closeDb() {
+  if (_sql && typeof _sql.end === 'function') {
+    await _sql.end()
+  }
+  _sql = null
+  _migrationPromise = null
 }

@@ -4,6 +4,7 @@ import {
   TableContainer, Text, Flex, Icon, HStack, Select, IconButton
 } from '@chakra-ui/react'
 import { WarningTwoIcon, UpDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons'
+import { ShieldCheck } from 'lucide-react'
 import { api, ApiError } from '../api'
 import type { ProtectedSender } from '../types'
 
@@ -92,7 +93,10 @@ export default function ProtectedTab({ onDisconnected }: { onDisconnected: () =>
                   borderColor="border.subtle"
                 >
                   <Td px={4}>
-                    <Text fontSize="sm" fontWeight={500}>{p.email}</Text>
+                    <HStack spacing={2.5}>
+                      <Icon as={ShieldCheck} boxSize={4} color="brand.500" />
+                      <Text fontSize="sm" fontWeight={500}>{p.email}</Text>
+                    </HStack>
                   </Td>
                   <Td px={4}>
                     {p.reason.startsWith('auto:') ? (

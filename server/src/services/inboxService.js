@@ -1,16 +1,14 @@
 import { getGmail } from '../gmail/client.js'
 import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { limited } from '../gmail/rateLimiter.js'
-import { getMetadata, listAllMessageIds } from '../gmail/messages.js'
+import { getMetadata, listAllMessageIds, listMessagesPaginated } from '../gmail/messages.js'
 import { trashMessages } from './messageTrashService.js'
 import { listProtected } from './protectService.js'
 import { parseFrom } from './headerParser.js'
 import { listRegistered } from '../store/labelRegistry.js'
+import { LIST_LIMITS } from '../utils/constants.js'
+import { getEffectiveScanLimits } from '../utils/preferences.js'
 
-/**
- * Inbox groups. Label-backed groups report exact Gmail counts;
- * query-backed groups report Gmail's resultSizeEstimate (approx: true).
- */
 export const GROUPS = [
   { key: 'important', title: 'Important', kind: 'label', labelId: 'IMPORTANT', blurb: 'What Gmail marked as important' },
   { key: 'primary', title: 'Primary', kind: 'label', labelId: 'CATEGORY_PERSONAL', blurb: 'Personal, person-to-person mail' },
@@ -31,7 +29,6 @@ export function getGroup(key) {
   return groupByKey.get(key) || null
 }
 
-/** Live counts for every group. */
 export async function listGroups(userId) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail(userId)
@@ -64,8 +61,7 @@ export async function listGroups(userId) {
   }, userId)
 }
 
-/** The most recent messages in one group: {id, from, subject, date}[]. */
-export async function groupMessages(userId, key, max = 25) {
+export async function groupMessages(userId, key, max = LIST_LIMITS.MESSAGES_DEFAULT) {
   const group = getGroup(key)
   if (!group) {
     const err = new Error(`Unknown group "${key}"`)
@@ -74,12 +70,10 @@ export async function groupMessages(userId, key, max = 25) {
   }
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail(userId)
-    const params =
-      group.kind === 'label'
-        ? { userId: 'me', labelIds: [group.labelId], maxResults: max }
-        : { userId: 'me', q: group.q, maxResults: max }
-    const res = await limited(() => gmail.users.messages.list(params))
-    const ids = (res.data.messages || []).map((m) => m.id)
+    const ids = await listMessagesPaginated(gmail, {
+      ...(group.kind === 'label' ? { labelIds: [group.labelId] } : { q: group.q }),
+      maxMessages: max,
+    })
     const messages = await getMetadata(gmail, ids, {})
     return messages
       .sort((a, b) => b.internalDate - a.internalDate)
@@ -92,11 +86,10 @@ export async function groupMessages(userId, key, max = 25) {
   }, userId)
 }
 
-/** Every label in the Gmail account (system + user) with live counts. */
 export async function listAllLabels(userId) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail(userId)
-    const registered = listRegistered(userId)
+    const registered = await listRegistered(userId)
     const appIds = new Set(registered.map((r) => r.id))
 
     const listRes = await limited(() => gmail.users.labels.list({ userId: 'me' }))
@@ -124,16 +117,10 @@ export async function listAllLabels(userId) {
   }, userId)
 }
 
-/**
- * Run an arbitrary Gmail query and return recent messages.
- */
-export async function filterMessages(userId, query, max = 25) {
+export async function filterMessages(userId, query, max = LIST_LIMITS.MESSAGES_DEFAULT) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail(userId)
-    const res = await limited(() =>
-      gmail.users.messages.list({ userId: 'me', q: query, maxResults: max })
-    )
-    const ids = (res.data.messages || []).map((m) => m.id)
+    const ids = await listMessagesPaginated(gmail, { q: query, maxMessages: max })
     if (ids.length === 0) return []
     const messages = await getMetadata(gmail, ids, {})
     return messages
@@ -149,10 +136,6 @@ export async function filterMessages(userId, query, max = 25) {
 
 const FILTER_TRASH_MAX_MESSAGES = 10_000
 
-/**
- * Canonical quick-filter definitions — the SINGLE source of truth. The client
- * fetches these via GET /api/inbox/filters (no duplicated client-side list).
- */
 export const FILTER_DEFS = [
   { key: 'never-opened', label: 'Never opened', query: 'is:unread older_than:6m -in:trash -in:spam', category: 'engagement' },
   { key: 'low-engagement', label: 'Rarely read', query: 'is:unread older_than:3m -in:trash -in:spam', category: 'engagement' },
@@ -166,21 +149,8 @@ export const FILTER_DEFS = [
   { key: 'old-forums', label: 'Old forums', query: 'category:forums older_than:1y -in:trash -in:spam', category: 'category' },
 ]
 
-/** key -> query, derived from FILTER_DEFS. Used by the bulk trash-by-key path. */
 export const FILTERS = Object.fromEntries(FILTER_DEFS.map((d) => [d.key, d.query]))
 
-/**
- * Trash EVERY message matching an allow-listed filter key (not just a sample).
- * Runs as a job. Gmail Trash only — never a permanent delete.
- *
- * Filters are content-scoped (e.g. "old attachments"), so they can sweep
- * protected senders (banks, government, etc.). Before trashing we fetch each
- * matched message's sender and drop any on the protect-list — upholding the
- * same guarantee the keep-latest and unsubscribe paths honor.
- *
- * Returns { trashed, excluded, capped } where `excluded` counts protected
- * messages skipped and `capped` indicates the 10k scan cap was hit.
- */
 export async function trashByFilterKey(userId, key, emit) {
   const q = FILTERS[key]
   if (!q) {
@@ -189,20 +159,22 @@ export async function trashByFilterKey(userId, key, emit) {
     throw err
   }
   return withAuthErrorHandling(async () => {
+    const limits = await getEffectiveScanLimits(userId)
+    const maxTrashLimit = limits.maxMessages
     const gmail = await getGmail(userId)
     emit?.({ phase: 'listing', listed: 0 })
-    // Fetch one past the cap purely to detect truncation honestly.
     const ids = await listAllMessageIds(gmail, q, {
-      maxMessages: FILTER_TRASH_MAX_MESSAGES + 1,
+      maxMessages: maxTrashLimit + 1,
+      userId,
       onProgress: (p) => emit?.({ phase: 'listing', ...p }),
     })
-    const capped = ids.length > FILTER_TRASH_MAX_MESSAGES
-    const scanIds = capped ? ids.slice(0, FILTER_TRASH_MAX_MESSAGES) : ids
+    const capped = ids.length > maxTrashLimit
+    const scanIds = capped ? ids.slice(0, maxTrashLimit) : ids
     if (scanIds.length === 0) return { trashed: 0, excluded: 0, capped: false }
 
     let trashIds = scanIds
     let excluded = 0
-    const protectedList = listProtected(userId)
+    const protectedList = await listProtected(userId)
     if (protectedList.length > 0) {
       const protectedSet = new Set(protectedList.map((p) => p.email.toLowerCase()))
       emit?.({ phase: 'checking', fetched: 0, total: scanIds.length })
@@ -215,8 +187,6 @@ export async function trashByFilterKey(userId, key, emit) {
         if (email && protectedSet.has(email.toLowerCase())) excluded++
         else allowed.push(m.id)
       }
-      // getMetadata drops IDs whose fetch failed, so `allowed` only ever
-      // contains messages whose sender we actually verified (fail-safe).
       trashIds = allowed
     }
 

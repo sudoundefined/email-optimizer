@@ -1,5 +1,7 @@
-import { Flex, Card, VStack, HStack, Heading, Text, Button, Box, Image } from '@chakra-ui/react'
+import { useState } from 'react'
+import { Flex, Card, VStack, HStack, Heading, Text, Button, Box, Image, Link } from '@chakra-ui/react'
 import { StarIcon } from '@chakra-ui/icons'
+import { api } from '../api'
 
 const FEATURES = [
   { icon: '🧹', label: 'Bulk unsubscribe from marketing mail' },
@@ -9,6 +11,19 @@ const FEATURES = [
 ]
 
 export default function ConnectScreen() {
+  const [demoLoading, setDemoLoading] = useState(false)
+
+  const handleDemoLogin = async () => {
+    try {
+      setDemoLoading(true)
+      await api.demoLogin()
+      window.location.reload()
+    } catch (err) {
+      console.error('Demo login failed:', err)
+      setDemoLoading(false)
+    }
+  }
+
   return (
     <Flex minH="100vh" align="center" justify="center" p={{ base: 4, sm: 8 }} bg="bg.muted">
       <Card maxW="480px" w="100%" p={{ base: 6, sm: 8 }} textAlign="center" borderRadius="xl" boxShadow="sm">
@@ -33,16 +48,28 @@ export default function ConnectScreen() {
             ))}
           </VStack>
 
+          <Link href="/api/auth/login" width="full" _hover={{ textDecoration: 'none' }}>
+            <Button
+              colorScheme="brand"
+              size="lg"
+              width="full"
+              leftIcon={<StarIcon />}
+              py={6}
+            >
+              Sign in with Google
+            </Button>
+          </Link>
+
           <Button
-            as="a"
-            href="/api/auth/login"
-            colorScheme="brand"
+            variant="outline"
+            colorScheme="teal"
             size="lg"
             width="full"
-            leftIcon={<StarIcon />}
             py={6}
+            isLoading={demoLoading}
+            onClick={handleDemoLogin}
           >
-            Sign in with Google
+            ⚡ Enter Demo / Sandbox Mode
           </Button>
 
           <Text fontSize="xs" color="text.secondary">

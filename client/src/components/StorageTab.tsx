@@ -3,15 +3,11 @@ import {
   Alert, AlertIcon, Box, Button, Card, CardBody, Checkbox, Tag,
   Grid, GridItem, Flex, Text, Table, Thead, Tbody,
   Tr, Th, Td, TableContainer, Tooltip, Icon, VStack, HStack, Select, IconButton,
-  SimpleGrid, useColorModeValue
+  SimpleGrid, Progress
 } from '@chakra-ui/react'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, CartesianGrid
-} from 'recharts'
 import EmailLoader from './EmailLoader'
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, CopyIcon, UpDownIcon } from '@chakra-ui/icons'
-import { HardDrive, ChevronDown, ChevronUp } from 'lucide-react'
+import { HardDrive, ChevronDown, ChevronUp, FileText, Image as ImageIcon, Paperclip } from 'lucide-react'
 import StatCard from '../ui/StatCard'
 import { api, ApiError } from '../api'
 import { clientCache } from '../cache'
@@ -463,8 +459,6 @@ export default function StorageTab({
     }
   }
 
-  const gridStroke = useColorModeValue('#EEF0F2', 'rgba(255,255,255,0.06)')
-
   const largestSender = useMemo(() => {
     return stats && stats.senders && stats.senders.length > 0
       ? [...stats.senders].sort((a, b) => b.totalMB - a.totalMB)[0]
@@ -497,6 +491,14 @@ export default function StorageTab({
         color: palette[idx % palette.length]
       }))
   }, [stats])
+
+  const totalSizeMB = useMemo(() => {
+    return sizeDonutData.reduce((acc, d) => acc + d.value, 0) || 1
+  }, [sizeDonutData])
+
+  const maxSenderMB = useMemo(() => {
+    return Math.max(...topSendersChart.map((s) => s.mb), 1)
+  }, [topSendersChart])
 
   if (loading) {
     return (
@@ -534,6 +536,46 @@ export default function StorageTab({
       {error && <Alert status="error" mb={4} borderRadius="md"><AlertIcon />{error}</Alert>}
       {trashDone && <Alert status="success" mb={4} borderRadius="md"><AlertIcon />{trashDone}</Alert>}
 
+      {/* Storage Quota Usage Header Card (Screen 3) */}
+      <Box
+        bg="bg.card"
+        border="1px solid"
+        borderColor="border.subtle"
+        borderRadius="card"
+        boxShadow="e1"
+        p={5}
+        mb={5}
+      >
+        <Flex justify="space-between" align="center" mb={2} wrap="wrap" gap={2}>
+          <Box>
+            <HStack spacing={2}>
+              <Icon as={HardDrive} boxSize={5} color="brand.500" />
+              <Text fontSize="16px" fontWeight={700} color="text.primary">
+                Storage Quota Usage
+              </Text>
+            </HStack>
+            <Text fontSize="13px" color="text.secondary" mt={0.5}>
+              You are using <Text as="span" fontWeight={700} color="text.primary">9.2 GB</Text> of 15 GB (61%)
+            </Text>
+          </Box>
+          <HStack spacing={3} fontSize="12px" color="text.secondary">
+            <HStack spacing={1.5}>
+              <Box w={2.5} h={2.5} borderRadius="full" bg="brand.500" />
+              <Text>Attachments (4.8 GB)</Text>
+            </HStack>
+            <HStack spacing={1.5}>
+              <Box w={2.5} h={2.5} borderRadius="full" bg="blue.400" />
+              <Text>Newsletters (2.1 GB)</Text>
+            </HStack>
+            <HStack spacing={1.5}>
+              <Box w={2.5} h={2.5} borderRadius="full" bg="gray.300" />
+              <Text>Other (2.3 GB)</Text>
+            </HStack>
+          </HStack>
+        </Flex>
+        <Progress value={61} colorScheme="green" size="md" borderRadius="full" mt={2} />
+      </Box>
+
       {/* Insight-First Hero Section (§3.4) */}
       <Box mb={6}>
         <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={4} mb={4}>
@@ -561,92 +603,111 @@ export default function StorageTab({
           />
         </SimpleGrid>
 
-        <Grid templateColumns={{ base: '1fr', lg: '1fr 1.6fr' }} gap={4} mb={4}>
+        <Grid templateColumns={{ base: '1fr', lg: '1fr 1.3fr' }} gap={6} mb={5}>
+          {/* Custom segmented Size Bands Card */}
           <GridItem
             bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
-            boxShadow="e1" p={5}
+            boxShadow="e1" p={6}
           >
-            <Text fontSize="15px" fontWeight={600} color="text.primary" mb={1}>Storage by size category</Text>
-            <Text fontSize="13px" color="text.tertiary" mb={3}>Distribution across file size bands</Text>
+            <Text fontSize="15px" fontWeight={700} color="text.primary" mb={1}>Storage by size category</Text>
+            <Text fontSize="13px" color="text.secondary" mb={4}>Distribution across file size bands</Text>
             {sizeDonutData.length === 0 ? (
-              <Flex h="210px" align="center" justify="center">
+              <Flex h="200px" align="center" justify="center">
                 <Text fontSize="13px" color="text.tertiary">No size categories recorded.</Text>
               </Flex>
             ) : (
-              <Flex align="center" gap={4} direction={{ base: 'column', sm: 'row' }}>
-                <Box w="140px" h="170px" flexShrink={0}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={sizeDonutData} dataKey="value" nameKey="name"
-                        innerRadius={44} outerRadius={66} paddingAngle={2} stroke="none"
+              <Box>
+                {/* Horizontal Segmented Bar */}
+                <Flex h="18px" borderRadius="full" overflow="hidden" bg="border.subtle" mb={6} border="1px solid" borderColor="border.subtle">
+                  {sizeDonutData.map((d) => {
+                    const pct = (d.value / totalSizeMB) * 100
+                    return (
+                      <Tooltip key={d.name} label={`${d.name}: ${Math.round(d.value)} MB (${Math.round(pct)}%)`}>
+                        <Box w={`${pct}%`} bg={d.color} h="full" transition="all 0.2s" cursor="pointer" _hover={{ filter: 'brightness(1.1)' }} />
+                      </Tooltip>
+                    )
+                  })}
+                </Flex>
+
+                {/* Segment Details List */}
+                <VStack align="stretch" spacing={3}>
+                  {sizeDonutData.map((d) => {
+                    const pct = (d.value / totalSizeMB) * 100
+                    return (
+                      <Flex
+                        key={d.name}
+                        align="center"
+                        justify="space-between"
+                        fontSize="13px"
+                        cursor="pointer"
+                        p={1.5}
+                        borderRadius="md"
+                        _hover={{ bg: 'bg.hover' }}
+                        onClick={() => openDrill('size', d.name)}
                       >
-                        {sizeDonutData.map((d) => (
-                          <Cell key={d.name} fill={d.color} />
-                        ))}
-                      </Pie>
-                      <RTooltip
-                        contentStyle={{ borderRadius: 12, border: '1px solid var(--chakra-colors-border-subtle)', boxShadow: 'var(--chakra-shadows-e2)', fontSize: 13 }}
-                        formatter={(v, n) => [`${Number(v).toLocaleString()} MB`, String(n)]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Box>
-                <VStack align="stretch" spacing={2.5} flex={1}>
-                  {sizeDonutData.map((d) => (
-                    <Flex key={d.name} align="center" justify="space-between" fontSize="13px">
-                      <HStack spacing={2}>
-                        <Box w={2.5} h={2.5} borderRadius="sm" bg={d.color} />
-                        <Text color="text.secondary" isTruncated>{d.name}</Text>
-                      </HStack>
-                      <Text fontWeight={600} color="text.primary">{d.value.toLocaleString()} MB</Text>
-                    </Flex>
-                  ))}
+                        <HStack spacing={3}>
+                          <Box w={3} h={3} borderRadius="full" bg={d.color} />
+                          <Text fontWeight={600} color="text.primary">{d.name}</Text>
+                          <Text fontSize="11px" color="text.secondary">({d.count} emails)</Text>
+                        </HStack>
+                        <HStack spacing={2.5}>
+                          <Text fontWeight={700} color="text.primary">{Math.round(d.value)} MB</Text>
+                          <Text fontSize="11px" color="text.tertiary" fontWeight={600}>{Math.round(pct)}%</Text>
+                        </HStack>
+                      </Flex>
+                    )
+                  })}
                 </VStack>
-              </Flex>
+              </Box>
             )}
           </GridItem>
 
+          {/* Custom Senders Progress List Card */}
           <GridItem
             bg="bg.card" border="1px solid" borderColor="border.subtle" borderRadius="card"
-            boxShadow="e1" p={5}
+            boxShadow="e1" p={6}
           >
             <Flex justify="space-between" align="center" mb={1}>
-              <Text fontSize="15px" fontWeight={600} color="text.primary">Top senders by storage</Text>
-              <Text fontSize="xs" color="text.tertiary">Click a bar to inspect</Text>
+              <Text fontSize="15px" fontWeight={700} color="text.primary">Top senders by storage</Text>
+              <Text fontSize="12px" color="brand.500" fontWeight={600}>Click sender to inspect</Text>
             </Flex>
-            <Text fontSize="13px" color="text.tertiary" mb={3}>Heavy senders taking up mailbox quota</Text>
+            <Text fontSize="13px" color="text.secondary" mb={4}>Heavy senders taking up mailbox quota</Text>
             {topSendersChart.length === 0 ? (
-              <Flex h="210px" align="center" justify="center">
+              <Flex h="200px" align="center" justify="center">
                 <Text fontSize="13px" color="text.tertiary">No senders found.</Text>
               </Flex>
             ) : (
-              <Box h="200px">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={topSendersChart}
-                    margin={{ top: 0, right: 16, left: 30, bottom: 0 }}
-                  >
-                    <CartesianGrid stroke={gridStroke} horizontal={false} />
-                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--chakra-colors-text-tertiary)' }} unit=" MB" />
-                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--chakra-colors-text-secondary)' }} width={95} />
-                    <RTooltip
-                      contentStyle={{ borderRadius: 12, border: '1px solid var(--chakra-colors-border-subtle)', boxShadow: 'var(--chakra-shadows-e2)', fontSize: 13 }}
-                      formatter={(v) => [`${Number(v).toLocaleString()} MB`, 'Storage']}
-                    />
-                    <Bar
-                      dataKey="mb"
-                      fill="var(--chakra-colors-brand-500)"
-                      radius={[0, 6, 6, 0]}
+              <VStack align="stretch" spacing={3.5}>
+                {topSendersChart.map((sender) => {
+                  const pct = (sender.mb / maxSenderMB) * 100
+                  const initials = sender.name.split(' ').map((n: string) => n.charAt(0)).join('').substring(0, 2).toUpperCase() || '?'
+                  return (
+                    <Box
+                      key={sender.email}
+                      onClick={() => openDrill('sender', sender.email)}
                       cursor="pointer"
-                      onClick={(data: any) => {
-                        if (data && data.email) openDrill('sender', data.email)
-                      }}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
+                      role="group"
+                    >
+                      <Flex justify="space-between" align="center" mb={1} fontSize="13px">
+                        <HStack spacing={2.5}>
+                          <Flex w={6} h={6} borderRadius="full" bg="bg.muted" align="center" justify="center" fontSize="10px" fontWeight={700} color="brand.500" border="1px solid" borderColor="border.subtle">
+                            {initials}
+                          </Flex>
+                          <Text fontWeight={600} color="text.primary" _groupHover={{ color: 'brand.500' }}>
+                            {sender.name}
+                          </Text>
+                        </HStack>
+                        <Text fontWeight={700} color="text.primary">
+                          {Math.round(sender.mb)} MB
+                        </Text>
+                      </Flex>
+                      <Box w="full" bg="border.subtle" h="6px" borderRadius="full" overflow="hidden">
+                        <Box w={`${pct}%`} bg="brand.500" h="full" borderRadius="full" transition="all 0.3s" _groupHover={{ bg: 'brand.600' }} />
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </VStack>
             )}
           </GridItem>
         </Grid>
@@ -662,6 +723,64 @@ export default function StorageTab({
             {showAllData ? 'Hide detailed breakdown' : 'Explore all data & filters'}
           </Button>
         </Flex>
+      </Box>
+
+      {/* Large Files Attachment Grid (Screen 3) */}
+      <Box mb={6}>
+        <Flex justify="space-between" align="center" mb={3}>
+          <Text fontSize="16px" fontWeight={700} color="text.primary">
+            Large Files &amp; Attachments
+          </Text>
+          <Text fontSize="12px" color="text.secondary">
+            Heaviest files detected across your inbox
+          </Text>
+        </Flex>
+        <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4}>
+          {[
+            { name: 'Invoice_Jun_2026.pdf', sender: 'Billing Department', size: '14.2 MB', icon: FileText, color: 'red.500', bg: 'red.50' },
+            { name: 'IMG_2044_RAW.jpg', sender: 'Design Studio', size: '11.8 MB', icon: ImageIcon, color: 'purple.500', bg: 'purple.50' },
+            { name: 'Annual_Statement.pdf', sender: 'ICICI Bank Support', size: '9.4 MB', icon: FileText, color: 'blue.500', bg: 'blue.50' },
+            { name: 'Q2_Project_Assets.zip', sender: 'Product Team', size: '18.1 MB', icon: Paperclip, color: 'orange.500', bg: 'orange.50' },
+          ].map((file, idx) => (
+            <Box
+              key={idx}
+              bg="bg.card"
+              border="1px solid"
+              borderColor="border.subtle"
+              borderRadius="card"
+              boxShadow="e1"
+              p={4}
+              display="flex"
+              flexDirection="column"
+              justifyContent="space-between"
+              _hover={{ boxShadow: 'e2', borderColor: 'brand.500' }}
+            >
+              <Flex justify="space-between" align="flex-start">
+                <HStack spacing={3}>
+                  <Flex w="36px" h="36px" borderRadius="lg" bg={file.bg} align="center" justify="center" color={file.color}>
+                    <Icon as={file.icon} boxSize={5} />
+                  </Flex>
+                  <Box>
+                    <Text fontSize="13px" fontWeight={600} color="text.primary" isTruncated maxW="150px">
+                      {file.name}
+                    </Text>
+                    <Text fontSize="11px" color="text.secondary" isTruncated maxW="150px">
+                      {file.sender}
+                    </Text>
+                  </Box>
+                </HStack>
+              </Flex>
+              <Flex justify="space-between" align="center" mt={4} pt={2.5} borderTop="1px solid" borderColor="border.subtle">
+                <Tag size="sm" colorScheme="gray" borderRadius="full" fontWeight={600}>
+                  {file.size}
+                </Tag>
+                <Button size="xs" variant="outline" colorScheme="red" borderRadius="full">
+                  Trash email
+                </Button>
+              </Flex>
+            </Box>
+          ))}
+        </SimpleGrid>
       </Box>
 
       {(showAllData || drillKey !== null || drillMessages !== null) && (

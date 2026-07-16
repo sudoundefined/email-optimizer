@@ -6,3 +6,7 @@ server/data/
 .DS_Store
 .gemini/
 *.tsbuildinfo
+.agents/scratch/
+.agents/logs/
+.claude
+.agents

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
-export type AppTheme = 'daylight' | 'botanical' | 'espresso'
+export type AppTheme = 'daylight' | 'botanical' | 'sage'
 
 interface ThemeContextType {
   theme: AppTheme
@@ -12,7 +12,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>(() => {
     const saved = localStorage.getItem('app-theme') as AppTheme
-    return (saved === 'daylight' || saved === 'botanical' || saved === 'espresso') ? saved : 'daylight'
+    return (saved === 'daylight' || saved === 'botanical' || saved === 'sage') ? saved : 'daylight'
   })
 
   useEffect(() => {

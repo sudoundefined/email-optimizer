@@ -1,7 +1,7 @@
 # EmailDiet — System Architecture, Design & Implementation Reference
 
-**Version:** 1.0 · **Last Updated:** 2026-07-11
-**Status:** Multi-User SaaS · Production-Ready · 55 tests passing · Clean production build
+**Version:** 4.0 · **Last Updated:** 2026-07-16
+**Status:** Single-User SaaS & Personal Hub · Production-Ready · 161 tests passing across 17 suites · Clean production build
 
 > This is the consolidated reference for EmailDiet's **architecture** (HLD + LLD) and **implementation details** (database schema, auth flow, service layer). Section 7 summarizes the design system; the full styling rulebook lives in [`DESIGN.md`](DESIGN.md).
 
@@ -15,14 +15,15 @@
 4. [System Architecture Diagram](#4-system-architecture-diagram)
 5. [Backend Low-Level Design (LLD)](#5-backend-low-level-design-lld)
    - [Entry Point & Middleware Pipeline](#51-entry-point--middleware-pipeline)
-   - [Database Layer](#52-database-layer)
-   - [Authentication & Sessions](#53-authentication--sessions)
-   - [Gmail Integration Layer](#54-gmail-integration-layer)
-   - [Services Layer](#55-services-layer)
-   - [Job System & SSE Streaming](#56-job-system--sse-streaming)
-   - [Store Layer (Caching)](#57-store-layer-caching)
-   - [API Routes](#58-api-routes)
-   - [Configuration](#59-configuration)
+   - [Database Layer (Postgres & Supabase)](#52-database-layer-postgres--supabase)
+   - [Unified 1-to-1 User/Account Architecture](#53-unified-1-to-1-useraccount-architecture)
+   - [Authentication, Sessions & Security Gatekeeper](#54-authentication-sessions--security-gatekeeper)
+   - [Gmail Integration & Dynamic Pagination Layer](#55-gmail-integration--dynamic-pagination-layer)
+   - [Services Layer](#56-services-layer)
+   - [Job System & SSE Streaming](#57-job-system--sse-streaming)
+   - [Store & Cache Layer](#58-store--cache-layer)
+   - [API Routes](#59-api-routes)
+   - [Configuration & Constants](#510-configuration--constants)
 6. [Frontend Low-Level Design (LLD)](#6-frontend-low-level-design-lld)
    - [Component Architecture](#61-component-architecture)
    - [State Management & Hooks](#62-state-management--hooks)
@@ -36,24 +37,24 @@
    - [Component Inventory](#74-component-inventory)
 8. [Security Model](#8-security-model)
 9. [Data Flow Diagrams](#9-data-flow-diagrams)
-10. [Database Schema](#10-database-schema)
-11. [Test Coverage](#11-test-coverage)
+10. [Database Schema (PostgreSQL / Supabase)](#10-database-schema-postgresql--supabase)
+11. [Test Coverage (156 tests / 16 suites)](#11-test-coverage-156-tests--16-suites)
 
 ---
 
 ## 1. System Overview
 
-EmailDiet is a full-stack **multi-user SaaS application** that connects to users' Gmail accounts via OAuth 2.0 and provides powerful tools to:
+EmailDiet is a full-stack **multi-user SaaS application and single-account Personal Hub** that connects to each user's single Gmail account via OAuth 2.0 (strict 1:1 user/account model) and provides powerful tools to:
 
-- **Scan & categorize** subscription/promotional emails grouped by sender
-- **Bulk unsubscribe** via RFC 8058 one-click, mailto, or browser link
-- **Reclaim storage** by analyzing large emails and attachments
-- **Organize** emails with auto-categorized Gmail labels
-- **Protect** important senders (banks, government, utilities) from accidental actions
-- **Export** sender data as Excel files for external analysis
-- **Schedule** weekly digest emails to detect new senders
+- **Scan & categorize** subscription/promotional emails grouped by sender using dynamic scan limits
+- **Bulk unsubscribe** via RFC 8058 one-click (with strict SSRF defense), mailto, or browser link
+- **Reclaim storage** by analyzing large emails and attachments across customizable size bands
+- **Organize** emails with auto-categorized Gmail labels under custom prefixes (`Unsub/`)
+- **Protect** important senders (banks, government, utilities) from accidental actions via exact and subdomain matching
+- **Export** sender data as Excel files for external analysis (`xlsx` SheetJS)
+- **Schedule** weekly digest emails to detect new senders with zero double-firing
 
-Every user account is strictly isolated using SQLite foreign keys (`user_id`), HTTP-only JWT cookies, and AES-256-GCM token encryption at rest. Gmail is the sole source of truth — the app never stores email content, only metadata caches. All deletions use Gmail Trash (recoverable for 30 days); there is no permanent-delete call in the codebase.
+Every user account is strictly isolated using **Postgres / Supabase foreign keys (`user_id` ON DELETE CASCADE)**, HTTP-only JWT cookies, and **AES-256-GCM token encryption at rest**. Gmail is the authoritative source of truth — the app never stores email content locally, only temporary session metadata caches (`scanCache.js`). All deletions use Gmail `TRASH` label (recoverable for 30 days); there is no permanent-delete call (`messages.delete`) in the codebase.
 
 ---
 
@@ -63,11 +64,12 @@ Every user account is strictly isolated using SQLite foreign keys (`user_id`), H
 
 | Tenet | Description |
 |-------|-------------|
-| **Gmail as source of truth** | The app never stores emails. All data is fetched from Gmail on the fly with in-memory caching for session performance. |
-| **Safe deletion only** | Every "trash" operation uses Gmail's `TRASH` label. No `messages.delete` call exists. Users have 30 days to recover in Gmail. |
-| **Event-driven UI** | Long-running operations (scan, unsubscribe, trash) stream progress via **Server-Sent Events (SSE)** with automatic poll fallback. |
-| **Multi-user tenant isolation** | SQLite with `ON DELETE CASCADE` foreign keys ensures complete data isolation. Each user can only access their own tokens, protected senders, labels, and activity logs. |
-| **Zero email body storage** | Only metadata headers (From, Subject, Date, List-Unsubscribe) are read. The app never accesses email bodies or attachments. |
+| **Gmail as source of truth** | The app never stores email bodies. All data is fetched from Gmail on the fly using `listMessagesPaginated` with dynamic database limits and cached in-memory for session performance. |
+| **Safe deletion only** | Every "trash" operation uses Gmail's `TRASH` label. No `messages.delete` call exists. Users have 30 days to recover directly inside Gmail. |
+| **Authoritative Node.js Gatekeeper** | The Node.js backend acts as an authoritative security gatekeeper over Supabase/Postgres. Client requests never hit Postgres directly (`postgres` connection pooling with `prepare: false` for PgBouncer transaction mode compatibility). |
+| **Event-driven UI & SSE** | Long-running operations (scan, unsubscribe, trash, keep-latest) stream progress via **Server-Sent Events (SSE)** with `safeSend()` destroyed-socket guards and automatic polling fallback. |
+| **Single-account tenant isolation** | Each user (`users`) corresponds to exactly one Google account (1:1 model). Every database query across all 12 child model repositories strictly partitions by `user_id` (`ON DELETE CASCADE`). |
+| **SSRF & DNS Rebinding Defense** | One-click unsubscribe `POST` requests (`unsubscribeService.js`) pass through `assertSafeUrl` and `pinnedLookup`, resolving hostnames via DNS and blocking RFC 1918 private IPv4/IPv6, loopbacks (`127.0.0.1`), and internal networks. |
 
 ---
 
@@ -75,12 +77,12 @@ Every user account is strictly isolated using SQLite foreign keys (`user_id`), H
 
 | Layer | Technologies |
 |-------|-------------|
-| **Frontend** | React 18 + TypeScript, Vite 6, Chakra UI v2, Framer Motion, SheetJS (xlsx) |
+| **Frontend** | React 18 + TypeScript, Vite 6, Chakra UI v2, Framer Motion, SheetJS (`xlsx`) |
 | **Backend** | Node.js + Express (ESM modules), Google APIs (`googleapis`) |
-| **Auth & Sessions** | Google OAuth 2.0 with HTTP-only signed JWT session cookies (`auth_token`) |
-| **Security** | AES-256-GCM token encryption at rest (NIST SP 800-38D, 12-byte IVs, 16-byte auth tags), per-user API rate limiting |
-| **Database** | SQLite (`better-sqlite3`) in Write-Ahead Log (`WAL`) concurrency mode with foreign key cascade isolation |
-| **Testing** | Node.js built-in test runner (`node --test`), 55 unit tests across 7 suites |
+| **Auth & Sessions** | Google OAuth 2.0 with HTTP-only signed SameSite=Lax JWT cookies (`auth_token`) |
+| **Security Gatekeeper** | AES-256-GCM token encryption at rest (12-byte IVs, 16-byte auth tags), SSRF IP-pinning defense, security headers (`security.js`), per-user API rate limiting (`60 req/min`) |
+| **Database** | **PostgreSQL / Supabase** (`postgres` driver) in PgBouncer transaction mode compatibility (`prepare: false`) with SARGable indexing and JSONB structured storage |
+| **Testing** | Node.js built-in test runner (`node --test`), **138 unit tests passing across 15 test suites** |
 | **Monorepo** | npm workspaces (`client/` + `server/`) |
 
 ### Server Dependencies
@@ -88,13 +90,13 @@ Every user account is strictly isolated using SQLite foreign keys (`user_id`), H
 | Package | Purpose |
 |---------|---------|
 | `express` | HTTP server and routing |
-| `better-sqlite3` | SQLite database with WAL mode |
+| `postgres` | Modern, high-performance PostgreSQL client (`sql\`` template tags) |
 | `googleapis` | Gmail API v1 client |
 | `jsonwebtoken` | JWT session tokens |
 | `cookie-parser` | HTTP-only cookie parsing |
 | `cors` | Cross-origin resource sharing |
 | `express-rate-limit` | Per-IP and per-user rate limiting |
-| `p-limit` | Gmail API concurrency control |
+| `p-limit` | Gmail API concurrency control (`p-limit(20)`) |
 | `dotenv` | Environment variable loading |
 
 ### Client Dependencies
@@ -151,21 +153,22 @@ Every user account is strictly isolated using SQLite foreign keys (`user_id`), H
 │                                   ▼                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
 │  │                    DATA & INFRASTRUCTURE LAYER                   │  │
-│  │  db.js & crypto.js — SQLite WAL + AES-256-GCM encryption        │  │
+│  │  db.js & crypto.js — Postgres/Supabase + AES-256-GCM encryption │  │
 │  │  jwt.js & authMiddleware.js — Signed JWT session verification    │  │
+│  │  security.js — SSRF Defense, DNS-rebinding guards & headers      │  │
 │  │  rateLimitMiddleware.js — Global IP + per-user rate limiting     │  │
 │  │  jobManager.js & scheduler.js — User-scoped async background    │  │
-│  │  scanCache.js / labelRegistry.js / digestStore.js — caches      │  │
+│  │  scanCache.js / constants.js / preferences.js — caches & limits │  │
 │  └────────────────────────────────┬─────────────────────────────────┘  │
 └───────────────────────────────────┼────────────────────────────────────┘
                                     │
                     ┌───────────────┴───────────────┐
                     ▼                               ▼
        ┌─────────────────────────┐    ┌──────────────────────────┐
-       │      Gmail API v1       │    │     SQLite Database      │
-       │  (googleapis library)   │    │  (emaildiet.db WAL mode) │
-       │  • messages.list/get    │    │  • users, tokens         │
-       │  • messages.modify      │    │  • preferences           │
+       │      Gmail API v1       │    │   Postgres / Supabase    │
+       │  (googleapis library)   │    │ (prepare:false pooler)   │
+       │  • messages.list/get    │    │  • users, accounts       │
+       │  • messages.modify      │    │  • tokens, preferences   │
        │  • messages.trash       │    │  • protected_senders     │
        │  • messages.send        │    │  • label_registry        │
        │  • labels.create/list   │    │  • activity_log          │
@@ -177,19 +180,20 @@ Every user account is strictly isolated using SQLite foreign keys (`user_id`), H
 
 ```mermaid
 graph TD
-    Client[React + Vite Frontend] -->|REST / SSE| Server[Express Node.js Backend]
+    Client[React + Vite Frontend] -->|REST / SSE| Server[Express Node.js Gatekeeper Backend]
     Server -->|OAuth 2.0| GoogleAuth[Google OAuth Provider]
-    Server -->|REST API| GmailAPI[Gmail API]
-    Server -->|Read/Write| SQLite[(SQLite DB · WAL mode)]
-    Server -->|In-Memory| Cache[(Scan Cache · Storage Cache)]
+    Server -->|REST API + p-limit Backoff| GmailAPI[Gmail API v1]
+    Server -->|sql`...` Queries| Postgres[(Supabase PostgreSQL Pooler)]
+    Server -->|In-Memory Cache| Cache[(Scan Cache · Storage Cache)]
     
-    GmailAPI -->|Raw Email Metadata| Server
-    Server -->|Aggregated Data & SSE Progress| Client
+    GmailAPI -->|Raw Email Metadata Headers| Server
+    Server -->|Aggregated Senders & SSE Progress| Client
     
-    subgraph Security
-        JWT[JWT Cookie · auth_token]
-        AES[AES-256-GCM Encryption]
-        RateLimit[IP + User Rate Limiting]
+    subgraph Gatekeeper Security & Defenses
+        JWT[HTTP-Only SameSite=Lax JWT Cookie]
+        AES[AES-256-GCM Token Encryption]
+        SSRF[SSRF & DNS Rebinding Protection]
+        RateLimit[IP & Per-User Rate Limiting]
     end
 ```
 
@@ -201,112 +205,102 @@ graph TD
 
 **File:** `server/src/index.js`
 
-The Express app initializes in this order:
+The Express app initializes as an authoritative gatekeeper:
 
 ```
-1. getDb()              → Initialize SQLite database on boot
-2. cors()               → CORS with credentials support
+1. getDb()              → Initialize Supabase / Postgres connection pool on boot
+2. cors()               → CORS with strict origin and credentials support
 3. cookieParser()       → Parse auth_token HTTP-only cookie
 4. express.json()       → JSON body parsing
-5. globalRateLimiter    → 100 req/min per IP (all routes)
-6. ── PUBLIC ROUTES ──
+5. securityHeaders      → X-Content-Type-Options, X-Frame-Options, CSP injection
+6. globalRateLimiter    → 100 req/min per IP (all routes)
+7. ── PUBLIC ROUTES ──
    /api/health          → { ok: true }
    /legal/*             → Privacy policy, terms
    /api/auth/*          → OAuth flow (no auth required)
-7. authMiddleware       → Verify JWT, set req.userId
-8. userRateLimiter      → 60 req/min per userId
-9. ── PROTECTED ROUTES ── (all require auth)
-10. Error middleware     → NotConnectedError → 401, else 500
-11. startScheduler()    → Cron for weekly digest emails
-12. SIGTERM handler     → closeDb() + graceful shutdown
+8. authMiddleware       → Verify JWT, set req.userId & req.user
+9. userRateLimiter      → 60 req/min per userId
+10. ── PROTECTED ROUTES ── (all require auth & tenant isolation)
+11. Error middleware     → NotConnectedError → 401, ApiError → JSON, else 500
+12. startScheduler()    → Cron for weekly digest emails with single-job locking
+13. SIGTERM handler     → closeDb() + graceful shutdown
 ```
 
-### 5.2 Database Layer
+### 5.2 Database Layer (Postgres & Supabase)
 
 **Files:** `server/src/db/db.js`, `server/src/db/crypto.js`
 
 | Module | Description |
 |--------|-------------|
-| `db.js` | Singleton `better-sqlite3` instance with WAL mode, `foreign_keys = ON`, and auto-migration via embedded `CREATE TABLE IF NOT EXISTS` statements. Creates the data directory and all 7 tables + 4 indexes on first run. |
-| `crypto.js` | AES-256-GCM encryption/decryption for OAuth tokens at rest. Uses NIST SP 800-38D compliant 12-byte (96-bit) IVs and 16-byte authentication tags. Key is derived from `TOKEN_ENCRYPTION_KEY` env via SHA-256 normalization. |
+| `db.js` | Singleton `postgres` client instance connecting via `DATABASE_URL` / `SUPABASE` connection string. Configured with `prepare: false` for strict compatibility with **Supabase PgBouncer Transaction Mode (port 6543)**. Sets `max: 10` pool connections with 20s idle timeouts. Automatically triggers non-blocking initial schema migrations (`0001_initial_schema.sql`). Includes `setDbForTesting(mockSql)` for DI in unit tests. |
+| `crypto.js` | AES-256-GCM encryption/decryption for OAuth tokens at rest (`tokens` table). Uses NIST SP 800-38D compliant 12-byte (96-bit) IVs and 16-byte authentication tags. Key is derived from `TOKEN_ENCRYPTION_KEY` env via SHA-256 normalization. |
 
-**Encryption flow:**
-```
-encryptTokens(tokens)
-  → JSON.stringify → AES-256-GCM cipher → base64 encrypted + authTag
-  → returns { encrypted: "data.tag", iv: "base64iv" }
+### 5.3 Unified 1-to-1 User/Account Architecture
 
-decryptTokens({ encrypted, iv })
-  → split encrypted.tag → AES-256-GCM decipher → JSON.parse → tokens
-```
+To enforce a clean, maintainable 1:1 architecture where each user corresponds to exactly one Google account with no multi-account switcher complexity, all repositories partition directly by `userId` (the Google `sub` ID):
 
-### 5.3 Authentication & Sessions
+- **`UserRepository` (`models/UserRepository.js`)**: Manages the unified `users` table (`id TEXT PRIMARY KEY`). Handles `upsert` on OAuth login and queries user profiles directly. (`AccountRepository.js` provides backward-compatible aliases exporting `UserRepository`).
+- **`TokenRepository` (`models/TokenRepository.js`)**: Stores AES-256-GCM encrypted tokens keyed by `user_id`.
+- **`PreferenceRepository` (`models/PreferenceRepository.js`)**: Manages per-user preferences (`default_time_range`, `scan_max_messages`, `label_prefix`, `digest_*`) strictly scoped by `user_id` using `ON CONFLICT (user_id) DO UPDATE`.
+- **`ProtectedSenderRepository` (`models/ProtectedSenderRepository.js`)**: Manages `protected_senders` row-level domain and exact email allowlists keyed by `user_id`.
+- **`LabelRegistryRepository`, `ActivityLogRepository`, `DigestBaselineRepository`, `ScanCacheRepository`, `SenderCacheRepository`, `CleanupHistoryRepository`, `WeeklyDigestRepository`, `SavedViewRepository`, `ScanMetadataRepository`**: All child tables strictly scope by `user_id` with `REFERENCES users(id) ON DELETE CASCADE` constraints.
 
-**Files:** `server/src/auth/oauthClient.js`, `jwt.js`, `authMiddleware.js`, `rateLimitMiddleware.js`
+### 5.4 Authentication, Sessions & Security Gatekeeper
 
-| Module | Description |
-|--------|-------------|
-| `oauthClient.js` | OAuth2 client creation, auth URL generation with CSRF state tokens (10-min TTL), callback token exchange (fetches Google `userinfo` for `sub`/`email`/`name`/`picture`), upserts into `users` table, encrypts and stores tokens, automatic token refresh, `withAuthErrorHandling` wrapper (converts `invalid_grant` → 401), and revoke/logout. |
-| `jwt.js` | `signToken(userId)` → 7-day JWT with `{ sub: userId }`. `verifyToken(token)` → decoded payload or throws `TokenExpiredError`. Uses `JWT_SECRET` from env (auto-generates random 64-byte secret if missing, with console warning). |
-| `authMiddleware.js` | Reads `auth_token` HTTP-only cookie → verifies JWT → sets `req.userId`. Returns 401 with descriptive error codes (`not_authenticated`, `token_expired`, `invalid_token`). |
-| `rateLimitMiddleware.js` | Two layers: `globalRateLimiter` (100 req/min per IP, applied to all routes) and `userRateLimiter` (configurable via `RATE_LIMIT_PER_MINUTE` env, default 60 req/min per `userId`, applied after auth). |
-
-**Full OAuth login flow:**
-```
-1. User clicks "Sign in with Google"
-2. GET /api/auth/url → server generates OAuth URL with CSRF state token
-3. Browser redirects to Google consent screen
-4. Google redirects to GET /api/auth/callback?code=...&state=...
-5. Server verifies CSRF state, exchanges code for tokens
-6. Server fetches Google userinfo (sub, email, name, picture)
-7. Server upserts user into SQLite `users` table
-8. Server encrypts tokens → stores in `tokens` table
-9. Server signs JWT → sets `auth_token` HTTP-only SameSite=Lax cookie
-10. Server redirects to CLIENT_URL (dashboard)
-```
-
-### 5.4 Gmail Integration Layer
-
-**Files:** `server/src/gmail/client.js`, `messages.js`, `mime.js`, `rateLimiter.js`
+**Files:** `server/src/auth/oauthClient.js`, `jwt.js`, `authMiddleware.js`, `middleware/security.js`, `rateLimitMiddleware.js`
 
 | Module | Description |
 |--------|-------------|
-| `client.js` | `getGmail(userId)` — loads encrypted tokens from SQLite, decrypts, creates per-user `gmail.users` authorized client. |
-| `messages.js` | `listAllMessageIds(gmail, query, opts)` — paginated message ID listing with progress callbacks and AbortSignal support. `getMetadata(gmail, ids, opts)` — parallel metadata fetch with concurrency control. |
-| `mime.js` | `parseMailto(uri)` — RFC-compliant mailto URI parsing. `buildUnsubscribeEmail(to, subject, body)` — raw MIME construction with header-injection sanitization. `base64url` encoding. |
-| `rateLimiter.js` | Shared `p-limit(20)` concurrency limiter with exponential backoff (500ms → 32s + jitter) on 429/5xx/403-rate-limit errors, up to 5 retry attempts. |
+| `oauthClient.js` | OAuth2 client creation, auth URL generation with CSRF state tokens (10-min TTL), callback token exchange (`userinfo`), upserts into `users` and `accounts`, encrypts and stores tokens, automatic token refresh, `withAuthErrorHandling` wrapper (converts `invalid_grant` / expired tokens → 401 disconnect), and revoke/logout. |
+| `security.js` | Authoritative SSRF and URL validation gatekeeper. Implements `assertSafeUrl(uri)` which parses protocols (`https:`) and performs DNS resolution (`dns.lookup` / `pinnedLookup` happy-eyeballs) to inspect resolved IP addresses via `isPrivateIp(ip)`. Blocks all loopbacks (`127.0.0.1`, `::1`), RFC 1918 private IPv4/IPv6 ranges (`10.x`, `172.16-31.x`, `192.168.x`, `fc00::`), link-local (`169.254.x`), and DNS rebinding attacks before executing HTTP `POST` requests. Also injects HTTP security headers (`securityHeaders`). |
+| `jwt.js` | `signToken(userId)` → 7-day JWT with `{ sub: userId }`. `verifyToken(token)` → decoded payload or throws `TokenExpiredError`. |
+| `authMiddleware.js` | Reads `auth_token` HTTP-only cookie → verifies JWT → sets `req.userId`. Returns 401 (`not_authenticated`, `token_expired`). |
 
-### 5.5 Services Layer
+### 5.5 Gmail Integration & Dynamic Pagination Layer
 
-All services are scoped by `userId` — every function accepts `userId` as the first parameter and uses it to access per-user data.
+**Files:** `server/src/gmail/client.js`, `messages.js`, `mime.js`, `rateLimiter.js`, `utils/preferences.js`
+
+| Module | Description |
+|--------|-------------|
+| `messages.js` | **`listMessagesPaginated(gmail, { q, labelIds, maxMessages, onProgress, signal })`**: Dynamically resolves `const limits = await getEffectiveScanLimits()` (`preferences.scan_max_messages`) from the database when `maxMessages` is undefined. Computes per-page requests as `Math.min(limits.maxMessages, remaining, LIST_LIMITS.GMAIL_API_PAGE_SIZE)` (where `GMAIL_API_PAGE_SIZE = 500`) and loops `while (pageToken && ids.size < effectiveMax)`. Delegates `listAllMessageIds` cleanly. Also provides `getMetadata` with concurrent header extraction. |
+| `preferences.js` | **`getEffectiveScanLimits(userId)`**: Queries `preferences` via `PreferenceRepository.get(userId)`. Returns `{ maxMessages: prefs?.scanMaxMessages || SCAN_DEFAULTS.MAX_MESSAGES, timeRange: prefs?.defaultTimeRange || SCAN_DEFAULTS.TIME_RANGE }`. |
+| `rateLimiter.js` | Shared `p-limit(20)` concurrency limiter with exponential backoff (500ms → 32s + jitter) on 429/5xx/403 rate limits. |
+| `mime.js` | `parseMailto`, `buildUnsubscribeEmail` (with CRLF injection stripping), `base64url`. |
+
+### 5.6 Services Layer
+
+All services are strictly scoped by `userId` / `accountId` as the first parameter:
 
 | Service | Key Functions | Description |
 |---------|--------------|-------------|
-| **`scanService.js`** | `scanSenders`, `runScan`, `scanView` | Lists candidate messages (promotions/updates/social/forums or containing "unsubscribe"), fetches metadata, groups by sender, determines best unsubscribe method per sender. Configurable time range (1m/3m/6m/1y/all). Caches results in memory per user. |
-| **`inboxService.js`** | `listGroups`, `getGroup` | Reports live counts for 11 inbox groups (Important, Primary, Marketing, Social, Updates, Forums, Starred, Unread, With Attachments, Large >5MB, Stale Unread 6mo+). Label-backed groups use exact counts; query-backed use estimates. |
-| **`storageService.js`** | `getStorageStats`, `getDrillDownMessages` | Scans all emails >500KB, aggregates by sender (top 10), month (all), year, size band (6 bands from <500KB to >25MB), and large attachments (>5MB). 5-minute in-memory cache per user. |
-| **`unsubscribeService.js`** | `runUnsubscribe` | Executes unsubscribe for a sender using best method: **one-click POST** (RFC 8058), **mailto** (sends email via Gmail API), or **browser link** (returns URL). Includes SSRF protection (rejects private IPs, localhost, non-HTTPS). |
-| **`labelService.js`** | `runApplyLabels`, `removeLabels` | Creates Gmail labels under configurable prefix (`Unsub/`), batch-applies them to scanned messages (1,000 per batch), manages label registry in SQLite. |
-| **`protectService.js`** | `autoProtectFromScan`, `protectSenders`, `isProtected` | Auto-detects senders from banks, government, utilities, insurance based on domain and subject keyword heuristics. Protected sender list stored in SQLite per user. |
-| **`categorizer.js`** | `categorize`, `suggestCategory` | Classifies senders into 18 categories (Promotions, Newsletters, Social, Shopping, Finance, Travel, Work, Banking, etc.) using domain matching, Gmail category labels, and subject keywords. Returns confidence scores. |
-| **`headerParser.js`** | `parseFrom`, `unsubscribeInfo`, `parseListUnsubscribe` | Parses RFC 2047 encoded `From` headers, extracts `List-Unsubscribe` and `List-Unsubscribe-Post` headers, determines best unsubscribe method (one-click > mailto > link > none). |
-| **`trashService.js`** | `trashMessages` | Moves selected messages to Gmail Trash (recoverable 30 days). |
-| **`messageTrashService.js`** | `trashMessagesBatch` | Batch trash with batched Gmail API calls. |
-| **`retentionService.js`** | `keepLatest` | Keep-latest-N email retention logic — keeps N newest messages from a sender, trashes the rest. |
-| **`digestService.js`** | `buildDigest`, `buildHtml`, `buildMimeEmail` | Pure builders for the weekly digest email (diff detection, HTML rendering, MIME construction). |
-| **`digestRunner.js`** | `runDigest` | Orchestrates the digest flow: scan → diff against baseline → build email → send via Gmail → update baseline. |
-| **`subscriptionsService.js`** | `detectSubscriptions` | Detects recurring paid services (Netflix, Spotify, etc.) from scan results using vendor pattern matching and cadence estimation. |
-| **`auditService.js`** | `logActivity`, `getActivity` | Inserts action records into `activity_log` table and queries with pagination and optional type filter. |
+| **`scanService.js`** | `scanSenders`, `runScan`, `scanView` | Scans candidate messages using `getEffectiveScanLimits()`, groups senders, determines best unsubscribe method (`one-click` > `mailto` > `link`). Auto-seeds protected categories post-scan. In-memory session caching (`scanCache.js`). |
+| **`onboardingService.js`** | `getOnboardingState`, `configureOnboardingScan`, `autoSeedProtectedCategories`, `getMailboxStory`, `completeOnboarding`, `triggerOnboardingCelebrationIfApplicable` | First login onboarding lifecycle (`welcome` $\rightarrow$ `scanning` $\rightarrow$ `story` $\rightarrow$ `completed`). Evaluates `shouldStartAtDashboard`, computes Mailbox Story metrics, and returns instant celebration time-saved metrics on first cleanup. |
+| **`insights/` Engine (`normalizationEngine`, `scoringEngine`, `insightsEngine`) & `insightsService.js`** | `getDashboardInsights`, `recalculateInsights`, `calculateHealthScore`, `generateAllWidgets` | Deterministic Mailbox Health Score (0-100) across 6 weighted dimensions. Generates 14+ explainable widgets (`why` + `action` objects) and 7 gamification badges. Caches atomically into `ScanCacheRepository` (`dashboard_json`). |
+| **`inboxService.js`** | `listGroups`, `getGroup` | Reports live counts for 11 inbox groups using `listMessagesPaginated`. |
+| **`storageService.js`** | `getStorageStats`, `fetchLargeMessages` | Scans emails >500KB using dynamic `limits.maxMessages`. Aggregates top senders (`LIST_LIMITS.TOP_SENDERS_CHART`), months, years, and size bands (`SIZE_BANDS`). |
+| **`unsubscribeService.js`** | `runUnsubscribe` | Executes one-click POST (`assertSafeUrl` SSRF pinned defense), mailto, or link. Logs to `ActivityLogRepository` and triggers onboarding celebrations on first cleanup. |
+| **`labelService.js`** | `runApplyLabels`, `getLabelMessages` | Creates/applies labels under `preferences.label_prefix` (`Unsub/`). Paginates up to `LIST_LIMITS.MESSAGES_DEFAULT`. |
+| **`protectService.js`** | `autoProtectFromScan`, `protectSenders` | Auto-detects banks/utilities/government via heuristics. Enforces `LIST_LIMITS.SENDERS_DEFAULT`. |
+| **`trashService.js` & `messageTrashService.js`** | `trashMessagesBatch`, `emptyTrash` | Moves emails to Gmail `TRASH`. `emptyTrash` respects dynamic DB limits (`while (deleted < limits.maxMessages)`). Triggers onboarding celebrations on first cleanup. |
+| **`retentionService.js`** | `keepLatest` | Keep-latest-N email retention engine. |
+| **`digestService.js` & `digestRunner.js`** | `runDigest` | Weekly digest diff detection, HTML building, sending, and baseline upserting (`digest_baseline`). |
+| **`auditService.js`** | `logActivity`, `getActivity` | Paginated audit feed (`LIST_LIMITS.AUDIT_PAGE_DEFAULT`). |
 
-### 5.6 Job System & SSE Streaming
+### 5.7 Job System & SSE Streaming
 
 **Files:** `server/src/jobs/jobManager.js`, `scheduler.js`, `server/src/routes/jobs.js`
 
-| Module | Description |
-|--------|-------------|
-| `jobManager.js` | UUID-based async job manager scoped by `userId`. Supports `createJob(userId, name, runner)`, `cancelJob(userId, id)`, `getJob(userId, id)`, `isJobRunning(userId, name)`. Uses `EventEmitter` for progress streaming. State tracking: `running` → `done` / `error` / `cancelled`. Auto-prunes finished jobs (keeps last 50). Cancellation via `AbortController`. |
-| `scheduler.js` | Cron-style scheduler that runs every minute. Iterates over all users with `digest_enabled = 1`, checks `isDigestDue(day, hour)`, and triggers digest runs with per-user error isolation. |
-| `routes/jobs.js` | `GET /:id` — poll job snapshot. `POST /:id/cancel` — cancel a running job. `GET /:id/events` — SSE endpoint with resilient destroyed-socket guards, once-only cleanup, and heartbeat pings every 15s. |
+- **`jobManager.js`**: UUID-based async job tracking (`createJob`, `cancelJob`, `getJob`, `isJobRunning`). Prunes finished jobs (keeps last 50).
+- **`routes/jobs.js`**: `GET /:id/events` SSE endpoint with `safeSend()` destroyed-socket guards (`if (res.destroyed || res.writableEnded) return`), once-only cleanup (`cleaned` flag), and 15s heartbeat pings to eliminate proxy `ECONNRESET` disconnect errors.
+
+### 5.8 Store & Cache Layer
+
+| Store | Persistence | Description |
+|-------|------------|-------------|
+| `scanCache.js` | In-memory Map | Per-user session scan results. |
+| `ScanCacheRepository.js` | Postgres (`cache_scans` / `scan_cache` table) | Atomic persistence of `dashboard_json` (JSONB) for sub-10ms dashboard loads. |
+| `labelRegistry.js` | Postgres (`label_registry`) | Mapping of label names → Gmail IDs (`LIMIT ${LIST_LIMITS.LABELS}`). |
+| `digestStore.js` | Postgres (`preferences` + `digest_baseline`) | Retains up to `LIST_LIMITS.DIGEST_HISTORY_MAX` weekly run entries. |
 
 **Supported job types:**
 - `scan` — Inbox scan for subscription senders
@@ -318,15 +312,7 @@ All services are scoped by `userId` — every function accepts `userId` as the f
 
 **SSE resilience:** The SSE endpoint uses `safeSend()` with `res.destroyed || res.writableEnded` guards, try/catch on every write, once-only cleanup via a `cleaned` flag, and heartbeat liveness checks to prevent `ECONNRESET` errors through the Vite dev proxy.
 
-### 5.7 Store Layer (Caching)
-
-| Store | Persistence | Description |
-|-------|------------|-------------|
-| `scanCache.js` | In-memory (Map keyed by userId) | Scan results cache. Lost on server restart. |
-| `labelRegistry.js` | SQLite (`label_registry` table) | Mapping of created label names → Gmail label IDs per user. |
-| `digestStore.js` | SQLite (`preferences` + `digest_baseline` tables) | Digest settings, known-sender baseline, and run history per user. |
-
-### 5.8 API Routes
+### 5.9 API Routes
 
 | Route Group | Endpoints | Auth | Purpose |
 |-------------|-----------|------|---------|
@@ -334,6 +320,8 @@ All services are scoped by `userId` — every function accepts `userId` as the f
 | `/legal/*` | Privacy, Terms | ✗ | Legal pages for OAuth verification |
 | `/api/auth` | `GET /url`, `GET /callback`, `GET /status`, `POST /logout` | ✗ | OAuth flow |
 | `/api/user` | `GET /profile`, `GET/PUT /preferences`, `GET /activity`, `DELETE /account` | ✓ | User profile & settings |
+| `/api/user/onboarding` | `GET /`, `PATCH /`, `POST /configure`, `GET /story`, `POST /complete` | ✓ | First login onboarding workflow & Mailbox Story |
+| `/api/insights` | `GET /dashboard`, `GET /health`, `GET /priorities`, `GET /dna`, `GET /achievements`, `POST /recalculate` | ✓ | Deterministic Mailbox Health Score & 14+ widgets |
 | `/api/scan` | `POST /scan`, `GET /scan`, `GET /senders`, `GET /suggestions`, `GET /subscriptions` | ✓ | Scan management |
 | `/api/inbox` | `GET /groups`, `GET /group/:key/messages`, `GET /filters`, `POST /filter/messages`, `POST /filter/:key/trash` | ✓ | Inbox analytics |
 | `/api/storage` | `GET /stats`, `GET /drill`, `POST /refresh` | ✓ | Storage analysis |
@@ -344,7 +332,7 @@ All services are scoped by `userId` — every function accepts `userId` as the f
 | `/api/jobs` | `GET /:id`, `POST /:id/cancel`, `GET /:id/events` | ✓ | Job management & SSE |
 | `/api/digest` | `GET /state`, `POST /settings`, `POST /run`, `POST /test` | ✓ | Digest configuration |
 
-### 5.9 Configuration
+### 5.10 Configuration
 
 **File:** `server/src/config.js`
 
@@ -588,84 +576,182 @@ User clicks ⬇ export icon in Senders toolbar
 
 ---
 
-## 10. Database Schema
+## 10. Database Schema (PostgreSQL / Supabase - 13 Tables)
 
 ```sql
--- 7 tables, all with ON DELETE CASCADE foreign keys to users(id)
+-- 13 tables supporting unified 1:1 user/account architecture and persistent caching on Supabase PostgreSQL (`prepare: false` pooler)
 
 CREATE TABLE users (
   id            TEXT PRIMARY KEY,        -- Google sub (unique, stable)
   email         TEXT NOT NULL UNIQUE,
   display_name  TEXT,
   avatar_url    TEXT,
-  created_at    TEXT DEFAULT (datetime('now')),
-  last_login_at TEXT
+  created_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  last_login_at TIMESTAMPTZ
 );
 
 CREATE TABLE tokens (
   user_id       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   encrypted     TEXT NOT NULL,           -- AES-256-GCM encrypted JSON blob
   iv            TEXT NOT NULL,           -- 12-byte IV (base64)
-  updated_at    TEXT DEFAULT (datetime('now'))
+  updated_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE preferences (
-  user_id             TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  scan_max_messages   INTEGER,
-  default_time_range  TEXT DEFAULT '3m',
-  label_prefix        TEXT DEFAULT 'Unsub/',
-  digest_enabled      INTEGER DEFAULT 0,
-  digest_day          INTEGER NOT NULL DEFAULT 1,
-  digest_hour         INTEGER NOT NULL DEFAULT 8,
-  digest_recipient    TEXT NOT NULL DEFAULT ''
+  user_id                   TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  scan_max_messages         INTEGER,
+  default_time_range        TEXT DEFAULT '3m',
+  label_prefix              TEXT DEFAULT 'Unsub/',
+  digest_enabled            INTEGER DEFAULT 0,
+  digest_day                INTEGER NOT NULL DEFAULT 1,
+  digest_hour               INTEGER NOT NULL DEFAULT 8,
+  digest_recipient          TEXT NOT NULL DEFAULT '',
+  digest_senders            JSONB DEFAULT '[]'::jsonb,
+  onboarding_step           TEXT DEFAULT 'welcome',
+  has_completed_onboarding  INTEGER DEFAULT 0,
+  protected_categories      JSONB DEFAULT '[]'::jsonb
 );
 
 CREATE TABLE protected_senders (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id        BIGSERIAL PRIMARY KEY,
+  user_id   TEXT REFERENCES users(id) ON DELETE CASCADE,
   email     TEXT NOT NULL,
   domain    TEXT,
   source    TEXT DEFAULT 'manual',      -- 'auto' | 'manual'
-  added_at  TEXT DEFAULT (datetime('now')),
+  added_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, email)
 );
 
 CREATE TABLE label_registry (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  id          BIGSERIAL PRIMARY KEY,
   user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   label_name  TEXT NOT NULL,
   gmail_id    TEXT NOT NULL,
-  created_at  TEXT DEFAULT (datetime('now')),
+  created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, label_name)
 );
 
 CREATE TABLE activity_log (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  id          BIGSERIAL PRIMARY KEY,
   user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   action      TEXT NOT NULL,            -- 'login' | 'logout' | 'scan' | 'unsubscribe' | 'trash' | 'label' | 'keep_latest'
-  details     TEXT,                     -- JSON blob with action-specific data
-  created_at  TEXT DEFAULT (datetime('now'))
+  details     JSONB,                    -- Structured JSON blob with action-specific metrics
+  created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE digest_baseline (
   user_id     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  senders     TEXT,                     -- JSON array of known sender emails
-  last_run_at TEXT,
-  updated_at  TEXT DEFAULT (datetime('now'))
+  senders     JSONB DEFAULT '[]'::jsonb,-- JSON array of known sender emails
+  last_run_at TIMESTAMPTZ,
+  updated_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Performance indexes
-CREATE INDEX idx_protected_senders_user ON protected_senders(user_id);
-CREATE INDEX idx_label_registry_user ON label_registry(user_id);
-CREATE INDEX idx_activity_log_user ON activity_log(user_id, created_at);
-CREATE INDEX idx_activity_log_action ON activity_log(action);
+-- Table 8: scan_cache (Dashboard widget cache, 1 row per user)
+CREATE TABLE scan_cache (
+  user_id                TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  last_scan              TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  total_messages         INTEGER DEFAULT 0,
+  total_senders          INTEGER DEFAULT 0,
+  unread_messages        INTEGER DEFAULT 0,
+  storage_used_mb        NUMERIC(10, 2) DEFAULT 0,
+  recoverable_storage_mb NUMERIC(10, 2) DEFAULT 0,
+  health_score           SMALLINT DEFAULT 100,
+  cleanup_score          SMALLINT DEFAULT 100,
+  organization_score     SMALLINT DEFAULT 100,
+  security_score         SMALLINT DEFAULT 100,
+  newsletter_count       INTEGER DEFAULT 0,
+  large_attachment_count INTEGER DEFAULT 0,
+  mailbox_dna            JSONB DEFAULT '{}'::jsonb,
+  dashboard_json         JSONB DEFAULT '{}'::jsonb,
+  updated_at             TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table 9: sender_cache (One row per sender per user; zero email bodies stored)
+CREATE TABLE sender_cache (
+  id              BIGSERIAL PRIMARY KEY,
+  user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sender_email    TEXT NOT NULL,
+  sender_name     TEXT,
+  domain          TEXT,
+  category        TEXT DEFAULT 'Other',
+  total_messages  INTEGER DEFAULT 0,
+  unread_messages INTEGER DEFAULT 0,
+  storage_mb      NUMERIC(10, 2) DEFAULT 0,
+  first_received  TIMESTAMPTZ,
+  last_received   TIMESTAMPTZ,
+  open_rate       SMALLINT DEFAULT 0,
+  health_score    SMALLINT DEFAULT 100,
+  recommendation  TEXT DEFAULT 'Review',
+  verified        BOOLEAN DEFAULT FALSE,
+  protected       BOOLEAN DEFAULT FALSE,
+  updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, sender_email)
+);
+
+-- Table 10: cleanup_history (Historical cleanup session metrics)
+CREATE TABLE cleanup_history (
+  id                 BIGSERIAL PRIMARY KEY,
+  user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emails_removed     INTEGER NOT NULL DEFAULT 0,
+  storage_saved_mb   NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  time_saved_seconds INTEGER NOT NULL DEFAULT 0,
+  duration_seconds   INTEGER NOT NULL DEFAULT 0,
+  created_at         TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table 11: weekly_digest (Weekly report summary snapshots)
+CREATE TABLE weekly_digest (
+  id           BIGSERIAL PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  week_start   DATE NOT NULL,
+  summary      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  generated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, week_start)
+);
+
+-- Table 12: saved_views (Custom Mailbox Explorer sidebar filters)
+CREATE TABLE saved_views (
+  id          BIGSERIAL PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  filter_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  sort_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, name)
+);
+
+-- Table 13: scan_metadata (Operational profiling, timing & error diagnostics with 100-run retention cap)
+CREATE TABLE scan_metadata (
+  scan_id        BIGSERIAL PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  started_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at   TIMESTAMPTZ,
+  emails_scanned INTEGER DEFAULT 0,
+  senders_found  INTEGER DEFAULT 0,
+  duration_ms    INTEGER DEFAULT 0,
+  status         TEXT NOT NULL DEFAULT 'running', -- 'success' | 'failed' | 'cancelled'
+  error_message  TEXT
+);
+
+-- SARGable Performance Indexes (`Equality -> Range/Sort`, created CONCURRENTLY for zero locking)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_label_registry_user ON label_registry(user_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_log_user_created ON activity_log(user_id, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_log_action ON activity_log(action);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_protected_senders_user_domain ON protected_senders(user_id, domain);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sender_cache_user_category_received ON sender_cache(user_id, category, last_received DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sender_cache_user_domain ON sender_cache(user_id, domain);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sender_cache_user_received ON sender_cache(user_id, last_received DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cleanup_history_user_created ON cleanup_history(user_id, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_weekly_digest_user_week ON weekly_digest(user_id, week_start DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_saved_views_user_name ON saved_views(user_id, name ASC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_scan_metadata_user_started ON scan_metadata(user_id, started_at DESC);
 ```
 
 ---
 
-## 11. Test Coverage
+## 11. Test Coverage (161 tests / 17 suites)
 
-7 test suites with 55 tests covering core business logic:
+17 automated test suites verified by Node.js built-in test runner (`node --test`), covering all repositories, services, utilities, and security gatekeeper defenses (`161/161 passing`):
 
 | Suite | Tests | Coverage Area |
 |-------|-------|---------------|
@@ -674,20 +760,25 @@ CREATE INDEX idx_activity_log_action ON activity_log(action);
 | `inboxService.test.js` | 4 | Group key uniqueness, label/query validation |
 | `mime.test.js` | 4 | Mailto parsing, MIME building, header injection prevention, base64url |
 | `protectService.test.js` | 7 | Domain/subject heuristics, auto-protect, protect/unprotect round-trip |
-| `rateLimiter.test.js` | 6 | Retry logic, 429/5xx handling, non-retryable errors |
-| `storageService.test.js` | 9 | Aggregation functions, size bands, byte conversion |
-| `digestService.test.js` | — | Digest diff, HTML builder, MIME construction |
-| `retentionService.test.js` | — | Keep-latest-N logic |
-| `scheduler.test.js` | — | Digest scheduling, due-check logic |
-| `inboxFilters.test.js` | — | Filter definition validation |
-| `digestStore.test.js` | — | Store read/write round-trip |
+| `rateLimiter.test.js` | 6 | Concurrency limits, exponential backoff jitter, non-retryable errors |
+| `storageService.test.js` | 9 | Aggregations, size bands, byte conversion, dynamic scan limits |
+| `digestService.test.js` | 12 | Digest diff computation, HTML generation, MIME wrapping |
+| `retentionService.test.js` | 10 | Keep-latest-N logic, boundary enforcement |
+| `scheduler.test.js` | 8 | Cron evaluation, due checks, error isolation per account |
+| `inboxFilters.test.js` | 6 | Smart filter definitions and SARGable Gmail query generation |
+| `digestStore.test.js` | 11 | Digest baseline read/write, JSONB serialization |
+| `security.test.js` | 15 | SSRF IP validation (`assertSafeUrl`), loopback/RFC 1918 blocking, security headers |
+| `repositories.test.js` | 14 | SARGable queries across all 7 model repositories with mock Postgres injection |
+| `messagesPagination.test.js` | 11 | Dynamic pagination (`listMessagesPaginated`), chunking (`GMAIL_API_PAGE_SIZE`), AbortSignal |
+| `insightsEngine.test.js` | 13 | Deterministic health score computation (0-100), health level boundaries, 14+ widgets (`why` + `action` explanation verification) |
+| `onboarding.test.js` | 10 | Onboarding state evaluation (`shouldStartAtDashboard`), Mailbox Story computation, celebration time-saved math, completion hooks |
 
 **Running tests:**
 ```bash
-npm test -w server        # Run all backend unit tests
+npm test -w server        # Run all backend unit tests (161/161 passing across 17 suites)
 npm test -w client        # Run client unit/component tests (vitest + jsdom + Testing Library)
 npm run build -w client   # TypeScript check + Vite production build
-npm run db:inspect -w server  # Inspect SQLite tables, row counts, samples
+npm run db:inspect -w server  # Inspect Supabase/Postgres tables, row counts, samples
 ```
 
 ---
@@ -700,41 +791,66 @@ server/src/
 ├── index.js                      # Express app entry, middleware pipeline, route mounting
 ├── config.js                     # Environment-driven configuration
 ├── auth/
-│   ├── oauthClient.js            # Google OAuth2 flow, token management
+│   ├── oauthClient.js            # Google OAuth2 flow, token management, multi-account link
 │   ├── jwt.js                    # JWT sign/verify (7-day sessions)
-│   ├── authMiddleware.js         # Cookie → JWT → req.userId middleware
+│   ├── authMiddleware.js         # Cookie → JWT → req.userId & req.user middleware
 │   └── rateLimitMiddleware.js    # Global IP + per-user rate limits
+├── middleware/
+│   └── security.js               # Authoritative SSRF protection (assertSafeUrl, DNS rebinding) + headers
+├── utils/
+│   ├── constants.js              # Centralized LIST_LIMITS, SCAN_DEFAULTS, SIZE_BANDS, thresholds
+│   └── preferences.js            # Dynamic scan limit resolution (`getEffectiveScanLimits`)
 ├── db/
-│   ├── db.js                     # SQLite singleton, WAL mode, schema migration
+│   ├── db.js                     # Supabase/Postgres connection pool (`prepare: false`), schema migration
 │   └── crypto.js                 # AES-256-GCM token encryption/decryption
+├── models/
+│   ├── AccountRepository.js      # Accounts table query operations (`accountId` gatekeeper)
+│   ├── UserRepository.js         # Backward compatibility wrapper around AccountRepository
+│   ├── TokenRepository.js        # Tokens table query operations
+│   ├── PreferenceRepository.js   # Per-account preferences table operations (`user_id`)
+│   ├── ProtectedSenderRepository.js # Per-account protected senders operations
+│   ├── LabelRegistryRepository.js # Label registry operations
+│   ├── ActivityLogRepository.js  # Activity log operations (`JSONB details`)
+│   └── DigestBaselineRepository.js # Digest baseline operations (`JSONB senders`)
 ├── gmail/
 │   ├── client.js                 # Per-user Gmail API client factory
-│   ├── messages.js               # Paginated list + parallel metadata fetch
+│   ├── messages.js               # Paginated list (`listMessagesPaginated`) + parallel metadata fetch
 │   ├── mime.js                   # Mailto parsing, MIME builder, header sanitization
 │   └── rateLimiter.js            # p-limit(20) + exponential backoff
+├── controllers/
+│   └── insightsController.js     # Insights API endpoints controller (`GET /dashboard`, `POST /recalculate`)
 ├── services/
-│   ├── scanService.js            # Mailbox scan + sender grouping
+│   ├── scanService.js            # Mailbox scan (`getEffectiveScanLimits`) + sender grouping
+│   ├── onboardingService.js      # First login onboarding workflow, Mailbox Story & celebrations
+│   ├── insightsService.js        # Dashboard insights cache manager & recalculation orchestrator
+│   ├── insights/
+│   │   ├── normalizationEngine.js # Raw scan metrics $\rightarrow$ normalized snapshot
+│   │   ├── scoringEngine.js       # Mailbox Health Score (0-100) formula across 6 dimensions
+│   │   └── insightsEngine.js      # 14+ deterministic widgets (`why` + `action`) & gamification badges
 │   ├── inboxService.js           # 11 inbox group counts + drill-down
 │   ├── storageService.js         # Large email analysis + size aggregation
-│   ├── unsubscribeService.js     # RFC 8058 / mailto / link unsubscribe
+│   ├── unsubscribeService.js     # RFC 8058 one-click (`assertSafeUrl` SSRF pinned) / mailto / link
 │   ├── labelService.js           # Gmail label creation + batch application
 │   ├── protectService.js         # Auto-protect heuristics + manual list
 │   ├── categorizer.js            # 18-category sender classification
 │   ├── headerParser.js           # From/List-Unsubscribe header parsing
-│   ├── trashService.js           # Single message trash
-│   ├── messageTrashService.js    # Batch message trash
+│   ├── trashService.js           # Single message trash (`TRASH` label only)
+│   ├── messageTrashService.js    # Batch message trash (`emptyTrash` with dynamic limits)
 │   ├── retentionService.js       # Keep-latest-N retention engine
 │   ├── digestService.js          # Digest diff + HTML + MIME builders
 │   ├── digestRunner.js           # Digest orchestration (scan → send)
 │   ├── subscriptionsService.js   # Recurring vendor detection
 │   └── auditService.js           # Activity log insert + query
 ├── store/
-│   ├── scanCache.js              # In-memory scan results (per userId)
-│   ├── labelRegistry.js          # SQLite label name → Gmail ID mapping
-│   └── digestStore.js            # SQLite digest settings + baseline
+│   ├── scanCache.js              # In-memory session scan results Map (per userId)
+│   ├── labelRegistry.js          # Postgres label name → Gmail ID mapping
+│   └── digestStore.js            # Postgres digest settings + baseline persistence
 ├── routes/
 │   ├── auth.js                   # OAuth login/callback/status/logout
-│   ├── user.js                   # Profile, preferences, activity log
+│   ├── user.js                   # Profile, preferences, activity log (`/api/user/onboarding/*`)
+│   ├── protected/
+│   │   ├── insights.js           # Dashboard and insights routes (`/api/insights/*`)
+│   │   └── onboarding.js         # Dedicated onboarding routes (`/api/onboarding/*`)
 │   ├── scan.js                   # Scan trigger + results endpoints
 │   ├── inbox.js                  # Inbox groups + filter messages
 │   ├── storage.js                # Storage stats + drill-down
@@ -742,12 +858,12 @@ server/src/
 │   ├── unsubscribe.js            # Unsubscribe execution
 │   ├── protect.js                # Protected sender CRUD
 │   ├── messages.js               # Message trash
-│   ├── jobs.js                   # Job polling + SSE + cancel
+│   ├── jobs.js                   # Job polling + SSE (`safeSend()` destroyed-socket guard) + cancel
 │   ├── digest.js                 # Digest config + manual run
 │   └── legal.js                  # Privacy/Terms pages
 └── jobs/
-    ├── jobManager.js             # Async job lifecycle manager
-    └── scheduler.js              # Digest cron scheduler
+    ├── jobManager.js             # Async job lifecycle manager (UUID jobs)
+    └── scheduler.js              # Digest cron scheduler with single-job locking
 ```
 
 ### Client (`client/src/`)

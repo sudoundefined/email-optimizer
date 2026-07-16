@@ -3,9 +3,11 @@ import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { limited } from '../gmail/rateLimiter.js'
 import { requireScan } from '../store/scanCache.js'
 import { listRegistered, registerLabel, unregisterLabel } from '../store/labelRegistry.js'
+import { PreferenceRepository } from '../models/PreferenceRepository.js'
 import { config } from '../config.js'
-import { getMetadata, listAllMessageIds } from '../gmail/messages.js'
-import { getDb } from '../db/db.js'
+import { getMetadata, listAllMessageIds, listMessagesPaginated } from '../gmail/messages.js'
+import { getEffectiveScanLimits } from '../utils/preferences.js'
+import { LIST_LIMITS } from '../utils/constants.js'
 
 const BATCH_MODIFY_MAX = 1000
 
@@ -18,7 +20,7 @@ function chunk(arr, size) {
 async function ensureLabel(userId, gmail, name, existingByName) {
   const found = existingByName.get(name.toLowerCase())
   if (found) {
-    registerLabel(userId, { id: found.id, name: found.name })
+    await registerLabel(userId, { id: found.id, name: found.name })
     return found.id
   }
   const res = await limited(() =>
@@ -31,18 +33,12 @@ async function ensureLabel(userId, gmail, name, existingByName) {
       },
     })
   )
-  registerLabel(userId, { id: res.data.id, name: res.data.name })
+  await registerLabel(userId, { id: res.data.id, name: res.data.name })
   return res.data.id
 }
 
 /**
- * Job runner: create labels as needed and apply them to all scanned
- * messages of the assigned senders.
- * assignments: [{senderEmail, labelName}] — labelName without prefix.
- * prefix: label namespace. Defaults to config.labelPrefix (`Unsub/`) for the
- *   unsubscribe flow; pass '' for bare top-level organizational labels.
- * archive: when true, also remove INBOX (moves tagged mail out of the inbox).
- *   Default false = pure tag, inbox untouched (recoverable — never deletes).
+ * Job runner: create labels as needed and apply them to all scanned messages of assigned senders.
  */
 export async function runApplyLabels(userId, { assignments, prefix = config.labelPrefix, archive = false }, emit) {
   return withAuthErrorHandling(async () => {
@@ -54,7 +50,6 @@ export async function runApplyLabels(userId, { assignments, prefix = config.labe
       (labelsRes.data.labels || []).map((l) => [l.name.toLowerCase(), l])
     )
 
-    // group message ids per label
     const idsByLabel = new Map()
     for (const { senderEmail, labelName } of assignments) {
       const sender = scan.senders.get(String(senderEmail).toLowerCase())
@@ -95,7 +90,7 @@ export async function runApplyLabels(userId, { assignments, prefix = config.labe
 export async function listAppLabels(userId) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail(userId)
-    const registered = listRegistered(userId)
+    const registered = await listRegistered(userId)
     const out = []
     for (const entry of registered) {
       try {
@@ -108,7 +103,7 @@ export async function listAppLabels(userId) {
         })
       } catch (err) {
         if (err?.code === 404 || err?.response?.status === 404) {
-          unregisterLabel(userId, entry.id)
+          await unregisterLabel(userId, entry.id)
         } else {
           throw err
         }
@@ -127,35 +122,25 @@ export async function deleteLabelOnly(userId, labelId) {
     } catch (err) {
       if (err?.code !== 404 && err?.response?.status !== 404) throw err
     }
-    unregisterLabel(userId, labelId)
+    await unregisterLabel(userId, labelId)
   }, userId)
 }
 
 /**
- * Job runner: move every message carrying the label to Trash, then
- * delete the label. Uses batchModify with the TRASH system label —
- * recoverable for 30 days; never permanent delete.
+ * Job runner: move every message carrying the label to Trash, then delete the label.
  */
 export async function runTrashLabel(userId, { labelId }, emit) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail(userId)
 
-    const allIds = []
-    let pageToken
+    const limits = await getEffectiveScanLimits(userId)
     emit({ phase: 'collecting', collected: 0 })
-    do {
-      const res = await limited(() =>
-        gmail.users.messages.list({
-          userId: 'me',
-          labelIds: [labelId],
-          maxResults: 500,
-          pageToken,
-        })
-      )
-      for (const m of res.data.messages || []) allIds.push(m.id)
-      pageToken = res.data.nextPageToken
-      emit({ phase: 'collecting', collected: allIds.length })
-    } while (pageToken)
+    const allIds = await listMessagesPaginated(gmail, {
+      labelIds: [labelId],
+      maxMessages: limits.maxMessages,
+      userId,
+      onProgress: (p) => emit({ phase: 'collecting', collected: p.listed }),
+    })
 
     let trashed = 0
     for (const ids1000 of chunk(allIds, BATCH_MODIFY_MAX)) {
@@ -179,7 +164,7 @@ export async function runTrashLabel(userId, { labelId }, emit) {
 }
 
 /** Fetches recent messages for a specific label ID */
-export async function getLabelMessages(userId, labelId, max = 25) {
+export async function getLabelMessages(userId, labelId, max = LIST_LIMITS.MESSAGES_DEFAULT) {
   return withAuthErrorHandling(async () => {
     const gmail = await getGmail(userId)
     const res = await limited(() =>
@@ -200,27 +185,28 @@ export async function getLabelMessages(userId, labelId, max = 25) {
 }
 
 /**
- * Job runner: Apply a custom-named label (with default prefix) to all messages matching a query.
- * Caps work at 5,000 messages and checks for truncation.
+ * Job runner: Apply a custom-named label to all messages matching a query.
  */
 export async function runApplyLabelToFilter(userId, { query, labelName, archive = false }, emit) {
   return withAuthErrorHandling(async () => {
-    const db = getDb()
-    const prefRow = db.prepare('SELECT label_prefix FROM preferences WHERE user_id = ?').get(userId)
+    const prefRow = await PreferenceRepository.findByUserId(userId)
     const prefix = prefRow?.label_prefix ?? config.labelPrefix ?? 'Unsub/'
 
     const fullName = prefix && !labelName.startsWith(prefix) ? prefix + labelName : labelName
-
     const gmail = await getGmail(userId)
+
+    const limits = await getEffectiveScanLimits(userId)
+    const maxLimit = limits.maxMessages
 
     emit({ phase: 'listing', listed: 0 })
     const ids = await listAllMessageIds(gmail, query, {
-      maxMessages: 5001,
+      maxMessages: maxLimit + 1,
+      userId,
       onProgress: (p) => emit({ phase: 'listing', ...p }),
     })
 
-    const capped = ids.length > 5000
-    const targetIds = capped ? ids.slice(0, 5000) : ids
+    const capped = ids.length > maxLimit
+    const targetIds = capped ? ids.slice(0, maxLimit) : ids
 
     if (targetIds.length === 0) {
       return { labeled: 0, total: 0, capped: false }
@@ -252,4 +238,3 @@ export async function runApplyLabelToFilter(userId, { query, labelName, archive 
     return { labeled, total: ids.length, capped }
   }, userId)
 }
-

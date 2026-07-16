@@ -2,6 +2,8 @@ import { getGmail } from '../gmail/client.js'
 import { withAuthErrorHandling } from '../auth/oauthClient.js'
 import { limited } from '../gmail/rateLimiter.js'
 import { requireScan } from '../store/scanCache.js'
+import { onboardingService } from './onboardingService.js'
+import { insightsService } from './insightsService.js'
 
 const BATCH_MODIFY_MAX = 1000
 
@@ -43,9 +45,23 @@ export async function runTrashSenders(userId, { senderEmails }, emit) {
       emit({ phase: 'trashing', trashed, total: ids.length })
     }
 
+    let storageBytes = 0
+    for (const s of senders) {
+      storageBytes += Number(s.totalSizeEstimate || 0)
+    }
+    const storageMB = Number((storageBytes / (1024 * 1024)).toFixed(1))
+
     for (const s of senders) scan.senders.delete(s.email)
     scan.messageCount = Math.max(0, scan.messageCount - ids.length)
 
-    return { trashed: ids.length, senders: senders.length }
+    let celebration = null
+    try {
+      celebration = await onboardingService.triggerOnboardingCelebrationIfApplicable(userId, { emailsCleaned: ids.length, storageMB })
+      await insightsService.recalculateInsights(userId)
+    } catch (e) {
+      console.error('⚠️ Failed celebration/insights post-trashing:', e?.message || e)
+    }
+
+    return { trashed: ids.length, senders: senders.length, celebration }
   }, userId)
 }

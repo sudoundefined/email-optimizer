@@ -120,7 +120,7 @@ const daylightComponents = {
   Card: {
     baseStyle: {
       container: {
-        borderRadius: '18px',
+        borderRadius: '16px',
         boxShadow: 'e1',
         border: '1px solid',
         borderColor: 'border.subtle',
@@ -132,7 +132,7 @@ const daylightComponents = {
   Modal: {
     baseStyle: {
       dialog: {
-        borderRadius: '20px',
+        borderRadius: '16px',
         bg: 'bg.card',
         boxShadow: 'e3',
         border: '1px solid',
@@ -188,7 +188,7 @@ const daylightComponents = {
 export const daylightTheme = extendTheme({
   config,
   fonts: { heading: INTER, body: INTER, mono: "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace" },
-  radii: { card: '18px', panel: '20px', control: '12px' },
+  radii: { card: '16px', panel: '16px', control: '12px' },
   shadows: {
     e1: '0 1px 2px rgba(17,24,39,0.05)',
     e2: '0 4px 12px rgba(17,24,39,0.08)',
@@ -231,9 +231,9 @@ export const daylightTheme = extendTheme({
       'text.secondary': { default: '#6B7280', _dark: '#9CA3AF' },
       'text.tertiary': { default: '#9CA3AF', _dark: '#6B7280' },
       'text.inverse': { default: '#FFFFFF', _dark: '#FFFFFF' },
-      'border.subtle': { default: '#E9ECEF', _dark: 'rgba(255,255,255,0.08)' },
+      'border.subtle': { default: '#E8EAED', _dark: 'rgba(255,255,255,0.08)' },
       'border.strong': { default: '#D1D5DB', _dark: 'rgba(255,255,255,0.16)' },
-      'border.glass': { default: 'rgba(233,236,239,0.6)', _dark: 'rgba(255,255,255,0.08)' },
+      'border.glass': { default: 'rgba(232,234,237,0.6)', _dark: 'rgba(255,255,255,0.08)' },
       'brand.icon': { default: '#15803D', _dark: '#22C55E' },
       'ai.solid': { default: '#2563EB', _dark: '#3B82F6' },
     },
@@ -298,44 +298,44 @@ export const botanicalTheme = extendTheme({
   components: baseComponents,
 })
 
-export const espressoTheme = extendTheme({
+export const sageTheme = extendTheme({
   config,
   fonts: { heading: SF, body: SF, mono: SF_MONO },
+  radii: { card: '16px', panel: '16px', control: '12px' },
   colors: {
     brand: {
-      50: '#fbf8f5',
-      100: '#f2e6d9',
-      200: '#E7B475', // Warm Sandy Orange
-      300: '#d89b52',
-      400: '#C49A6A', // Light Warm Brown/Camel
-      500: '#6E4C3E', // Dark Warm Brown (Primary Action)
-      600: '#5c3d31',
-      700: '#4B3C32', // Very Dark Espresso
-      800: '#2d221c',
-      900: '#1a1310',
+      50: '#f4f8f6',
+      100: '#e6f0eb',
+      200: '#B1D3B9', // Specified Accent Light
+      300: '#88BDA4', // Specified Accent Medium
+      500: '#659287', // Specified Primary Accent
+      600: '#527b71',
+      700: '#41635a', // Darker Sage
+      800: '#283e38',
+      900: '#15221e',
     },
     accent: {
-      50: '#fefdfb',
-      100: '#F9F2E1', // Creamy Off-White
-      200: '#f0dfbd',
+      50: '#fdfbf7',
+      100: '#E6F2DD', // Specified background color as secondary accent
+      200: '#d8e5cc',
     },
   },
   semanticTokens: {
     colors: {
-      'bg.app': { default: '#F9F2E1', _dark: '#28201a' },
-      'bg.card': { default: 'whiteAlpha.900', _dark: 'blackAlpha.600' },
-      'bg.glass': { default: 'whiteAlpha.600', _dark: 'blackAlpha.400' },
+      'bg.app': { default: '#E6F2DD', _dark: '#121a17' }, // Specified Background Mint Canvas
+      'bg.card': { default: '#FFFFFF', _dark: '#1e2622' },
+      'bg.glass': { default: 'rgba(255,255,255,0.72)', _dark: 'rgba(30,38,34,0.72)' },
       'bg.input': { default: 'white', _dark: 'whiteAlpha.100' },
-      'bg.accent': { default: 'blackAlpha.100', _dark: 'whiteAlpha.200' },
-      'bg.tray': { default: '#4B3C32', _dark: '#2d221c' }, // Espresso
+      'bg.accent': { default: '#e6f0eb', _dark: 'rgba(101,146,135,0.12)' },
+      'bg.tray': { default: '#41635a', _dark: '#283e38' },
       'bg.hover': { default: 'blackAlpha.50', _dark: 'whiteAlpha.100' },
-      'text.primary': { default: '#2d221c', _dark: '#F9F2E1' },
-      'text.secondary': { default: '#6E4C3E', _dark: '#E7B475' },
+      'text.primary': { default: '#1f2d29', _dark: '#E6F2DD' },
+      'text.secondary': { default: '#527b71', _dark: '#B1D3B9' },
       'text.inverse': { default: 'white', _dark: 'white' },
-      'border.glass': { default: 'whiteAlpha.600', _dark: 'whiteAlpha.200' },
+      'border.glass': { default: 'rgba(216,229,204,0.6)', _dark: 'rgba(255,255,255,0.08)' },
       'border.subtle': { default: 'blackAlpha.200', _dark: 'whiteAlpha.200' },
       'border.strong': { default: 'blackAlpha.300', _dark: 'whiteAlpha.400' },
-      'brand.icon': { default: '#6E4C3E', _dark: '#E7B475' },
+      'brand.icon': { default: '#659287', _dark: '#88BDA4' },
     }
   },
   styles: {

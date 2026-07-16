@@ -1,4 +1,4 @@
-import { Box, Text, List, ListItem, ListIcon, Button } from '@chakra-ui/react'
+import { Box, Text, List, ListItem, ListIcon, Button, Link } from '@chakra-ui/react'
 import { CheckCircleIcon, WarningIcon, NotAllowedIcon } from '@chakra-ui/icons'
 import type { UnsubResult, UnsubSummary } from '../types'
 
@@ -18,9 +18,11 @@ function ResultRow({ r }: { r: UnsubResult }) {
         <Text fontSize="xs" color="text.secondary">{r.detail}</Text>
       </Box>
       {r.manualUrl && /^https?:\/\//i.test(r.manualUrl) && (
-        <Button size="sm" as="a" href={r.manualUrl} target="_blank" rel="noopener noreferrer" variant="outline">
-          Open
-        </Button>
+        <Link href={r.manualUrl} isExternal>
+          <Button size="sm" variant="outline">
+            Open
+          </Button>
+        </Link>
       )}
     </ListItem>
   )
